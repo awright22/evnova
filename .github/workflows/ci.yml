@@ -83,3 +83,32 @@ jobs:
       - name: Stop server
         if: always()
         run: kill "$(cat /tmp/server.pid)" || true
+
+  browsers:
+    name: Two browser clients
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @marque/verify exec playwright install --with-deps chromium
+
+      # Two real browser clients against one server, held to the network-feel
+      # targets: each predicts its own hull without diverging and sees the
+      # other move. Runs at a small viewport because CI has no GPU and two
+      # starved frame loops read as divergence that says nothing about the
+      # network.
+      - name: Fly two browser clients
+        run: pnpm verify -- --latency 150 --seconds 12

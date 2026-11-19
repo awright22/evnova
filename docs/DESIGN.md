@@ -284,3 +284,49 @@ tool CLIs filter it out.
 registry holds `() => number` rather than numbers, so `/metrics` reports each
 room as it is now instead of as it was when it registered, and the room needs
 no `this` alias.
+
+**2026-11-20 — The shared step rounds to float32 after each sub-step.** The
+synchronised state carries position, velocity and angle as `float32`, while a
+client's predicted mirror is an ordinary float64 object. Integrating at two
+precisions drifts systematically — slowly at low speed, faster near top speed
+where the thrust taper is steepest. `Math.fround` on the six body fields puts
+both sides and the wire on one grid, for six calls per sub-step.
+
+**2026-11-20 — Drift telemetry is only meaningful when the frame loop is fed.**
+Two browser clients on a software rasteriser both reported `diverging` with a
+correction EMA around 7, while a single client on the same machine reported
+`matched` at 0.0000 and the derived profiles were identical to the server's.
+The cause was neither simulation nor network: at two frames a second the
+reconciler's corrections are large because the client barely runs. `pnpm
+verify` therefore runs at 640x360, and any drift reading taken under a starved
+loop is to be distrusted.
+
+**2026-11-20 — World scale: one cell is 6 units, drawn at 3 pixels per unit.**
+A six-cell shuttle is 36 units and reads as about 110px, and a hull at top
+speed crosses a 1080p screen in just under three seconds. The star and port
+radii in the system data are visual sizes rather than astronomy: a top-down
+view draws them at a fixed scale, so a true-scale star would be wider than the
+screen at any distance.
+
+**2026-11-20 — Blueprints render once to a texture, anchored at the centre of
+mass.** Every hull flying a draught shares one texture. The anchor is the
+centre of mass because that is the point the simulation tracks and the hull
+rotates about, so the sprite and the physics agree without a per-frame offset.
+
+**2026-11-20 — World objects are culled against the view.** The star's corona
+is larger than the viewport, and submitting it off screen cost more fill than
+the rest of the scene together. The same list will carry asteroids and wrecks
+later, so the cull is a property of the scene rather than a special case for
+the star.
+
+**2026-11-20 — `pnpm verify` is a separate tool from `pnpm shots`.** Captures
+are for judging look; verification drives the real client to prove behaviour.
+They need the same stack but answer different questions, and later milestones
+add checks here — the scripted new-player build in M5, onboarding in M9.
+
+**2026-11-20 — Audio is synthesised, not sampled.** Openly licensed audio
+sources are unreachable from this environment, and the spec's stated fallback
+is Web Audio synthesis. The engine is filtered brown noise plus a low
+oscillator, with brightness and level following throttle over 80ms. The bus
+structure (master, music, effects, interface) is in place so the M9 mix has
+somewhere to land.

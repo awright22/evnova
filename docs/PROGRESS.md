@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M1 — Flight**
+**Current milestone: M2 — Combat**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -22,19 +22,21 @@ Done when:
 - [x] A clean clone runs every command green
 - [x] The spike stays smooth under 150 ms of simulated latency
 
-## M1. Flight
+## M1. Flight — complete, with one item unverifiable here
 
-- [ ] Blueprint format, stat derivation and procedural ship rendering, with the starter ship and two contrasting designs
-- [ ] One system with a star, two ports, the full space backdrop and the camera
-- [ ] Predicted local flight and interpolated remote ships
-- [ ] Engine effects and audio
-- [ ] A first HUD with speed, heading and radar
+- [x] Blueprint format, stat derivation and procedural ship rendering, with the starter ship and two contrasting designs
+- [x] One system with a star, two ports, the full space backdrop and the camera
+- [x] Predicted local flight and interpolated remote ships
+- [x] Engine effects and audio
+- [x] A first HUD with speed, heading and radar
 
 Done when:
-- [ ] Two browser clients fly together within the network-feel targets
-- [ ] The two contrasting designs handle noticeably differently
-- [ ] The flight view matches the art direction in captures
-- [ ] The performance scene holds 60 fps with bot ships
+- [x] Two browser clients fly together within the network-feel targets
+- [x] The two contrasting designs handle noticeably differently
+- [x] The flight view matches the art direction in captures
+- [~] The performance scene holds 60 fps with bot ships — **cannot be measured
+  on this machine, which has no GPU.** See the M1 report and
+  `docs/HUMAN_TODO.md`.
 
 ## M2. Combat
 
@@ -255,3 +257,94 @@ the bot, the harness and CI all carried over unchanged — so the change was
 confined to naming, palette, type and copy. Two palette values were lightened
 to pass AA with their hues held; both are logged in `docs/DESIGN.md` and
 `docs/HUMAN_TODO.md`.
+
+## M1. Flight — 2026-11-20
+
+### What is now playable
+
+You can fly. Open the client and you are a free captain in Parity, in the Home
+Roads, holding station off the Bourse with the system's other traffic on the
+scope. Arrows or WASD: thrust, turn, and a brake that swings the hull
+retrograde and burns off your velocity. Flight is inertial, so turning does not
+change where you are going until you burn.
+
+Three draughts exist and fly differently, built from the same parts catalogue:
+
+| Draught | Accel | Top speed | Turn rate | Hold |
+|---|---:|---:|---:|---:|
+| Prudent Return (starter) | 129 | 245 | 2.63 | 20 |
+| Force Majeure | 218 | 319 | 3.43 | 0 |
+| Fair Wear and Tear | 107 | 224 | 0.94 | 100 |
+
+Loaded, the hauler drops to 33 accel, 125 top speed and 0.60 turn: carried
+cargo rides in the bays that hold it, so a full hold raises rotational inertia
+as well as mass.
+
+### How to run it
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Then open <http://127.0.0.1:5173>. To fly one of the other designs, add
+`?draught=force-majeure` or `?draught=fair-wear-and-tear`.
+
+For traffic to fly against, in another terminal:
+
+```bash
+pnpm bot --bots 4 --seconds 300 --brain wander
+```
+
+| Command | What it does |
+|---|---|
+| `pnpm verify` | Flies two real browser clients and holds them to the network-feel targets |
+| `pnpm shots` | Captures six screens to `artifacts/shots/` |
+| `pnpm sim` | Soak run, report to `artifacts/soak/` |
+| `pnpm perf` | Simulation and browser frame-time percentiles |
+
+### Measurements
+
+**Two browser clients, 150 ms simulated latency** (`pnpm verify`): both read
+`matched` with a reconcile-correction EMA of `0.0000`, each saw the other hull
+move, no console errors.
+
+**Soak, ten bots across all three draughts, 150 ms** (`pnpm sim`): worst p99
+server tick **0.33 ms** against a 4 ms budget, no tick over 33 ms, no client
+diverged.
+
+**Simulation cost**: 0.29 µs per ship, p99 0.12% of a 60 fps frame.
+
+**Client transfer**: ~420 kB (259 kB of JavaScript gzipped, Pixi included).
+
+### Known issues
+
+- **Frame rate on real hardware is unverified.** This container has no GPU, so
+  Chromium falls back to software rasterisation and reports ~5 fps at 1080p,
+  which says nothing about the spec's budget. Exact steps for you are in
+  `docs/HUMAN_TODO.md`. It is the only M1 criterion I cannot close.
+- **The HUD's link readout is noisy in captures.** Under software rendering the
+  client's loop runs at a few frames a second, which inflates measured round
+  trip and occasionally blanks the readout. It reads correctly at ~300 ms when
+  the loop is fed.
+- **Remote hulls infer their throttle from speed.** Throttle is not
+  synchronised, so a remote plume is an approximation. Putting a field on the
+  wire for every ship every tick is not worth an exactly right flame.
+- **No landing, no map, no combat yet.** Ports render and sit on the scope but
+  cannot be landed on; that is M3.
+- **One system.** Parity only, with two ports. The other nineteen are M3.
+
+### Two findings worth recording
+
+Both are in `docs/DESIGN.md` in full.
+
+The shared step now rounds to float32 after each sub-step. The server's state
+is `float32` while a client's predicted mirror is float64, and integrating at
+two precisions drifts systematically — worst near top speed, where the thrust
+taper is steepest.
+
+Drift telemetry only means something when the frame loop is fed. Two browser
+clients on a software rasteriser both reported `diverging`, while a single
+client on the same machine reported `matched` at 0.0000 with identical derived
+profiles. The clients were not diverging; they were not running. `pnpm verify`
+runs at 640x360 for that reason.

@@ -71,7 +71,36 @@ pnpm --filter @marque/shots exec playwright install chromium
 
 ---
 
-## 3. Coming at M3: deployment
+## 3. Only you can check: frame rate on real hardware
+
+**Status: not blocking, but it is the one quality-bar item I cannot verify.**
+
+This container has no GPU. Chromium falls back to SwiftShader, which rasterises
+in software, so `pnpm perf` reports about 5 fps at 1080p and that number says
+nothing about the spec's budget of 60 fps on integrated graphics. Everything
+else in the budget I can measure: the simulation step costs 0.29 microseconds
+per ship, the server tick holds well inside 4 ms, and the client transfers
+about 420 kB.
+
+When you have the repository on a machine with a GPU:
+
+```bash
+pnpm install
+pnpm perf
+```
+
+The report lands in `artifacts/perf/report.md` and names the renderer it used.
+If it says SwiftShader or llvmpipe, it ran in software again and the numbers
+should be ignored. Tell me what it reports and I will tune against real
+figures.
+
+The same applies to `pnpm verify`, which flies two browser clients: it passes
+here, but only at a small viewport, because two software-rendered clients
+starve each other's frame loops.
+
+---
+
+## 4. Coming at M3: deployment
 
 Not needed yet. I will write the exact steps here when the deployment work
 lands, and build everything up to the point that needs your accounts. It will
@@ -85,7 +114,7 @@ involve:
 
 ---
 
-## 4. For you to decide, whenever you like
+## 5. For you to decide, whenever you like
 
 Not blocking: I have picked a defensible default and logged it in
 `docs/DESIGN.md`. Tell me if you disagree.
