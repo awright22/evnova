@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
+
+# Local data and generated artifacts
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/snapshots/
+artifacts/
+.env
+.env.local
