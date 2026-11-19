@@ -269,11 +269,28 @@ export const StarDef = z.object({
 });
 export type StarDef = z.infer<typeof StarDef>;
 
+/**
+ * How much law reaches a system.
+ *
+ * `secured` is the Home Roads: attacking lawful traffic gets you posted,
+ * patrols respond, and ports close to you until you pay the composition.
+ * `contested` is the Concessions, where patrols are thin and on a schedule
+ * everyone knows. `lawless` is the Marque.
+ */
+export const SecurityLevel = z.enum(['secured', 'contested', 'lawless']);
+export type SecurityLevel = z.infer<typeof SecurityLevel>;
+
 export const SystemDef = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   region: RegionId,
+  security: SecurityLevel,
   description: z.string().min(1),
+  /** Position on the chart, in chart units. Only the map reads these. */
+  mapX: z.number(),
+  mapY: z.number(),
+  /** Systems reachable by one hyperjump. Links are validated to be mutual. */
+  links: z.array(z.string().min(1)),
   star: StarDef,
   /** Distance from the centre at which the system ends. */
   radius: z.number().positive(),

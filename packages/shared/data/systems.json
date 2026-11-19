@@ -1,10 +1,19 @@
 {
-  "$comment": "Star systems. M1 ships one; the full galaxy of twenty is authored in M3. Names, regions and port assignments come from spec section 19.",
+  "$comment": "Star systems. Names, regions and the fixed port assignments come from spec section 19; the remaining ports are drawn from its bank, each used once. Star and port radii are visual sizes in world units, not astronomy. mapX and mapY are chart positions and only the galaxy map reads them.",
   "systems": [
     {
       "id": "parity",
       "name": "Parity",
       "region": "home-roads",
+      "security": "secured",
+      "mapX": 0,
+      "mapY": 0,
+      "links": [
+        "fairlead",
+        "hallam",
+        "soundings",
+        "tolliver"
+      ],
       "description": "The clearing house of settled space. Nothing is mined here and nothing is grown here; everything is priced here.",
       "star": {
         "name": "Parity",
@@ -50,8 +59,976 @@
           "accentColour": "#C3CCD6",
           "description": "Insures every hull that matters and most that do not. The Hall is listed on its own exchange, which nobody there finds remarkable."
         }
+      ]
+    },
+    {
+      "id": "hallam",
+      "name": "Hallam",
+      "region": "home-roads",
+      "security": "secured",
+      "mapX": -130,
+      "mapY": -55,
+      "links": [
+        "mendes",
+        "narrows",
+        "parity"
       ],
-      "$comment": "Star and port radii are visual sizes in world units, not astronomy: a top-down view draws them at a fixed scale, so a true-scale star would be wider than the screen at any distance."
+      "description": "The House's seat and the oldest continuously worked system in the Reach. Four generations of Kesslers have been buried on the ring at Countinghouse.",
+      "star": {
+        "name": "Hallam",
+        "radius": 165,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 32000,
+      "ports": [
+        {
+          "id": "countinghouse",
+          "name": "Countinghouse",
+          "owner": "kessler",
+          "x": 5100,
+          "y": 1800,
+          "radius": 120,
+          "services": [
+            "staple",
+            "factor",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#C8C1AC",
+          "accentColour": "#E9E2D0",
+          "description": "The House's seat, and the only address in the Reach where a debt can be settled in person. The inner berths are reserved; everyone else waits."
+        },
+        {
+          "id": "demurrage",
+          "name": "Demurrage",
+          "owner": "kessler",
+          "x": -3600,
+          "y": -4400,
+          "radius": 85,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#9A9387",
+          "accentColour": "#B8B2A0",
+          "description": "Began as a holding orbit for ships waiting on Hallam's inspectors and became a town when the queue never cleared. Everything here is priced by the hour."
+        }
+      ]
+    },
+    {
+      "id": "fairlead",
+      "name": "Fairlead",
+      "region": "home-roads",
+      "security": "secured",
+      "mapX": -95,
+      "mapY": 85,
+      "links": [
+        "mendes",
+        "parity",
+        "tolliver"
+      ],
+      "description": "A shipping lane with a star in it. The beacons here were the first the surveyors laid and the last anyone has had to repair.",
+      "star": {
+        "name": "Fairlead",
+        "radius": 140,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 28000,
+      "ports": [
+        {
+          "id": "lading",
+          "name": "Lading",
+          "owner": "kessler",
+          "x": 3800,
+          "y": 3100,
+          "radius": 90,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#A6AFB8",
+          "accentColour": "#5E86B8",
+          "description": "A transfer yard where Kessler freight changes hulls on its way inward. The Factor's board is always full and never pays well."
+        }
+      ]
+    },
+    {
+      "id": "soundings",
+      "name": "Soundings",
+      "region": "home-roads",
+      "security": "secured",
+      "mapX": 70,
+      "mapY": -95,
+      "links": [
+        "narrows",
+        "parity",
+        "tolliver"
+      ],
+      "description": "Where the Prize Court sits, because the founders wanted it one jump from the Bourse and one jump from the lanes that generate its work.",
+      "star": {
+        "name": "Soundings",
+        "radius": 155,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 30000,
+      "ports": [
+        {
+          "id": "the-prize-court",
+          "name": "the Prize Court",
+          "owner": "neutral",
+          "x": -4700,
+          "y": 2400,
+          "radius": 105,
+          "services": [
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#B2B6BC",
+          "accentColour": "#C3CCD6",
+          "description": "Rules on captures, posts offenders and collects fines. The waiting hall has benches for two hundred and seats nobody comfortably."
+        },
+        {
+          "id": "tare",
+          "name": "Tare",
+          "owner": "neutral",
+          "x": 4400,
+          "y": -3700,
+          "radius": 80,
+          "services": [
+            "staple",
+            "moorings"
+          ],
+          "surfaceColour": "#8E9298",
+          "accentColour": "#A4A79E",
+          "description": "A weighing station the Court uses to settle disputed manifests. Half the traffic is here under protest."
+        }
+      ]
+    },
+    {
+      "id": "mendes",
+      "name": "Mendes",
+      "region": "home-roads",
+      "security": "secured",
+      "mapX": -215,
+      "mapY": 25,
+      "links": [
+        "fairlead",
+        "hallam"
+      ],
+      "description": "The inward end of the corridor, and the only Home Roads system that still grows anything at scale.",
+      "star": {
+        "name": "Mendes",
+        "radius": 175,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 31000,
+      "ports": [
+        {
+          "id": "bottomry",
+          "name": "Bottomry",
+          "owner": "kessler",
+          "x": -4200,
+          "y": -2600,
+          "radius": 115,
+          "services": [
+            "staple",
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#9FA98C",
+          "accentColour": "#C8C1AC",
+          "description": "Grain, Provisions and the lending house that finances both. A voyage out of Bottomry is usually somebody else's capital."
+        },
+        {
+          "id": "tontine",
+          "name": "Tontine",
+          "owner": "neutral",
+          "x": 5200,
+          "y": 2900,
+          "radius": 88,
+          "services": [
+            "staple",
+            "moorings"
+          ],
+          "surfaceColour": "#8A9490",
+          "accentColour": "#A4A79E",
+          "description": "A survivors' fund that outlived its members and became a port. The last three subscribers own the whole ring between them."
+        }
+      ]
+    },
+    {
+      "id": "tolliver",
+      "name": "Tolliver",
+      "region": "home-roads",
+      "security": "secured",
+      "mapX": 45,
+      "mapY": 110,
+      "links": [
+        "banerjee",
+        "fairlead",
+        "parity",
+        "soundings"
+      ],
+      "description": "The outward gate of the Home Roads. Everything bound for the Concessions is inspected here, and everything coming back is inspected twice.",
+      "star": {
+        "name": "Tolliver",
+        "radius": 145,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 29000,
+      "ports": [
+        {
+          "id": "agio",
+          "name": "Agio",
+          "owner": "kessler",
+          "x": 4600,
+          "y": -2200,
+          "radius": 92,
+          "services": [
+            "staple",
+            "factor",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#A8AFB6",
+          "accentColour": "#5E86B8",
+          "description": "An exchange house that grew a shipyard because the traffic stopped here anyway. The spread on Leaf is set at Agio and argued about everywhere else."
+        },
+        {
+          "id": "lazaret",
+          "name": "Lazaret",
+          "owner": "neutral",
+          "x": -4900,
+          "y": 3500,
+          "radius": 78,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#9C9A93",
+          "accentColour": "#C3CCD6",
+          "description": "Quarantine berths for hulls arriving out of the Concessions. Most clear in a day. The ones that do not are not discussed."
+        }
+      ]
+    },
+    {
+      "id": "narrows",
+      "name": "Narrows",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 160,
+      "mapY": -165,
+      "links": [
+        "hallam",
+        "ostrand",
+        "soundings"
+      ],
+      "description": "A thin lane between two gravity wells that every chart warns about and every hauler uses anyway, because the long way costs four days.",
+      "star": {
+        "name": "Narrows",
+        "radius": 130,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 26000,
+      "ports": [
+        {
+          "id": "ullage",
+          "name": "Ullage",
+          "owner": "thirty",
+          "x": 3400,
+          "y": 2800,
+          "radius": 82,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#7E8A96",
+          "accentColour": "#3A6FD8",
+          "description": "A refuelling stop clamped to an asteroid, named for what the tanks are short by the time they arrive. The Thirty runs it at a loss and says so in every report."
+        }
+      ]
+    },
+    {
+      "id": "vane",
+      "name": "Vane",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 205,
+      "mapY": -45,
+      "links": [
+        "adeyemi",
+        "banerjee",
+        "offing",
+        "ostrand"
+      ],
+      "description": "The Thirty's seat, and the system where the three charters overlap most awkwardly. Every grant here is contested by someone with paper.",
+      "star": {
+        "name": "Vane",
+        "radius": 160,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 33000,
+      "ports": [
+        {
+          "id": "quorum",
+          "name": "Quorum",
+          "owner": "thirty",
+          "x": 5600,
+          "y": -2400,
+          "radius": 125,
+          "services": [
+            "staple",
+            "bourse",
+            "factor",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#6F86A8",
+          "accentColour": "#3A6FD8",
+          "description": "The Thirty's seat. The board meets behind a door that has never been photographed, and the count is posted on the outer hull within the hour."
+        },
+        {
+          "id": "specie",
+          "name": "Specie",
+          "owner": "thirty",
+          "x": -4100,
+          "y": 4200,
+          "radius": 86,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#7C8692",
+          "accentColour": "#5E86B8",
+          "description": "A bullion yard that settles the Thirty's accounts in metal when a counterparty will not take paper. It is a short list and it is getting longer."
+        }
+      ]
+    },
+    {
+      "id": "ostrand",
+      "name": "Ostrand",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 270,
+      "mapY": -150,
+      "links": [
+        "narrows",
+        "okonjo",
+        "vane"
+      ],
+      "description": "Diggings, tailings and a vote every few years about whether to reopen either. The ore is good and the argument is older than anyone working it.",
+      "star": {
+        "name": "Ostrand",
+        "radius": 150,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 31000,
+      "ports": [
+        {
+          "id": "ballast",
+          "name": "Ballast",
+          "owner": "thirty",
+          "x": 4800,
+          "y": 3300,
+          "radius": 105,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#8B8276",
+          "accentColour": "#3A6FD8",
+          "description": "Loads Ore into anything that will carry it and takes Provisions back in part payment. The dust gets into the berths and never leaves."
+        },
+        {
+          "id": "dunnage",
+          "name": "Dunnage",
+          "owner": "neutral",
+          "x": -5300,
+          "y": -2700,
+          "radius": 75,
+          "services": [
+            "staple",
+            "moorings"
+          ],
+          "surfaceColour": "#8A8C86",
+          "accentColour": "#A4A79E",
+          "description": "Packing, bracing and the cheapest repair berths in the Concessions. What they lack in equipment they make up in willingness."
+        }
+      ]
+    },
+    {
+      "id": "adeyemi",
+      "name": "Adeyemi",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 305,
+      "mapY": 45,
+      "links": [
+        "lee-shore",
+        "offing",
+        "vane"
+      ],
+      "description": "Refineries, a company town and a long-running dispute about which company it belongs to. The furnaces do not care and have not stopped.",
+      "star": {
+        "name": "Adeyemi",
+        "radius": 158,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 30000,
+      "ports": [
+        {
+          "id": "careenage",
+          "name": "Careenage",
+          "owner": "thirty",
+          "x": 4300,
+          "y": 2100,
+          "radius": 98,
+          "services": [
+            "staple",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#79838F",
+          "accentColour": "#3A6FD8",
+          "description": "Hulls come here to be opened up and have their plating replaced. The Thirty's heavy yards work to a standard nobody else in the Concessions matches."
+        },
+        {
+          "id": "entrepot",
+          "name": "Entrep\u00f4t",
+          "owner": "neutral",
+          "x": -4600,
+          "y": -3400,
+          "radius": 90,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#8E959C",
+          "accentColour": "#C3CCD6",
+          "description": "A bonded warehouse that will hold anything for anyone and ask about the paperwork afterwards. Officially neutral. Practically useful."
+        }
+      ]
+    },
+    {
+      "id": "banerjee",
+      "name": "Banerjee",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 185,
+      "mapY": 130,
+      "links": [
+        "lee-shore",
+        "tolliver",
+        "vane"
+      ],
+      "description": "The first system settled on the promise that the lanes would keep opening outward. They did, eventually, somewhere else.",
+      "star": {
+        "name": "Banerjee",
+        "radius": 142,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 28000,
+      "ports": [
+        {
+          "id": "ropewalk",
+          "name": "Ropewalk",
+          "owner": "kessler",
+          "x": -3900,
+          "y": 2600,
+          "radius": 94,
+          "services": [
+            "staple",
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#95948A",
+          "accentColour": "#E9E2D0",
+          "description": "Built long and thin along a ridge for a manufacturing process nobody uses any more. Kessler keeps it open because the berths are cheap and the crews are good."
+        },
+        {
+          "id": "drawback",
+          "name": "Drawback",
+          "owner": "neutral",
+          "x": 4700,
+          "y": -3100,
+          "radius": 80,
+          "services": [
+            "staple",
+            "moorings"
+          ],
+          "surfaceColour": "#8C8F94",
+          "accentColour": "#A4A79E",
+          "description": "Refunds the duty on goods that pass through without stopping, which is most of them. The town is funded entirely by the ones that do."
+        }
+      ]
+    },
+    {
+      "id": "offing",
+      "name": "Offing",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 390,
+      "mapY": -65,
+      "links": [
+        "adeyemi",
+        "landfall",
+        "lindqvist",
+        "vane"
+      ],
+      "description": "The last system with a patrol schedule, and the one everyone means when they say they are going out. Past here the Court's writ is a suggestion.",
+      "star": {
+        "name": "Offing",
+        "radius": 148,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 32000,
+      "ports": [
+        {
+          "id": "cabotage",
+          "name": "Cabotage",
+          "owner": "thirty",
+          "x": 5100,
+          "y": 2700,
+          "radius": 100,
+          "services": [
+            "staple",
+            "factor",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#74808E",
+          "accentColour": "#3A6FD8",
+          "description": "A staging yard for everything heading into the Marque. The Factor's board here pays more than anywhere inward and the reasons are not always printed."
+        },
+        {
+          "id": "flotsam",
+          "name": "Flotsam",
+          "owner": "neutral",
+          "x": -4400,
+          "y": -3900,
+          "radius": 76,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#898D8F",
+          "accentColour": "#C3CCD6",
+          "description": "A salvage market that buys without provenance and sells without warranty. The Court knows about it and has never been able to make the charge stick."
+        }
+      ]
+    },
+    {
+      "id": "lindqvist",
+      "name": "Lindqvist",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 430,
+      "mapY": 85,
+      "links": [
+        "doldrum",
+        "lee-shore",
+        "offing"
+      ],
+      "description": "Named for the surveyor who charted it and did not come back from the next one. The beacons still carry her callsign.",
+      "star": {
+        "name": "Lindqvist",
+        "radius": 152,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 29000,
+      "ports": [
+        {
+          "id": "respondentia",
+          "name": "Respondentia",
+          "owner": "neutral",
+          "x": 4200,
+          "y": -2900,
+          "radius": 88,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#8692A0",
+          "accentColour": "#5E86B8",
+          "description": "Lends against cargo rather than hulls, which suits captains whose hulls are not strictly theirs. The rates reflect it."
+        }
+      ]
+    },
+    {
+      "id": "lee-shore",
+      "name": "Lee Shore",
+      "region": "concessions",
+      "security": "contested",
+      "mapX": 340,
+      "mapY": 180,
+      "links": [
+        "adeyemi",
+        "banerjee",
+        "lindqvist"
+      ],
+      "description": "A bad place to be caught with a failing engine, which is how it was named and why the repair berths do well.",
+      "star": {
+        "name": "Lee Shore",
+        "radius": 138,
+        "colour": "#E8E4C6",
+        "coronaColour": "#D6D49A",
+        "lightTint": "#CFE0D4"
+      },
+      "radius": 27000,
+      "ports": [
+        {
+          "id": "average",
+          "name": "Average",
+          "owner": "neutral",
+          "x": -4000,
+          "y": 3600,
+          "radius": 92,
+          "services": [
+            "staple",
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#8B8E8C",
+          "accentColour": "#C3CCD6",
+          "description": "Where a general average is declared and the loss shared out among everyone whose cargo was aboard. Nobody arrives at Average in a good mood."
+        },
+        {
+          "id": "stowage",
+          "name": "Stowage",
+          "owner": "kessler",
+          "x": 4900,
+          "y": -2300,
+          "radius": 84,
+          "services": [
+            "staple",
+            "moorings"
+          ],
+          "surfaceColour": "#9A978D",
+          "accentColour": "#E9E2D0",
+          "description": "Deep berths and patient loaders. Kessler sends anything fragile here and pays the extra day without complaining."
+        }
+      ]
+    },
+    {
+      "id": "landfall",
+      "name": "Landfall",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 550,
+      "mapY": -25,
+      "links": [
+        "bitter-end",
+        "doldrum",
+        "offing",
+        "okonjo"
+      ],
+      "description": "The Reprisal Company's seat and the first system past the Court's reach. Prizes are condemned here, and the paperwork is impeccable.",
+      "star": {
+        "name": "Landfall",
+        "radius": 168,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 34000,
+      "ports": [
+        {
+          "id": "barratry",
+          "name": "Barratry",
+          "owner": "reprisal",
+          "x": 5400,
+          "y": 2500,
+          "radius": 122,
+          "services": [
+            "staple",
+            "bourse",
+            "factor",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#3F6E68",
+          "accentColour": "#2FA596",
+          "description": "Reprisal's seat, where a letter of marque is bought and a capture is condemned. The prize hall keeps a running board of what each crew is owed."
+        },
+        {
+          "id": "salvage",
+          "name": "Salvage",
+          "owner": "reprisal",
+          "x": -4800,
+          "y": -3800,
+          "radius": 95,
+          "services": [
+            "staple",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#4A6A66",
+          "accentColour": "#2FA596",
+          "description": "Breaks up what Barratry condemns and sells it back by the tonne. A good place to buy plating and a poor place to ask where it came from."
+        }
+      ]
+    },
+    {
+      "id": "okonjo",
+      "name": "Okonjo",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 650,
+      "mapY": -150,
+      "links": [
+        "landfall",
+        "last-entry",
+        "ostrand"
+      ],
+      "description": "A mining system with no charter over it, which means the ore is free and keeping it is not.",
+      "star": {
+        "name": "Okonjo",
+        "radius": 146,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 31000,
+      "ports": [
+        {
+          "id": "lien",
+          "name": "Lien",
+          "owner": "reprisal",
+          "x": 4500,
+          "y": 3200,
+          "radius": 102,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#5C6460",
+          "accentColour": "#2FA596",
+          "description": "Everything on this ring is security against something. Reprisal holds most of the paper and the rest is held by people who do not file."
+        }
+      ]
+    },
+    {
+      "id": "doldrum",
+      "name": "Doldrum",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 610,
+      "mapY": 130,
+      "links": [
+        "landfall",
+        "lindqvist",
+        "satos-error"
+      ],
+      "description": "Charted twice and settled once. The second survey found the first survey's beacons still running and nobody aboard.",
+      "star": {
+        "name": "Doldrum",
+        "radius": 134,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 28000,
+      "ports": [
+        {
+          "id": "escrow",
+          "name": "Escrow",
+          "owner": "neutral",
+          "x": -4300,
+          "y": 2900,
+          "radius": 87,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#6B6A64",
+          "accentColour": "#C98B5E",
+          "description": "Holds payment for both sides of a deal neither trusts. The fee is high and the alternative is worse."
+        }
+      ]
+    },
+    {
+      "id": "bitter-end",
+      "name": "Bitter End",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 730,
+      "mapY": 45,
+      "links": [
+        "landfall",
+        "last-entry",
+        "satos-error"
+      ],
+      "description": "The Unlettered haven, and the only system in the Reach where a hull with no registry is the normal case.",
+      "star": {
+        "name": "Bitter End",
+        "radius": 156,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 33000,
+      "ports": [
+        {
+          "id": "jettison",
+          "name": "Jettison",
+          "owner": "unlettered",
+          "x": 5000,
+          "y": -2800,
+          "radius": 110,
+          "services": [
+            "staple",
+            "yard",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#4A525E",
+          "accentColour": "#3C4044",
+          "description": "No registry, no inspectors, and a market that will buy anything that fits through the door. The berths are free and the departure tax is whatever they decide."
+        }
+      ]
+    },
+    {
+      "id": "satos-error",
+      "name": "Sato's Error",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 690,
+      "mapY": 190,
+      "links": [
+        "bitter-end",
+        "doldrum",
+        "last-entry"
+      ],
+      "description": "Charted as empty by a surveyor who was looking at the wrong column. There are four worlds here and a great deal of Leaf.",
+      "star": {
+        "name": "Sato's Error",
+        "radius": 162,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 32000,
+      "ports": [
+        {
+          "id": "manifest",
+          "name": "Manifest",
+          "owner": "neutral",
+          "x": -5200,
+          "y": -2400,
+          "radius": 104,
+          "services": [
+            "staple",
+            "factor",
+            "moorings"
+          ],
+          "surfaceColour": "#6E6150",
+          "accentColour": "#C98B5E",
+          "description": "Grows Leaf and files nothing about it. The name was somebody's idea of a joke and has outlasted them."
+        },
+        {
+          "id": "tret",
+          "name": "Tret",
+          "owner": "unlettered",
+          "x": 4600,
+          "y": 3400,
+          "radius": 79,
+          "services": [
+            "staple",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#565B52",
+          "accentColour": "#4A525E",
+          "description": "An allowance for waste in transit, and a town that lives on it. What arrives here was short on somebody else's manifest."
+        }
+      ]
+    },
+    {
+      "id": "last-entry",
+      "name": "Last Entry",
+      "region": "marque",
+      "security": "lawless",
+      "mapX": 815,
+      "mapY": -70,
+      "links": [
+        "bitter-end",
+        "okonjo",
+        "satos-error"
+      ],
+      "description": "The furthest beacon anyone has lit, and the final line in the survey that opened the Reach. Nothing has opened past it in sixty years.",
+      "star": {
+        "name": "Last Entry",
+        "radius": 128,
+        "colour": "#F0C9A0",
+        "coronaColour": "#D89A62",
+        "lightTint": "#F0D2B8"
+      },
+      "radius": 30000,
+      "ports": [
+        {
+          "id": "tariff",
+          "name": "Tariff",
+          "owner": "reprisal",
+          "x": 4100,
+          "y": -3300,
+          "radius": 96,
+          "services": [
+            "staple",
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#5E6358",
+          "accentColour": "#2FA596",
+          "description": "Reprisal charges for the privilege of going no further. The levy funds the beacon, which is the only thing out here that still works."
+        }
+      ]
     }
   ]
 }

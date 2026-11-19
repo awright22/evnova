@@ -83,6 +83,22 @@ export function loadContent(): Content {
     systems.set(system.id, system);
   }
 
+  // Hyperlanes run both ways. A one-sided link would strand a captain, so it
+  // fails the boot rather than the jump.
+  for (const system of systems.values()) {
+    for (const link of system.links) {
+      const other = systems.get(link);
+      if (!other) {
+        throw new Error(`system "${system.id}" links to unknown system "${link}"`);
+      }
+      if (!other.links.includes(system.id)) {
+        throw new Error(
+          `hyperlane "${system.id}" to "${link}" is one-sided: "${link}" does not link back`,
+        );
+      }
+    }
+  }
+
   return { tuning, modules, blueprints, licences, systems };
 }
 
