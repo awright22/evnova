@@ -243,6 +243,7 @@ export const Tuning = z.object({
   licences: z.record(LicenceId, LicenceDef),
   start: z.object({
     draught: z.string().min(1),
+    system: z.string().min(1),
     ordnance: z.int().nonnegative(),
   }),
   law: z.object({

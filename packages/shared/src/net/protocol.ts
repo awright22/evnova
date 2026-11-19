@@ -111,6 +111,29 @@ export const ChatIntent = z.object({
 });
 export type ChatIntent = z.infer<typeof ChatIntent>;
 
+/**
+ * Everything the server sends a client that is not room state.
+ *
+ * Exported so a tool can register a no-op for each: the SDK warns once per
+ * message when nothing is listening, and a headless client that only wants to
+ * fly should not have to keep its own copy of this list in step. Adding a
+ * message here is what keeps the bot, the soak and the verification harnesses
+ * quiet without anyone remembering to update them.
+ */
+export const SERVER_MESSAGES = [
+  'purse',
+  'impact',
+  'written-off',
+  'respawned',
+  'posted',
+  'chat',
+  'chat-backlog',
+  'at-port',
+  'landed',
+  'jump-complete',
+  'jump-failed',
+] as const;
+
 /** A line as it reaches the other captains. */
 export interface ChatLine {
   readonly id: string;

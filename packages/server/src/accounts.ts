@@ -76,6 +76,7 @@ export type AuthFailure =
   | 'callsign-taken'
   | 'callsign-invalid'
   | 'unknown-account'
+  | 'wrong-system'
   | 'bad-token'
   | 'bad-recovery';
 

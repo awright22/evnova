@@ -7,14 +7,22 @@
  *   pnpm verify:persistence
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
+import { type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
-import { ShipInput, SystemState } from '@marque/shared';
+import {
+  SERVER_MESSAGES,
+  ShipInput,
+  SystemState,
+  content,
+  deriveStats,
+  placeAll,
+} from '@marque/shared';
+
+import { requirePortFree, spawnGroup, stopGroup } from '@marque/harness';
 
 import { REPO_ROOT, sleep } from './harness.ts';
 
@@ -33,7 +41,7 @@ function record(name: string, passed: boolean, detail: string): void {
 
 /** Start a server against a given database file and wait for it to answer. */
 async function startServer(databaseUrl: string): Promise<ChildProcess> {
-  const child = spawn('pnpm', ['exec', 'tsx', 'src/main.ts'], {
+  const child = spawnGroup('pnpm', ['exec', 'tsx', 'src/main.ts'], {
     cwd: resolve(REPO_ROOT, 'packages/server'),
     env: {
       ...process.env,
@@ -66,15 +74,8 @@ async function startServer(databaseUrl: string): Promise<ChildProcess> {
   throw new Error(`server never became healthy:\n${log}`);
 }
 
-async function stop(child: ChildProcess, graceful: boolean): Promise<void> {
-  if (child.exitCode !== null) return;
-  child.kill(graceful ? 'SIGTERM' : 'SIGKILL');
-  const timer = setTimeout(() => child.kill('SIGKILL'), 8000);
-  try {
-    await once(child, 'exit');
-  } finally {
-    clearTimeout(timer);
-  }
+function stop(child: ChildProcess, graceful: boolean): Promise<void> {
+  return stopGroup(child, { graceful });
 }
 
 async function main(): Promise<void> {
@@ -82,9 +83,17 @@ async function main(): Promise<void> {
   const databaseUrl = join(dir, 'world.db');
 
   console.log(`Using ${databaseUrl}`);
+  await requirePortFree(PORT, 'a game server');
   console.log('Starting the server...');
   let server = await startServer(databaseUrl);
-  console.log('Server up. Opening an account...');
+  // How much the running server can cost a captain, read from the server
+  // itself rather than from a constant this file keeps its own copy of.
+  const health = (await (
+    await fetch(`http://127.0.0.1:${PORT}/health`)
+  ).json()) as { flushIntervalMs?: number };
+  const flushIntervalMs = health.flushIntervalMs ?? 4000;
+
+  console.log(`Server up (flushing every ${flushIntervalMs} ms). Opening an account...`);
 
   try {
     // --- Open an account over HTTP ---------------------------------------
@@ -126,7 +135,7 @@ async function main(): Promise<void> {
       { deviceToken: account.deviceToken },
       SystemState,
     );
-    for (const type of ['impact', 'written-off', 'respawned']) {
+    for (const type of SERVER_MESSAGES) {
       room.onMessage(type, () => undefined);
     }
 
@@ -175,7 +184,7 @@ async function main(): Promise<void> {
       { deviceToken: account.deviceToken },
       SystemState,
     );
-    for (const type of ['impact', 'written-off', 'respawned']) {
+    for (const type of SERVER_MESSAGES) {
       room2.onMessage(type, () => undefined);
     }
     const ship2 = await waitForShip(room2);
@@ -183,12 +192,20 @@ async function main(): Promise<void> {
 
     const drift = Math.hypot(ship2.x - before.x, ship2.y - before.y);
 
-    // A few seconds of position is what the spec allows. The hull was at rest
-    // when the flush ran, so the drift should be small.
+    // What a hard kill can cost is exactly one flush interval of travel, so
+    // the bound is computed from the interval and the draught's own top speed
+    // rather than written out as a number that drifts away from the truth.
+    // The margin covers the moment between the last flush and the kill.
+    const topSpeed = deriveStats(
+      placeAll(content().blueprints.get(content().tuning.start.draught)!.placements, content().modules),
+      content().tuning,
+    ).profile.topSpeed;
+    const allowed = (flushIntervalMs / 1000) * topSpeed * 1.5;
+
     record(
       'the hull comes back where it was, within a few seconds of travel',
-      drift < 800,
-      `${drift.toFixed(0)} units from where it was left`,
+      drift < allowed,
+      `${drift.toFixed(0)} units from where it was left, allowing ${allowed.toFixed(0)}`,
     );
     record(
       'the captain comes back as themselves',

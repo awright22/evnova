@@ -88,3 +88,18 @@ it could be a dev-only option later if server restarts become annoying.
 so recording inputs plus a seed would replay a whole session — useful for bug
 reports and for capturing combat footage for the art-direction review.
 *Cost: small, and it would pay for itself in debugging.*
+
+## Hulls pass through each other
+
+Two ships at the same point occupy the same space: there is no hull-to-hull
+collision, so a close fight can draw one ship inside another. The spec does not
+ask for collision and adding it is a real decision, not an oversight — it
+changes how a fight is flown, makes the Unlettered's closing passes dangerous
+to them, and needs a resolution rule that two clients predicting the same
+contact can agree on.
+
+If it is ever built: resolve it in `stepFlight` from the module grid both
+sides already derive, as an impulse rather than a hard stop, and keep the
+damage proportional to closing speed so a drift into a berth is not fatal.
+Seen while looking at the M3 captures, where a capture that closed to 30 units
+drew its mark overlapping its own hull.

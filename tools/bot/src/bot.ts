@@ -20,6 +20,7 @@ import {
 import { classifyDrift, type DriftStatus } from '@colyseus/sdk/predict/drift';
 import {
   PATCH_RATE,
+  SERVER_MESSAGES,
   ShipInput,
   SystemState,
   content,
@@ -162,6 +163,17 @@ export class Bot {
     // the authoritative state using the shared step function.
     const me = predict.reconciler(self, {
       input,
+      // Exactly the fields the shared step owns.
+      //
+      // The reconciler mirrors every scalar field of the schema by default,
+      // which pulled in shield: the server regenerates it from the time since
+      // the hull was last hit and its power state, neither of which the client
+      // simulates, so every fight produced corrections the client could never
+      // have predicted. Those are not mispredictions to smooth away — they are
+      // server truth arriving — so shield, module damage and the rest come in
+      // as plain state.
+      fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
+
       step: (ctx, state, cmd) => {
         stepFlight(state, cmd, profile, ctx);
       },
@@ -172,7 +184,7 @@ export class Bot {
 
     // Presentation broadcasts are for browsers. Registering no-ops keeps the
     // SDK from warning once per message that nothing is listening.
-    for (const type of ['impact', 'written-off', 'respawned']) {
+    for (const type of SERVER_MESSAGES) {
       room.onMessage(type, () => undefined);
     }
 

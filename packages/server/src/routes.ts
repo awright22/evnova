@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { AuthError } from './accounts.ts';
 import { metricsReport } from './metrics.ts';
-import { world } from './world/World.ts';
+import { FLUSH_INTERVAL_MS, world } from './world/World.ts';
 import { content, deriveStats, placeAll } from '@marque/shared';
 
 /** What a sign-up or recovery returns. Shown once, then stored by the client. */
@@ -25,6 +25,10 @@ const RecoverBody = z.object({
   recoveryPhrase: z.string().min(1).max(400),
 });
 
+const BerthBody = z.object({
+  deviceToken: z.string().min(1).max(400),
+});
+
 /** Map an auth failure onto an HTTP status and a line a captain can read. */
 const AUTH_STATUS: Record<string, { status: number; message: string }> = {
   'bad-invite': { status: 403, message: 'That invite code is not current.' },
@@ -32,6 +36,7 @@ const AUTH_STATUS: Record<string, { status: number; message: string }> = {
   'callsign-invalid': { status: 400, message: 'That callsign cannot be entered on the Register.' },
   'unknown-account': { status: 404, message: 'No such callsign on the Register.' },
   'bad-token': { status: 401, message: 'This device is not on the Register.' },
+  'wrong-system': { status: 409, message: 'That captain is not in this system.' },
   'bad-recovery': { status: 401, message: 'That recovery phrase does not match.' },
 };
 
@@ -52,8 +57,18 @@ function authFailure(error: unknown): Response {
 }
 
 export const routes = createRouter({
+  /**
+   * Liveness, plus the one durability figure worth knowing about a running
+   * server: how much of a captain's position a hard kill can cost. Reported
+   * rather than assumed, so an operator and the persistence check read it off
+   * the process they are actually talking to.
+   */
   health: createEndpoint('/health', { method: 'GET' }, () =>
-    Promise.resolve({ status: 'ok', at: new Date().toISOString() }),
+    Promise.resolve({
+      status: 'ok',
+      at: new Date().toISOString(),
+      flushIntervalMs: FLUSH_INTERVAL_MS,
+    }),
   ),
 
   metrics: createEndpoint('/metrics', { method: 'GET' }, () =>
@@ -92,6 +107,30 @@ export const routes = createRouter({
           deviceToken: result.deviceToken,
           recoveryPhrase: result.recoveryPhrase,
         }),
+      );
+    } catch (error) {
+      return Promise.resolve(authFailure(error));
+    }
+  }),
+
+  /**
+   * Where a captain is.
+   *
+   * Rooms are matched on their system, so the client has to know which system
+   * to ask for before it joins. The authority is the captain's own row, which
+   * only the server can read, so it is answered here rather than guessed from
+   * anything the client has kept.
+   *
+   * A POST because the device token is a credential: it has no business in a
+   * URL, a referrer or an access log.
+   */
+  berth: createEndpoint('/account/berth', { method: 'POST', body: BerthBody }, (ctx) => {
+    try {
+      const account = world().accounts.signIn(ctx.body.deviceToken);
+      const pilot = world().pilots.load(account.id);
+      if (!pilot) return Promise.resolve(authFailure(new AuthError('unknown-account')));
+      return Promise.resolve(
+        json({ systemId: pilot.systemId, landedPort: pilot.landedPortId ?? '' }),
       );
     } catch (error) {
       return Promise.resolve(authFailure(error));

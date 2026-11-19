@@ -89,6 +89,11 @@ export function loadContent(): Content {
     throw new Error(`start draught "${tuning.start.draught}" is not a known draught`);
   }
 
+  // And the system they are set down in, for the same reason.
+  if (!systems.has(tuning.start.system)) {
+    throw new Error(`start system "${tuning.start.system}" is not a known system`);
+  }
+
   // Hyperlanes run both ways. A one-sided link would strand a captain, so it
   // fails the boot rather than the jump.
   for (const system of systems.values()) {

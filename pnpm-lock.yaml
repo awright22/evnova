@@ -128,11 +128,16 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
+  tools/harness: {}
+
   tools/perf:
     dependencies:
       '@marque/bot':
         specifier: workspace:*
         version: link:../bot
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -143,6 +148,9 @@ importers:
 
   tools/shots:
     dependencies:
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -156,6 +164,9 @@ importers:
       '@marque/bot':
         specifier: workspace:*
         version: link:../bot
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -165,6 +176,9 @@ importers:
       '@colyseus/sdk':
         specifier: ^0.18.10
         version: 0.18.10(@colyseus/core@0.18.29)(typescript@7.0.2)(zod@4.6.7)
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared

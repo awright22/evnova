@@ -8,6 +8,8 @@
 
 import { z } from 'zod';
 
+import { content } from '@marque/shared';
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(2567),
@@ -31,7 +33,8 @@ const schema = z.object({
   STARTING_MARKS: z.coerce.number().int().nonnegative().default(2500),
 
   /** System a new captain wakes in. */
-  STARTING_SYSTEM: z.string().default('parity'),
+  /** Empty takes the opening system from content, which is the usual case. */
+  STARTING_SYSTEM: z.string().default(''),
 
   /** Where daily snapshots are written. */
   SNAPSHOT_DIR: z.string().default('./data/snapshots'),
@@ -62,7 +65,7 @@ export const config = {
     .map((name) => name.trim().toLowerCase())
     .filter((name) => name.length > 0),
   startingMarks: env.STARTING_MARKS,
-  startingSystem: env.STARTING_SYSTEM,
+  startingSystem: env.STARTING_SYSTEM || content().tuning.start.system,
   snapshotDir: env.SNAPSHOT_DIR,
   snapshotKeep: env.SNAPSHOT_KEEP,
 } as const;

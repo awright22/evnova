@@ -13,7 +13,17 @@ import { SystemRoom } from './rooms/SystemRoom.ts';
 
 export const server = defineServer({
   rooms: {
-    system: defineRoom(SystemRoom),
+    /**
+     * One room per system.
+     *
+     * Matched on `systemId`, so a captain joins the room for the system their
+     * row says they are in. Without the filter, `joinOrCreate` matches any
+     * live room of this name: a captain bound for Parity could be put into
+     * whichever system happened to have a room open, and since persisting a
+     * captain writes the room's system back to their row, that silently moved
+     * them across the galaxy.
+     */
+    system: defineRoom(SystemRoom).filterBy(['systemId']),
   },
 
   routes,

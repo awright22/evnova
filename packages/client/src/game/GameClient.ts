@@ -11,11 +11,19 @@
  */
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
-import { CHAT_BACKLOG, SystemState, scrubChat, type ChatLine } from '@marque/shared';
+import {
+  CHAT_BACKLOG,
+  SERVER_MESSAGES,
+  SystemState,
+  content,
+  scrubChat,
+  type ChatLine,
+} from '@marque/shared';
 
 import { loadChart, type Chart } from '../map/galaxy.ts';
 import { explainFailure, type FailureReason } from '../net/connection.ts';
 import {
+  berthOf,
   httpBaseFrom,
   loadAccount,
   saveAccount,
@@ -227,13 +235,39 @@ export class GameClient {
     await this.join();
   }
 
+  /**
+   * Which system to ask for.
+   *
+   * The captain's row is the authority. A hull with no account — a tool
+   * flying a draught — has no row, and a lookup that fails is not worth
+   * failing the join over, so both fall back to the opening system.
+   */
+  private async whereAmI(): Promise<string> {
+    const opening = content().tuning.start.system;
+    if (!this.account) return opening;
+    try {
+      const berth = await berthOf(this.httpBase, this.account.deviceToken);
+      return berth.systemId || opening;
+    } catch {
+      return opening;
+    }
+  }
+
   /** Called once an account has been opened or recovered. */
   async signedIn(account: StoredAccount): Promise<void> {
     this.account = account;
     await this.join();
   }
 
-  /** Join the room for wherever the captain is. */
+  /**
+   * Join the room for wherever the captain is.
+   *
+   * The system is always named, because rooms are matched on it: joining
+   * without one would take whichever room happened to be open, and the server
+   * writes the room's system back to the captain's row when it persists them.
+   * When the caller does not already know the system — the first join of a
+   * session — it is asked for, because only the captain's row knows.
+   */
   private async join(systemId?: string): Promise<void> {
     if (this.disposed) return;
 
@@ -241,11 +275,14 @@ export class GameClient {
     this.emit();
 
     try {
+      const destination = systemId ?? (await this.whereAmI());
+      if (this.disposed) return;
+
       const room = await this.sdk.joinOrCreate<SystemState>(
         'system',
         {
           ...(this.account ? { deviceToken: this.account.deviceToken } : {}),
-          ...(systemId !== undefined ? { systemId } : {}),
+          systemId: destination,
           ...(this.devBlueprint !== undefined ? { blueprint: this.devBlueprint } : {}),
         },
         SystemState,
@@ -316,10 +353,22 @@ export class GameClient {
       this.emit();
     });
 
-    // Presentation broadcasts the flight view handles; registering them here
-    // keeps the SDK from warning when no flight view is mounted.
-    for (const type of ['impact', 'written-off', 'respawned']) {
-      room.onMessage(type, () => undefined);
+    // Anything this class does not handle itself is a presentation broadcast
+    // the flight view reads directly. Registering a no-op for each keeps the
+    // SDK from warning when no flight view is mounted, and taking the list
+    // from the protocol means a message added later cannot be forgotten here.
+    const handled = new Set<string>([
+      'purse',
+      'at-port',
+      'landed',
+      'jump-complete',
+      'jump-failed',
+      'chat',
+      'chat-backlog',
+      'posted',
+    ]);
+    for (const type of SERVER_MESSAGES) {
+      if (!handled.has(type)) room.onMessage(type, () => undefined);
     }
 
     room.onLeave((code) => {

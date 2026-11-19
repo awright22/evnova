@@ -120,6 +120,17 @@ export class Session {
 
     this.me = this.predict.reconciler(self, {
       input: this.input,
+      // Exactly the fields the shared step owns.
+      //
+      // The reconciler mirrors every scalar field of the schema by default,
+      // which pulled in shield: the server regenerates it from the time since
+      // the hull was last hit and its power state, neither of which the client
+      // simulates, so every fight produced corrections the client could never
+      // have predicted. Those are not mispredictions to smooth away — they are
+      // server truth arriving — so shield, module damage and the rest come in
+      // as plain state.
+      fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
+
       // The same function the server's fixed loop runs. There is no second copy.
       step: (ctx, state, cmd) => {
         stepFlight(state, cmd, profile, ctx);

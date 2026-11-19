@@ -14,12 +14,16 @@ import { once } from 'node:events';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { spawnGroup, stopGroup } from '@marque/harness';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(HERE, '../../..');
 
 export interface Stack {
   readonly baseUrl: string;
   readonly serverPort: number;
+  /** Everything the stack's processes have said, for a failing run to print. */
+  log: () => string;
   stop: () => Promise<void>;
 }
 
@@ -32,16 +36,7 @@ export async function startStack(options: {
   const procs: ChildProcess[] = [];
 
   const stop = async (): Promise<void> => {
-    for (const proc of procs) {
-      if (proc.exitCode !== null) continue;
-      proc.kill('SIGTERM');
-      const timer = setTimeout(() => proc.kill('SIGKILL'), 4000);
-      try {
-        await once(proc, 'exit');
-      } finally {
-        clearTimeout(timer);
-      }
-    }
+    for (const proc of procs) await stopGroup(proc, { timeoutMs: 4000 });
   };
 
   try {
@@ -67,7 +62,7 @@ export async function startStack(options: {
     const baseUrl = `http://127.0.0.1:${options.previewPort}`;
     await waitFor(baseUrl);
 
-    return { baseUrl, serverPort: options.serverPort, stop };
+    return { baseUrl, serverPort: options.serverPort, log: () => stackLog(procs), stop };
   } catch (error) {
     await stop();
     throw error;
@@ -88,17 +83,46 @@ export const CHROMIUM =
 
 export const LAUNCH_ARGS = ['--no-sandbox', '--disable-dev-shm-usage'];
 
+/**
+ * Start a process whose output is kept but not printed.
+ *
+ * Discarding it outright, as this did, makes every failure in the stack
+ * opaque: the harness reports what the client saw and nothing about why the
+ * server said it. The log is held so a failing run can print it.
+ */
 function quiet(
   cmd: string,
   args: readonly string[],
   cwd: string,
   env: Record<string, string> = {},
 ): ChildProcess {
-  return spawn(cmd, [...args], {
+  const child = spawnGroup(cmd, [...args], {
     cwd,
     env: { ...process.env, ...env },
-    stdio: ['ignore', 'ignore', 'ignore'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
+
+  let log = '';
+  const keep = (chunk: Buffer): void => {
+    log += chunk.toString();
+    // Bounded: a long run must not accumulate a server's whole output.
+    if (log.length > 64_000) log = log.slice(-32_000);
+  };
+  child.stdout?.on('data', keep);
+  child.stderr?.on('data', keep);
+  logs.set(child, () => log);
+
+  return child;
+}
+
+/** Output held per process, for `stackLog()`. */
+const logs = new WeakMap<ChildProcess, () => string>();
+
+/** Everything the stack's processes have said, for a failing run to print. */
+export function stackLog(procs: readonly ChildProcess[]): string {
+  return procs
+    .map((proc, index) => `--- process ${index + 1} ---\n${logs.get(proc)?.() ?? '(no output)'}`)
+    .join('\n');
 }
 
 async function run(

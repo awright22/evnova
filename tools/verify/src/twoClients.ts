@@ -113,9 +113,17 @@ async function main(): Promise<void> {
       page.on('pageerror', (e) => errors[i]!.push(e.message));
     });
 
+    // Each page opens its own account: registration gates the flight view, so
+    // a page with no callsign sits on the Register and never shows a HUD. The
+    // callsigns carry the run's start time so repeated runs against the same
+    // database do not collide on a name already on the Register.
+    const stamp = Date.now().toString(36).slice(-5);
     await Promise.all(
-      pages.map((page) =>
-        page.goto(`${stack.baseUrl}/?debug=1`, { waitUntil: 'networkidle' }),
+      pages.map((page, i) =>
+        page.goto(
+          `${stack.baseUrl}/?debug=1&callsign=${encodeURIComponent(`Verify ${stamp}-${i + 1}`)}`,
+          { waitUntil: 'networkidle' },
+        ),
       ),
     );
     await Promise.all(pages.map((page) => page.waitForSelector('.hud', { timeout: 30_000 })));

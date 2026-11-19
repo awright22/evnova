@@ -62,8 +62,9 @@
     "magazineCapacity": 60
   },
   "start": {
-    "$comment": "What a captain is given when they are first entered in the Register. Marks can be overridden per server; the draught and the opening Ordnance are the game's own. Propellant is not listed because it is filled to whatever the draught's tanks hold: a new captain never reads a figure their hull cannot carry.",
+    "$comment": "What a captain is given when they are first entered in the Register, and where they are set down. Marks and the system can be overridden per server; the draught and the opening Ordnance are the game's own. Propellant is not listed because it is filled to whatever the draught's tanks hold: a new captain never reads a figure their hull cannot carry.",
     "draught": "prudent-return",
+    "system": "parity",
     "ordnance": 24
   },
   "law": {

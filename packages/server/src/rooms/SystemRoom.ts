@@ -510,7 +510,7 @@ export class SystemRoom extends Room<{
 
   override onCreate(options: SystemRoomOptions = {}): void {
     const { systems } = content();
-    const requested = options.systemId ?? 'parity';
+    const requested = options.systemId ?? content().tuning.start.system;
     this.system = systems.get(requested) ?? [...systems.values()][0];
     this.state.systemId = this.system?.id ?? requested;
     // How many Unlettered hunt here follows how much law reaches the system:
@@ -608,17 +608,37 @@ export class SystemRoom extends Room<{
    * and recovering one are HTTP routes, so the room never sees a phrase.
    * Development builds may join without one, which gives a throwaway captain.
    */
-  override onAuth(_client: Client, options: JoinOptions = {}): Account | undefined {
+  override onAuth(_client: Client, options: JoinOptions = {}): Account | true {
     const token = typeof options.deviceToken === 'string' ? options.deviceToken : '';
     if (token === '') {
       if (config.isProduction) throw new AuthError('bad-token');
-      return undefined;
+      // `true` means "allowed, carrying nothing": a tool flying a draught
+      // with no account. Returning undefined would be read as a refusal —
+      // Colyseus treats undefined, null and false alike — which silently
+      // turned every anonymous join into an auth failure.
+      return true;
     }
-    return world().accounts.signIn(token);
+
+    const account = world().accounts.signIn(token);
+
+    // A captain belongs to one system, and persisting them writes this room's
+    // system back to their row. Matching is filtered on `systemId`, but a
+    // client that names none is matched into whatever room is open, so the
+    // room refuses them here rather than quietly moving them across the
+    // galaxy. The row is the authority; a jump updates it before the client
+    // joins the destination.
+    const pilot = world().pilots.load(account.id);
+    if (pilot && pilot.systemId !== this.state.systemId) {
+      throw new AuthError('wrong-system');
+    }
+
+    return account;
   }
 
   override onJoin(client: Client, options: JoinOptions = {}): void {
-    const account = client.auth as Account | undefined;
+    // `true` is the anonymous case; anything else is a real account.
+    const auth = client.auth as Account | true | undefined;
+    const account = auth === true ? undefined : auth;
     const pilot = account ? world().pilots.load(account.id) : undefined;
 
     if (pilot) {

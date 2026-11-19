@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@marque/bot": "workspace:*",
+    "@marque/harness": "workspace:*",
     "@marque/shared": "workspace:*"
   }
 }

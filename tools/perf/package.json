@@ -7,8 +7,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@marque/shared": "workspace:*",
-    "@marque/bot": "workspace:*"
+    "@marque/bot": "workspace:*",
+    "@marque/harness": "workspace:*",
+    "@marque/shared": "workspace:*"
   },
   "devDependencies": {
     "playwright": "1.63.0"

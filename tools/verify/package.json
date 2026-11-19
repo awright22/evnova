@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@colyseus/sdk": "^0.18.10",
+    "@marque/harness": "workspace:*",
     "@marque/shared": "workspace:*"
   },
   "devDependencies": {

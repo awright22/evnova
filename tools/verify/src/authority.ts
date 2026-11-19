@@ -38,11 +38,18 @@ async function main(): Promise<void> {
 
   try {
     const sdk = new ColyseusSDK(`ws://127.0.0.1:${serverPort}`);
-    const room: Room<unknown, SystemState> = await sdk.joinOrCreate<SystemState>(
-      'system',
-      { callsign: 'Forger' },
-      SystemState,
-    );
+    let room: Room<unknown, SystemState>;
+    try {
+      room = await sdk.joinOrCreate<SystemState>(
+        'system',
+        { callsign: 'Forger', systemId: content().tuning.start.system },
+        SystemState,
+      );
+    } catch (error) {
+      // The server's own account of why, which is otherwise lost.
+      console.error(`could not join:\n${stack.log()}`);
+      throw error;
+    }
 
     const self = await waitForShip(room);
     const { blueprints, modules, tuning } = content();

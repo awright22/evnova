@@ -10,10 +10,12 @@
 // Type-only: erased at build time, so Playwright stays an optional runtime
 // dependency the capture imports dynamically and degrades without.
 import type * as Playwright from 'playwright';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { signalGroup, spawnGroup } from '@marque/harness';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -58,8 +60,8 @@ export async function captureFrames(
   const kill = async (): Promise<void> => {
     for (const proc of procs) {
       if (proc.exitCode === null) {
-        proc.kill('SIGTERM');
-        const timer = setTimeout(() => proc.kill('SIGKILL'), 4000);
+        signalGroup(proc, 'SIGTERM');
+        const timer = setTimeout(() => signalGroup(proc, 'SIGKILL'), 4000);
         try {
           await once(proc, 'exit');
         } finally {
@@ -208,7 +210,7 @@ function spawnQuiet(
   cwd: string,
   env: Record<string, string> = {},
 ): ChildProcess {
-  return spawn(cmd, [...args], {
+  return spawnGroup(cmd, [...args], {
     cwd,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'ignore', 'ignore'],
@@ -221,7 +223,7 @@ async function run(
   cwd: string,
   env: Record<string, string> = {},
 ): Promise<void> {
-  const child = spawn(cmd, [...args], {
+  const child = spawnGroup(cmd, [...args], {
     cwd,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'ignore', 'pipe'],

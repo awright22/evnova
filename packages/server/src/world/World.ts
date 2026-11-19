@@ -9,7 +9,7 @@
  * The clock is injected so the soak can run a month of world time in minutes.
  */
 
-import { readdirSync, rmSync } from 'node:fs';
+import { readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Accounts } from '../accounts.ts';
@@ -26,8 +26,17 @@ export interface WorldClock {
 
 export const SYSTEM_CLOCK: WorldClock = { now: () => Date.now() };
 
-/** How often changed captains are written. The spec allows losing a few seconds. */
-const FLUSH_INTERVAL_MS = 4000;
+/**
+ * How often changed captains are written.
+ *
+ * This is exactly how much of a captain's position a hard kill can cost, so
+ * it is the number the persistence check measures against rather than a
+ * threshold written out separately. Two seconds against the fastest shipped
+ * draught is a few hundred units of travel — inside the spec's "at most a few
+ * seconds" with room to spare, and cheap: a flush is a handful of integer
+ * columns per captain who has moved.
+ */
+export const FLUSH_INTERVAL_MS = 2000;
 
 /** How often a daily snapshot is considered. */
 const SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
@@ -72,7 +81,13 @@ export class World {
   /**
    * One snapshot a day, keeping the configured number.
    *
-   * `VACUUM INTO` is an online copy, so this does not stop the simulation.
+   * `VACUUM INTO` is an online copy, so this does not stop the simulation. It
+   * refuses to write over an existing file, and the day already taken is only
+   * remembered in memory, so a server restarted later the same day used to
+   * fail here every time and leave the day's backup frozen at whatever the
+   * first boot held. The copy goes to a temporary name and is renamed over
+   * the day's file: one file per day, always the freshest, and never a
+   * half-written file standing in as the backup.
    */
   private maybeSnapshot(): void {
     if (config.databaseUrl === ':memory:') return;
@@ -81,10 +96,16 @@ export class World {
     if (day === this.lastSnapshotDay) return;
     this.lastSnapshotDay = day;
 
+    const target = join(config.snapshotDir, `marque-${day}.db`);
+    const scratch = join(config.snapshotDir, `marque-${day}.writing.db`);
+
     try {
-      this.store.snapshot(join(config.snapshotDir, `marque-${day}.db`));
+      rmSync(scratch, { force: true });
+      this.store.snapshot(scratch);
+      renameSync(scratch, target);
       this.pruneSnapshots();
     } catch (error) {
+      rmSync(scratch, { force: true });
       console.error('snapshot failed:', error);
     }
   }

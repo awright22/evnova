@@ -6,10 +6,11 @@
  * than scraping logs.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
+import { type ChildProcess } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { signalGroup, spawnGroup, stopGroup } from '@marque/harness';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -52,7 +53,7 @@ export async function startServer(options: {
   /** A throwaway database, so a soak never writes into the real world. */
   databaseUrl?: string;
 }): Promise<RunningServer> {
-  const child: ChildProcess = spawn('pnpm', ['exec', 'tsx', 'src/main.ts'], {
+  const child: ChildProcess = spawnGroup('pnpm', ['exec', 'tsx', 'src/main.ts'], {
     cwd: resolve(REPO_ROOT, 'packages/server'),
     env: {
       ...process.env,
@@ -81,16 +82,7 @@ export async function startServer(options: {
       });
       if (response.ok) {
         return {
-          stop: async () => {
-            if (child.exitCode !== null) return;
-            child.kill('SIGTERM');
-            const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-            try {
-              await once(child, 'exit');
-            } finally {
-              clearTimeout(timer);
-            }
-          },
+          stop: () => stopGroup(child, { timeoutMs: 5000 }),
         };
       }
     } catch {
@@ -99,7 +91,7 @@ export async function startServer(options: {
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  child.kill('SIGKILL');
+  signalGroup(child, 'SIGKILL');
   throw new Error(`server did not become healthy in time:\n${log}`);
 }
 

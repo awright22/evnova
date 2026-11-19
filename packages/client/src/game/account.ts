@@ -60,7 +60,12 @@ export class RegisterError extends Error {
   }
 }
 
-async function post(httpBase: string, path: string, body: unknown): Promise<NewAccount> {
+/** A POST to the Register, with its refusals turned into RegisterError. */
+async function post(
+  httpBase: string,
+  path: string,
+  body: unknown,
+): Promise<Record<string, unknown>> {
   const response = await fetch(`${httpBase}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -75,6 +80,17 @@ async function post(httpBase: string, path: string, body: unknown): Promise<NewA
       asString(payload.message) ?? 'The Register declined.',
     );
   }
+
+  return payload;
+}
+
+/** A POST that must come back with an account on it. */
+async function postAccount(
+  httpBase: string,
+  path: string,
+  body: unknown,
+): Promise<NewAccount> {
+  const payload = await post(httpBase, path, body);
 
   // Read the fields rather than coercing them: a field that is not a string
   // means the server and this build disagree about the protocol, which is
@@ -98,14 +114,34 @@ export function signUp(
   httpBase: string,
   options: { callsign: string; inviteCode: string },
 ): Promise<NewAccount> {
-  return post(httpBase, '/account/sign-up', options);
+  return postAccount(httpBase, '/account/sign-up', options);
+}
+
+/**
+ * Where the server says this captain is.
+ *
+ * Rooms are matched on their system, so the client has to name one before it
+ * joins, and only the captain's row knows which. Asked over HTTP because a
+ * join that guessed wrong would put the captain in the wrong system and then
+ * write that back to their row.
+ */
+export async function berthOf(
+  httpBase: string,
+  deviceToken: string,
+): Promise<{ systemId: string; landedPort: string }> {
+  const payload = await post(httpBase, '/account/berth', { deviceToken });
+  const systemId = asString(payload.systemId);
+  if (systemId === undefined) {
+    throw new RegisterError('malformed', 'The Register answered with something unreadable.');
+  }
+  return { systemId, landedPort: asString(payload.landedPort) ?? '' };
 }
 
 export function recover(
   httpBase: string,
   options: { callsign: string; recoveryPhrase: string },
 ): Promise<NewAccount> {
-  return post(httpBase, '/account/recover', options);
+  return postAccount(httpBase, '/account/recover', options);
 }
 
 /** The server's HTTP origin, derived from its websocket URL. */

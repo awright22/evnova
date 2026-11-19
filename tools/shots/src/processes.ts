@@ -6,8 +6,9 @@
  * list of screens rather than process plumbing.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
+import { type ChildProcess } from 'node:child_process';
+
+import { spawnGroup, stopGroup } from '@marque/harness';
 
 export interface ManagedProcess {
   readonly name: string;
@@ -22,7 +23,7 @@ export function start(
   args: readonly string[],
   options: { cwd: string; env?: Record<string, string> },
 ): ManagedProcess {
-  const child = spawn(command, [...args], {
+  const child = spawnGroup(command, [...args], {
     cwd: options.cwd,
     env: { ...process.env, ...options.env },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -41,16 +42,7 @@ export function start(
     name,
     child,
     output: () => log,
-    stop: async () => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
-      child.kill('SIGTERM');
-      const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-      try {
-        await once(child, 'exit');
-      } finally {
-        clearTimeout(timer);
-      }
-    },
+    stop: () => stopGroup(child, { timeoutMs: 5000 }),
   };
 }
 
