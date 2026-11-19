@@ -75,6 +75,9 @@ export const pilots = sqliteTable(
     /** Units of Ordnance aboard. */
     ammo: integer('ammo').notNull().default(0),
 
+    /** Units of Propellant aboard. Jump fuel, and a commodity from M4. */
+    propellant: integer('propellant').notNull().default(0),
+
     /** Hull licence held, which caps what can be built. */
     licence: text('licence').notNull().default('open-ticket'),
 
@@ -92,7 +95,7 @@ export const meta = sqliteTable('meta', {
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * Migrations, applied in order.
@@ -141,6 +144,13 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+    `,
+  },
+  {
+    // Propellant is jump fuel and, from M4, a commodity like any other.
+    version: 2,
+    up: `
+      ALTER TABLE pilots ADD COLUMN propellant INTEGER NOT NULL DEFAULT 60;
     `,
   },
 ];

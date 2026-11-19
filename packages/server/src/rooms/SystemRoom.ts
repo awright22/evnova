@@ -13,11 +13,21 @@
 import { ClientState, Room, validate, type Client, type StepContext } from '@colyseus/core';
 import { config } from '../config.ts';
 import {
+  ARRIVAL_PROTECTION_SECONDS,
   EMPTY_LOADOUT,
+  JUMP_CLEARANCE,
+  JUMP_SPOOL_SECONDS,
+  JumpIntent,
+  LANDING_RANGE,
+  LANDING_SECONDS,
+  LANDING_SPEED,
+  LandIntent,
+  LaunchIntent,
   SCOOP_RANGE,
   SHIP_INPUT_SANITIZE,
   ScoopIntent,
   TargetIntent,
+  jumpCost,
   ShipInput,
   ShipState,
   SUB_STEPS,
@@ -179,6 +189,106 @@ export class SystemRoom extends Room<{
       return { target: message.id };
     }),
 
+    /**
+     * Spool for a linked system.
+     *
+     * The hull keeps flying and stays vulnerable while it spools, which is
+     * what makes a jump something an enemy can interrupt.
+     */
+    jump: validate(JumpIntent, (client: Client, message: JumpIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const ship = this.state.ships.get(client.sessionId);
+      const runtime = this.runtimes.get(client.sessionId);
+      if (!ship || !runtime || ship.destroyedAt > 0) return ctx.reject('not-owned');
+      if (ship.landingAt !== '') return ctx.reject('not-landed');
+
+      // An empty destination cancels a spool in progress.
+      if (message.system === '') {
+        ship.jumpTo = '';
+        ship.jumpProgress = 0;
+        return { spooling: '' };
+      }
+
+      if (ship.jumpTo !== '') return ctx.reject('already-spooling');
+
+      const here = this.system;
+      if (!here?.links.includes(message.system)) return ctx.reject('no-lane');
+
+      // Clearance is checked against the server's position, never the client's.
+      if (Math.hypot(ship.x, ship.y) < JUMP_CLEARANCE) {
+        return ctx.reject('too-close-to-the-star');
+      }
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      const cost = jumpCost(runtime.stats.totalMass);
+      if (pilot && pilot.propellant < cost) return ctx.reject('short-of-propellant');
+
+      ship.jumpTo = message.system;
+      ship.jumpProgress = 0;
+      return { spooling: message.system, cost };
+    }),
+
+    /** Be taken alongside a berth. A landed hull leaves the simulation. */
+    land: validate(LandIntent, (client: Client, message: LandIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const ship = this.state.ships.get(client.sessionId);
+      if (!ship || ship.destroyedAt > 0) return ctx.reject('not-owned');
+
+      if (message.port === '') {
+        ship.landingAt = '';
+        ship.landingProgress = 0;
+        return { landing: '' };
+      }
+
+      const port = this.system?.ports.find((candidate) => candidate.id === message.port);
+      if (!port) return ctx.reject('unknown-target');
+
+      const distance = Math.hypot(port.x - ship.x, port.y - ship.y);
+      if (distance > port.radius + LANDING_RANGE) return ctx.reject('not-in-reach');
+
+      const speed = Math.hypot(ship.vx, ship.vy);
+      if (speed > LANDING_SPEED) return ctx.reject('too-fast-to-land');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      // A posted captain is refused at every port until the composition is paid.
+      if (pilot && pilot.composition > 0 && port.owner !== 'unlettered') {
+        return ctx.reject('posted-here');
+      }
+
+      ship.landingAt = port.id;
+      ship.landingProgress = 0;
+      ship.jumpTo = '';
+      ship.jumpProgress = 0;
+      return { landing: port.id };
+    }),
+
+    /** Leave the berth and rejoin the simulation. */
+    launch: validate(LaunchIntent, (client: Client, _message: LaunchIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      pilot.landedPortId = undefined;
+
+      // Launch clear of the berth, pointed away from it.
+      if (port) {
+        const rng = new Rng(`${this.roomId}:${client.sessionId}:${this.clock.elapsedTime}`);
+        const bearing = rng.range(-Math.PI, Math.PI);
+        pilot.x = port.x + Math.cos(bearing) * (port.radius + LANDING_RANGE * 0.7);
+        pilot.y = port.y + Math.sin(bearing) * (port.radius + LANDING_RANGE * 0.7);
+        pilot.angle = bearing;
+      }
+      world().pilots.touch(pilot.accountId);
+
+      this.spawnFromPilot(client.sessionId, pilot);
+      return { launched: true };
+    }),
+
     scoop: validate(ScoopIntent, (client: Client, message: ScoopIntent, ctx) => {
       if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
       const ship = this.state.ships.get(client.sessionId);
@@ -281,6 +391,14 @@ export class SystemRoom extends Room<{
     if (pilot) {
       this.pilotsBySession.set(client.sessionId, pilot);
       this.sessionsByAccount.set(pilot.accountId, client.sessionId);
+
+      // A landed captain has no hull in space. They see the port's terminal
+      // until they launch.
+      if (pilot.landedPortId !== undefined) {
+        client.send('at-port', { port: pilot.landedPortId, system: pilot.systemId });
+        return;
+      }
+
       this.spawnFromPilot(client.sessionId, pilot);
       return;
     }
@@ -365,6 +483,10 @@ export class SystemRoom extends Room<{
       ship.y = (berth?.y ?? 0) + Math.sin(bearing) * SPAWN_STANDOFF;
       ship.angle = Math.atan2((berth?.y ?? 0) - ship.y, (berth?.x ?? 0) - ship.x);
     }
+
+    // A hull that has just arrived is briefly untouchable, so a jump does not
+    // drop a captain straight into somebody's guns.
+    ship.protectedUntil = Math.round(this.clock.elapsedTime + ARRIVAL_PROTECTION_SECONDS * 1000);
 
     this.runtimes.set(sessionId, runtime);
     this.state.ships.set(sessionId, ship);
@@ -461,6 +583,7 @@ export class SystemRoom extends Room<{
       if (!command) continue;
 
       stepFlight(ship, command, runtime.profile, ctx);
+      this.advanceTravel(id, ship, runtime, ctx.dt);
       this.combat.fire(id, ship, runtime, command.firePrimary, command.fireSecondary);
       this.regenerateShield(ship, runtime, ctx.dt, now);
     }
@@ -515,6 +638,110 @@ export class SystemRoom extends Room<{
       firePrimary: cmd.firePrimary,
       fireSecondary: cmd.fireSecondary,
     };
+  }
+
+  /**
+   * Advance a spool or an approach.
+   *
+   * Both run on the fixed step rather than a timer, so they are paced by the
+   * simulation and a captain cannot gain a jump by lagging.
+   */
+  private advanceTravel(
+    sessionId: string,
+    ship: ShipState,
+    runtime: ShipRuntime,
+    dt: number,
+  ): void {
+    if (ship.jumpTo !== '') {
+      // Drifting back inside the clearance cancels the spool: the lane will
+      // not take a hull this close to the star.
+      if (Math.hypot(ship.x, ship.y) < JUMP_CLEARANCE) {
+        ship.jumpTo = '';
+        ship.jumpProgress = 0;
+        this.clients.get(sessionId)?.send('jump-failed', { reason: 'too-close-to-the-star' });
+      } else {
+        ship.jumpProgress = Math.min(1, ship.jumpProgress + dt / JUMP_SPOOL_SECONDS);
+        if (ship.jumpProgress >= 1) this.completeJump(sessionId, ship, runtime);
+      }
+      return;
+    }
+
+    if (ship.landingAt !== '') {
+      ship.landingProgress = Math.min(1, ship.landingProgress + dt / LANDING_SECONDS);
+      if (ship.landingProgress >= 1) this.completeLanding(sessionId, ship);
+    }
+  }
+
+  /**
+   * The spool finished.
+   *
+   * The captain's row moves to the destination and the hull leaves this room.
+   * The client joins the destination's room, which spawns it at the edge with
+   * a moment of protection.
+   */
+  private completeJump(sessionId: string, ship: ShipState, runtime: ShipRuntime): void {
+    const destination = ship.jumpTo;
+    const pilot = this.pilotsBySession.get(sessionId);
+    const cost = jumpCost(runtime.stats.totalMass);
+
+    if (pilot) {
+      if (pilot.propellant < cost) {
+        ship.jumpTo = '';
+        ship.jumpProgress = 0;
+        this.clients.get(sessionId)?.send('jump-failed', { reason: 'short-of-propellant' });
+        return;
+      }
+      pilot.propellant -= cost;
+      pilot.systemId = destination;
+      // Arrive at the edge of the destination, on the bearing of travel.
+      const bearing = Math.atan2(ship.y, ship.x);
+      const edge = (content().systems.get(destination)?.radius ?? 30000) * 0.82;
+      pilot.x = Math.cos(bearing) * edge;
+      pilot.y = Math.sin(bearing) * edge;
+      pilot.angle = Math.atan2(-pilot.y, -pilot.x);
+      pilot.moduleHp = [...runtime.hp];
+      pilot.shield = ship.shield;
+      pilot.ammo = runtime.ammo;
+      world().pilots.touch(pilot.accountId);
+    }
+
+    this.clients.get(sessionId)?.send('jump-complete', {
+      system: destination,
+      propellantSpent: cost,
+    });
+
+    // The hull is no longer here. The client joins the destination's room.
+    this.removeHull(sessionId);
+    this.pilotsBySession.delete(sessionId);
+    if (pilot) this.sessionsByAccount.delete(pilot.accountId);
+  }
+
+  /** The approach finished: the hull is alongside and out of the simulation. */
+  private completeLanding(sessionId: string, ship: ShipState): void {
+    const portId = ship.landingAt;
+    const pilot = this.pilotsBySession.get(sessionId);
+    const runtime = this.runtimes.get(sessionId);
+    const port = this.system?.ports.find((candidate) => candidate.id === portId);
+
+    if (pilot && port) {
+      pilot.landedPortId = portId;
+      pilot.x = port.x;
+      pilot.y = port.y;
+      pilot.angle = ship.angle;
+      if (runtime) {
+        pilot.moduleHp = [...runtime.hp];
+        pilot.ammo = runtime.ammo;
+      }
+      pilot.shield = ship.shield;
+      world().pilots.touch(pilot.accountId);
+    }
+
+    this.clients.get(sessionId)?.send('landed', { port: portId });
+
+    // A landed hull leaves the simulation and cannot be attacked.
+    this.removeHull(sessionId);
+    this.pilotsBySession.delete(sessionId);
+    if (pilot) this.sessionsByAccount.delete(pilot.accountId);
   }
 
   /** Shields recover after a delay without being hit. */

@@ -39,6 +39,17 @@ export const ShipState = schema(
     hostile: t.boolean().default(false),
     /** Server time the hull was written off, for the wreck to linger. */
     destroyedAt: t.uint32().default(0),
+
+    // --- Travel -----------------------------------------------------------
+    /** System being spooled for, or empty. The hull keeps flying while it spools. */
+    jumpTo: t.string().default(''),
+    /** 0..1 through the spool, so the client can draw it without a timer of its own. */
+    jumpProgress: t.float32().default(0),
+    /** Port being landed at, or empty. */
+    landingAt: t.string().default(''),
+    landingProgress: t.float32().default(0),
+    /** Server time the arrival protection ends. */
+    protectedUntil: t.uint32().default(0),
   },
   'ShipState',
 );

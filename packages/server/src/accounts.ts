@@ -115,6 +115,7 @@ export class Accounts {
             systemId: config.startingSystem,
             blueprintId: 'prudent-return',
             ammo: 24,
+            propellant: 60,
             updatedAt: now,
           })
           .run();

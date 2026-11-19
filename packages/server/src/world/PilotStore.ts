@@ -31,6 +31,7 @@ export interface Pilot {
   moduleHp: number[];
   shield: number;
   ammo: number;
+  propellant: number;
   licence: string;
   /** Owed to the Prize Court. Non-zero means posted. */
   composition: number;
@@ -73,6 +74,7 @@ export class PilotStore {
       moduleHp: parseHp(row.pilot.moduleHp),
       shield: row.pilot.shield,
       ammo: row.pilot.ammo,
+      propellant: row.pilot.propellant,
       licence: row.pilot.licence,
       composition: row.pilot.composition,
     };
@@ -127,6 +129,7 @@ export class PilotStore {
             moduleHp: JSON.stringify(pilot.moduleHp.map((hp) => Math.max(0, Math.round(hp)))),
             shield: Math.max(0, Math.round(pilot.shield)),
             ammo: Math.max(0, Math.round(pilot.ammo)),
+            propellant: Math.max(0, Math.round(pilot.propellant)),
             licence: pilot.licence,
             composition: Math.max(0, Math.round(pilot.composition)),
             updatedAt: now,

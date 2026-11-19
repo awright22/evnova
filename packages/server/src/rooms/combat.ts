@@ -237,9 +237,14 @@ export class CombatSystem {
 
   /** Test one round's swept path against every hull it could have struck. */
   private resolveHit(round: Round, fromX: number, fromY: number): boolean {
+    const now = this.world.now();
+
     for (const [id, ship] of this.world.state.ships) {
       // A hull cannot shoot itself, and a wreck is not a target.
       if (id === round.owner || ship.destroyedAt > 0) continue;
+      // Nor is a hull that has just arrived and is still under protection, or
+      // one that is already alongside a berth.
+      if (ship.protectedUntil > now) continue;
 
       const runtime = this.world.runtimeOf(id);
       if (!runtime) continue;
