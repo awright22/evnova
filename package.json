@@ -1,15 +1,15 @@
 {
-  "name": "manifest",
+  "name": "marque",
   "version": "0.0.0",
   "private": true,
-  "description": "Manifest: a persistent multiplayer space trading and combat game.",
+  "description": "Marque: a persistent multiplayer space trading and combat game.",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @manifest/server --filter @manifest/client dev",
+    "dev": "pnpm --parallel --filter @marque/server --filter @marque/client dev",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
     "typecheck": "pnpm -r --no-bail run typecheck",
     "lint": "eslint .",
@@ -20,7 +20,7 @@
     "shots": "tsx tools/shots/src/main.ts",
     "perf": "tsx tools/perf/src/main.ts",
     "bot": "tsx tools/bot/src/main.ts",
-    "build": "pnpm --filter @manifest/server --filter @manifest/client run build"
+    "build": "pnpm --filter @marque/server --filter @marque/client run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

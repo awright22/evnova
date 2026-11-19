@@ -1,7 +1,7 @@
 /**
  * Production server bundle.
  *
- * esbuild resolves the workspace `@manifest/shared` source and bundles it in,
+ * esbuild resolves the workspace `@marque/shared` source and bundles it in,
  * so the output is a single file that runs under plain Node with only runtime
  * dependencies installed.
  */

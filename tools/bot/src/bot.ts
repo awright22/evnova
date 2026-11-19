@@ -7,10 +7,11 @@
  * the soak run drive the live server at accelerated scale.
  */
 
+import type {
+  Reconciler} from '@colyseus/sdk';
 import {
   ColyseusSDK,
   Predict,
-  Reconciler,
   type InputHandle,
   type Room,
 } from '@colyseus/sdk';
@@ -25,7 +26,15 @@ import {
   stepFlight,
   type ShipProfile,
   type ShipState,
-} from '@manifest/shared';
+} from '@marque/shared';
+
+/**
+ * The SDK types a Room by its server room class. The bot deliberately does not
+ * import the server package — it talks to whatever is listening, exactly as a
+ * browser would — so the room type stays open and the state type carries the
+ * safety.
+ */
+type SystemRoom = Room<unknown, SystemState>;
 
 /** How often the bot runs its frame loop. Stands in for requestAnimationFrame. */
 const FRAME_INTERVAL_MS = 1000 / 60;
@@ -103,7 +112,7 @@ export class Bot {
   private closed = false;
 
   private constructor(
-    private readonly room: Room<any, SystemState>,
+    private readonly room: SystemRoom,
     private readonly self: ShipState,
     private readonly predict: Predict<SystemState>,
     private readonly me: Reconciler<ShipState>,
@@ -224,7 +233,7 @@ export class Bot {
  * Wait until the server has created this client's ship and the first patch has
  * decoded it. Joining is not the same as existing in the simulation.
  */
-function waitForOwnShip(room: Room<any, SystemState>, timeoutMs = 10_000): Promise<ShipState> {
+function waitForOwnShip(room: SystemRoom, timeoutMs = 10_000): Promise<ShipState> {
   const existing = room.state.ships.get(room.sessionId);
   if (existing) return Promise.resolve(existing);
 

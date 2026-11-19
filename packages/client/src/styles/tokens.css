@@ -1,0 +1,135 @@
+/**
+ * Design tokens.
+ *
+ * The single source of these values is docs/ART_DIRECTION.md, which takes the
+ * palette and typefaces from spec section 4 and fixes them. Components read
+ * tokens and never hard-code a colour, a size or a duration.
+ */
+
+:root {
+  /* --- Base ----------------------------------------------------------- */
+  --void: #070a10;
+  --panel: #0e131b;
+  --raised: #161d28;
+  --rule: #273244;
+
+  /* Derived surfaces, for states and wells. */
+  --inset: #05080d;
+  --hover: #1d2838;
+  --active: #243141;
+  --rule-strong: #3a4961;
+  --rule-faint: #1a2230;
+
+  /* --- Text ----------------------------------------------------------- */
+  --text-primary: #dde3ec;
+  --text-secondary: #8d98a9;
+  /* Spec value #5C6777 reaches 2.95:1 on a raised panel and fails AA.
+     Lightened with the hue held at 215deg: 4.51:1 on raised. */
+  --text-muted: #788597;
+  --text-disabled: #4e5a6b;
+  --text-on-amber: #140e03;
+
+  /* --- Signal --------------------------------------------------------- */
+  --amber: #f2a33a;
+  --amber-bright: #ffbe63;
+  --amber-dim: #a06a1e;
+  --amber-wash: rgb(242 163 58 / 12%);
+
+  /* Spec value #E5484D reaches 4.33:1 on a raised panel. Lightened with the
+     hue held at 358deg: 4.52:1. Danger and loss share one red. */
+  --danger: #e64f54;
+  --danger-dim: #8e2e32;
+  --danger-wash: rgb(230 79 84 / 14%);
+
+  --gain: #62c462;
+  --gain-wash: rgb(98 196 98 / 14%);
+
+  /* --- Status --------------------------------------------------------- */
+  --shield: #5e9fd4;
+  --hull: #c3ccd6;
+  --caution: #d9a441;
+
+  /* --- Livery: hull bands, seals and stripes, never type --------------- */
+  --livery-kessler: #e9e2d0;
+  --livery-thirty: #3a6fd8;
+  --livery-reprisal: #2fa596;
+  --livery-unlettered: #4a525e;
+
+  /* --- Region nebulae -------------------------------------------------- */
+  --nebula-home-roads: #5e86b8;
+  --nebula-concessions: #96586c;
+  --nebula-marque: #2f7f76;
+
+  /* --- Type ------------------------------------------------------------ */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-condensed: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+  /* In-world documents only: the Gazette, commissions, charters, notices. */
+  --font-document: 'EB Garamond', Georgia, serif;
+
+  /* Interface scale setting multiplies every size through this factor. */
+  --scale: 1;
+
+  --size-display: calc(32px * var(--scale));
+  --size-h1: calc(24px * var(--scale));
+  --size-h2: calc(19px * var(--scale));
+  --size-h3: calc(16px * var(--scale));
+  --size-body: calc(14px * var(--scale));
+  --size-body-sm: calc(13px * var(--scale));
+  --size-label: calc(12px * var(--scale));
+  --size-micro: calc(11px * var(--scale));
+  --size-data-lg: calc(20px * var(--scale));
+  --size-doc: calc(16px * var(--scale));
+  --size-doc-head: calc(21px * var(--scale));
+
+  --leading-display: calc(36px * var(--scale));
+  --leading-h1: calc(28px * var(--scale));
+  --leading-h2: calc(24px * var(--scale));
+  --leading-h3: calc(20px * var(--scale));
+  --leading-body: calc(20px * var(--scale));
+  --leading-body-sm: calc(18px * var(--scale));
+  --leading-label: calc(16px * var(--scale));
+  --leading-micro: calc(14px * var(--scale));
+  --leading-doc: calc(26px * var(--scale));
+  --leading-doc-head: calc(28px * var(--scale));
+
+  --track-h3: 0.06em;
+  --track-label: 0.08em;
+  --track-micro: 0.1em;
+
+  /* --- Space ----------------------------------------------------------- */
+  --space-0-5: 4px;
+  --space-1: 8px;
+  --space-1-5: 12px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+
+  /* --- Shape ----------------------------------------------------------- */
+  --chamfer-lg: 10px;
+  --chamfer-sm: 4px;
+  --border-width: 1px;
+
+  /* --- Motion ---------------------------------------------------------- */
+  --motion-instant: 80ms;
+  --motion-quick: 120ms;
+  --motion-base: 160ms;
+  --motion-slow: 200ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-emphasis: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/**
+ * Reduced motion: no shake, no large movement, no parallax. Opacity fades stay,
+ * shortened to the instant step. Gameplay motion is never reduced.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-quick: var(--motion-instant);
+    --motion-base: var(--motion-instant);
+    --motion-slow: var(--motion-instant);
+  }
+}

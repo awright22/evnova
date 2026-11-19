@@ -1,5 +1,5 @@
 {
-  "name": "@manifest/perf",
+  "name": "@marque/perf",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@manifest/shared": "workspace:*",
-    "@manifest/bot": "workspace:*"
+    "@marque/shared": "workspace:*",
+    "@marque/bot": "workspace:*"
   }
 }

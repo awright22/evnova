@@ -31,12 +31,17 @@ refuses everything else at the proxy. Checked on 2026-11-19:
   docs are `.mdx` files in `colyseus/docs`, so `raw.githubusercontent.com` gives
   the same content the website renders. This works well and needs nothing from
   you.
-- **Fonts:** the `@fontsource` npm packages ship the same OFL fonts as Google
-  Fonts, self-hosted, which is what the spec requires anyway. No loss.
+- **Fonts:** the `@fontsource` npm packages ship the three faces the spec fixes
+  (IBM Plex Sans, IBM Plex Sans Condensed, EB Garamond) under OFL 1.1,
+  self-hosted, which is what the spec requires anyway. No loss.
 - **Audio:** synthesised with Web Audio, which is the spec's stated fallback.
   This is the one real compromise — hand-authored recordings of an engine loop
   or an explosion would likely beat synthesis.
 - **Icons:** drawn in code as SVG. Better for cohesion than a sourced set.
+
+The spec asks for music that is "sparse and patient: ambient electronics with
+bowed strings and low piano". That is the hardest thing to synthesise
+convincingly, so it is the clearest reason to open a source.
 
 **If you want sourced audio instead of synthesis**, allow these hosts:
 
@@ -61,7 +66,7 @@ and lands in `CREDITS.md` in the same commit as the asset.
 and the harness finds it automatically. On your own machine, run once:
 
 ```bash
-pnpm --filter @manifest/shots exec playwright install chromium
+pnpm --filter @marque/shots exec playwright install chromium
 ```
 
 ---
@@ -82,12 +87,13 @@ involve:
 
 ## 4. For you to decide, whenever you like
 
-Not blocking: I have picked a defensible default for each and logged it in
+Not blocking: I have picked a defensible default and logged it in
 `docs/DESIGN.md`. Tell me if you disagree.
 
-- **The game is called _Manifest_.** Named for the cargo register that is also
-  this setting's administrative spine, and for the leaderboard hook: your net
-  worth is your entry in it. Renaming later is cheap while the repository is
-  private.
+- **Two palette values were lightened for contrast.** Spec section 4 says to
+  adjust lightness for AA while keeping the hues. Text muted `#5C6777` reached
+  only 2.95:1 on a raised panel and danger `#E5484D` only 4.33:1, both failing
+  AA for text. They are now `#788597` and `#E64F54`, with the hues held to
+  within one degree. Every other value in the spec passes as given.
 - **Invite-only, about twenty accounts.** Accounts are a callsign plus a device
   token behind a shared invite code, with a recovery phrase shown once.

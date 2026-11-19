@@ -8,12 +8,15 @@
 import { defineRoom, defineServer } from '@colyseus/core';
 
 import { config } from './config.ts';
+import { routes } from './routes.ts';
 import { SystemRoom } from './rooms/SystemRoom.ts';
 
 export const server = defineServer({
   rooms: {
     system: defineRoom(SystemRoom),
   },
+
+  routes,
 
   /**
    * Origin allowlist. Empty means any origin, which is only ever the case in

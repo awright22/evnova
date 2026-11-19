@@ -7,6 +7,7 @@
  */
 
 import { ClientState, Room, type Client, type StepContext } from '@colyseus/core';
+import { registerRoom, TickMetrics } from '../metrics.ts';
 import {
   SHIP_INPUT_SANITIZE,
   SPIKE_PROFILE,
@@ -18,7 +19,7 @@ import {
   Rng,
   stepFlight,
   type ShipProfile,
-} from '@manifest/shared';
+} from '@marque/shared';
 
 export interface SystemRoomOptions {
   /** Content id of the system to simulate. */
@@ -60,9 +61,26 @@ export class SystemRoom extends Room<{
   /** Flight performance per ship. Derived from the blueprint once M1 lands. */
   private readonly profiles = new Map<string, ShipProfile>();
 
+  /** Step timing, reported by the metrics route and held to budget by the soak. */
+  private readonly tick = new TickMetrics();
+  private unregisterMetrics: (() => void) | undefined;
+
   override onCreate(options: SystemRoomOptions = {}): void {
     this.state.systemId = options.systemId ?? 'spike';
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE, { subSteps: SUB_STEPS });
+
+    this.unregisterMetrics = registerRoom({
+      roomId: this.roomId,
+      systemId: this.state.systemId,
+      clients: () => this.clients.length,
+      entities: () => this.state.ships.size,
+      tick: this.tick,
+    });
+  }
+
+  override onDispose(): void {
+    this.unregisterMetrics?.();
+    this.unregisterMetrics = undefined;
   }
 
   override onJoin(client: Client, options: JoinOptions = {}): void {
@@ -94,6 +112,7 @@ export class SystemRoom extends Room<{
   }
 
   private step(ctx: StepContext): void {
+    const startedAt = performance.now();
     for (const [sessionId, ship] of this.state.ships) {
       const cmd = this.inputs.get(sessionId).next();
       if (!cmd) continue;
@@ -105,6 +124,7 @@ export class SystemRoom extends Room<{
       stepFlight(ship, cmd, profile, ctx);
     }
     this.state.tick = ctx.tick;
+    this.tick.record(performance.now() - startedAt);
   }
 }
 

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A later push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Typecheck, lint and unit tests. This is the same command used locally,
+      # so a green clone means a green pipeline.
+      - name: Check
+        run: pnpm check
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload client build
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: packages/client/dist
+          retention-days: 7
+
+  netcode:
+    name: Netcode under latency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Prove the prediction stack still matches the server under the latency
+      # the spec targets. Fails if any client's correction EMA persists, which
+      # is what a determinism break looks like.
+      - name: Start server with 150ms simulated latency
+        run: |
+          pnpm --filter @marque/server exec tsx src/main.ts &
+          echo $! > /tmp/server.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:2567/matchmake/ >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+        env:
+          COLYSEUS_LATENCY: '150'
+
+      - name: Fly four bots
+        run: pnpm bot --bots 4 --seconds 25 --brain wander --quiet
+
+      - name: Stop server
+        if: always()
+        run: kill "$(cat /tmp/server.pid)" || true

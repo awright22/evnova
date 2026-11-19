@@ -127,17 +127,17 @@ Tables, as planned per milestone (authored when each lands):
 | Table | Milestone | Notes |
 |---|---|---|
 | `accounts` | M3 | callsign, device token hash, recovery phrase hash, admin flag |
-| `pilots` | M3 | credits, current system, current ship, last port |
+| `captains` | M3 | marks, current system, current ship, last port, licence |
 | `ships` | M3/M5 | owned hulls, parked port, blueprint ref, damage state |
 | `blueprints` | M5 | module grid, name, owner, share code |
-| `ledger` | M4 | append-only: pilot, delta, category, reason, timestamp |
+| `ledger` | M4 | append-only: captain, delta (marks), category, reason, timestamp |
 | `stockpiles` | M4 | port × commodity: stock, target, rate, capacity |
-| `holdings` | M6 | pilot × corporation: shares, cost basis |
-| `pools` | M6 | corporation: share reserve, credit reserve, fee accrual |
-| `earnings` | M6 | corporation: per-period earning events by class |
-| `standings` | M7 | pilot × faction |
-| `missions` | M7 | template, parameters, state, deadline |
-| `news` | M6 | headline, class, system, timestamp |
+| `holdings` | M6 | captain × listed company: shares, cost basis |
+| `pools` | M6 | listed company: share reserve, marks reserve, fee accrual |
+| `earnings` | M6 | listed company: per-period earning events by class |
+| `standings` | M7 | captain × chartered company; letters of marque held |
+| `missions` | M7 | commission template, parameters, state, deadline |
+| `news` | M6 | Gazette headline, class, system, timestamp |
 
 Fast-changing state (positions) is not a transaction: it flushes every few
 seconds and on shutdown, which bounds loss to the few seconds the spec allows.
@@ -177,9 +177,8 @@ can render a designed state for each rather than printing raw error text.
 
 ## 6. Decision log
 
-**2026-11-19 — Title: Manifest.** Ties directly to the art direction's
-"shipping manifests" register, gives the leaderboard a diegetic hook (your entry
-in the register), and is short enough to name packages after (`@manifest/*`).
+**2026-11-19 — Package scope `@marque/*`.** Named after the game, which spec
+section 19 fixes. Short enough to read well in imports.
 
 **2026-11-19 — Two deployables, not one.** The Colyseus Vite plugin can host the
 server inside Vite and emit a single deployable, and its dev HMR for room code
@@ -249,3 +248,39 @@ is a `drizzle-orm@rc` pin, logged as a risk.
 off.** The first catches real undefined bugs in the grid and array code this
 game is full of. The second mostly generates noise against third-party option
 objects.
+
+**2026-11-19 — Setting replaced: the game is Marque.** The owner supplied a
+revised spec whose section 19 fixes the setting, companies, vocabulary, voice,
+palette and typefaces. The architecture was unaffected — the netcode, the
+shared flight step, the bot, the harness and CI all carried over unchanged —
+so the change was confined to naming, palette, type and copy. Packages renamed
+`@manifest/*` to `@marque/*`.
+
+**2026-11-19 — Two palette values lightened for AA, hues held.** The spec fixes
+the hues and says to adjust lightness for contrast. `--text-muted` `#5C6777`
+reached only 2.95:1 on a raised panel and `--danger` `#E5484D` only 4.33:1,
+both failing AA for text. Raised to `#788597` and `#E64F54`: 4.51:1 and 4.52:1
+on raised, with hue held to within 1° and saturation unchanged. Every other
+specified value passes as given. Livery cobalt (3.58:1) is never used for type.
+
+**2026-11-19 — EB Garamond is loaded only where documents render.** The third
+face is reserved for in-world paper, so it is not imported in the client entry
+point alongside the two Plex faces. Seeing a serif should mean you are reading
+something an institution issued, and the bytes should not be spent before one
+is on screen.
+
+**2026-11-19 — The stamp is specified before it is built.** Confirming a
+purchase, build, trade or commission is the game's signature interaction, so
+its four-phase sequence, timings and reduced-motion behaviour are written into
+`docs/ART_DIRECTION.md` now rather than being improvised at M4. It is the one
+interaction the spec singles out for the most care.
+
+**2026-11-19 — Tool CLIs strip the forwarded `--`.** `pnpm run x -- --flag`
+forwards the bare separator into `process.argv`, and Node's `parseArgs` reads
+it as end-of-options and then rejects the real flags as positionals. All four
+tool CLIs filter it out.
+
+**2026-11-19 — Metrics sources expose counts as functions.** The metrics
+registry holds `() => number` rather than numbers, so `/metrics` reports each
+room as it is now instead of as it was when it registered, and the room needs
+no `this` alias.

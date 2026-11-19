@@ -1,198 +1,173 @@
 # Lore
 
-The reference for every name, description and line of text in the game. Author
-content against this file; if something here stops being true, change it here
-first.
+The setting. Section 19 of `docs/SPEC.md` is copied below verbatim and is
+fixed: do not add factions, institutions, currencies or tonal registers. The
+**Extensions** section at the end is where authored detail accumulates, written
+in the same voice and following the same naming rules.
 
-## Title
+Player-facing text uses the in-world vocabulary from the table below. Code, data
+keys and docs use the plain terms.
 
-**Manifest.**
+---
 
-The manifest is the cargo list a ship files before it moves. It is also the
-register of every hull, licence and debt in settled space — the administrative
-spine of this civilisation, and the thing players spend the game climbing. Your
-net worth is your entry in it.
 
-## The setting
+This section is fixed. Add detail in the same voice. Don't add factions, institutions, currencies or tonal registers.
 
-Settled space is **the Reach**: about twenty systems strung along a chain of
-hyperlanes that opened one at a time, outward from a single original corridor.
-There is no galactic empire and no war. There is infrastructure, and there are
-people arguing about who owns it.
+**Premise.** Nobody governs settled space. Three chartered companies do, each holding a founding charter that grants it monopolies, courts of its own and the right to arm its ships. Everything else runs on paper: every voyage is financed by shareholders, every loss is somebody's insurance claim, and violence is lawful if the right document says so. The frontier is called the Marque, after the letters that license raiding there.
 
-The Reach was opened by survey crews and held by freight. Everything here was
-built to move cargo: the lane beacons, the refuelling depots, the bonded
-warehouses, the insurance market. When the last boom ended the building stopped
-mid-sentence, and much of the Reach is now half-finished — gantries with nothing
-docked at them, towns sized for a population that never arrived.
+Players are free captains: independent owners flying under an Open Ticket, the cheapest license there is, tolerated by all three companies because someone has to carry the cargo too marginal for a company hull.
 
-What holds it together is the **Manifest**: a shared registry of hulls, cargo,
-licences and liens, maintained from the oldest systems and honoured, more or
-less, everywhere else. Being on the Manifest is what makes a cargo insurable, a
-hull legal and a debt collectable. Staying off it is most of what piracy is.
+The 1600s are in the institutions, not the props. These are spacecraft crewed by professionals in a hard, industrial future. No sails, parchment, tricorn hats, pirate slang or skull-and-crossbones anywhere.
 
-Nobody is from Earth. Nobody remembers an ancient precursor race. The oldest
-thing in the Reach is a beacon network with a maintenance backlog.
+**Theme.** Paper is power. Ledgers, share certificates, court rulings and letters of marque matter more than guns, and the most dangerous cargo is a document.
 
-### The three regions
+**The three chartered companies.**
 
-Each region has one nebula hue, so a screenshot says where you are.
+- Kessler & Daughters, "the House". The oldest charter. Freight, provisioning and finance. Seat at Countinghouse in the Hallam system, Home Roads. Patient and legalistic: it never fires first and always sues. Livery ivory.
+- The Thirty. A joint-stock company governed by a board of thirty subscribers whose names aren't all public. Mining, refining and heavy shipbuilding. Seat at Quorum in the Vane system, Concessions. Every decision is a vote weighted by shares, and everything is a number. Livery cobalt.
+- The Reprisal Company. Privateers who incorporated. Arms, propellant and salvage. Seat at Barratry in the Landfall system, the Marque. Chartered to "recover losses" from rivals, which in practice means licensed raiding. Swagger, prize money, and a share of every capture for the crew. Livery verdigris.
 
-**The Spine** — secured. The original corridor: the oldest, densest, most
-heavily policed systems, where the refineries and the shipyards are and where
-the Manifest is actually maintained. Margins are thin because everything is
-already efficient. Attacking lawful traffic here makes you wanted, patrols
-respond, and ports close to you until you settle the fine.
-*Nebula: cold steel blue. Lighting: hard and white.*
+Everyone else is either a free captain (players and independent NPCs) or one of the Unlettered: raiders with no letter of marque, which is the only thing that makes them pirates. Their haven is Jettison in the Bitter End system.
 
-**The Slack** — contested. Settled during the boom on the promise that the lanes
-would keep opening. They stopped. Patrols are thin and on a schedule everyone
-knows. Half the infrastructure is mothballed and the other half is run by
-whoever showed up. This is where most of the game's trading happens, because
-this is where prices are wrong.
-*Nebula: pale jade, dusty. Lighting: soft and slightly green.*
+**Neutral institutions.**
 
-**The Tailings** — lawless. The far end, named for what mining leaves behind.
-Real ore, real money, no authority that can reach you in time. The best margins
-in the Reach and the most people willing to take them off you.
-*Nebula: dark rust and sienna, heavily desaturated so it never reads as an
-alert. Lighting: low and warm.*
+- The Bourse, at Parity in the Home Roads: the stock exchange.
+- The Prize Court, at Soundings: rules on captures, posts offenders and collects fines.
+- Underwriters' Hall, at Parity: insures every hull and is itself listed.
+- The Gazette: the news feed.
 
-## Factions
+**Regions and systems.**
 
-Three powers, plus pirates and independents. Each player holds a standing with
-each, which moves on what they actually do and shows up in port access, prices
-and the missions on offer.
+- The Home Roads, secured: Parity, Hallam, Fairlead, Soundings, Mendes, Tolliver.
+- The Concessions, contested, where the companies' grants overlap: Vane, Ostrand, Adeyemi, Banerjee, Offing, Lindqvist, Lee Shore, Narrows.
+- The Marque, lawless: Landfall, Doldrum, Okonjo, Bitter End, Sato's Error, Last Entry.
 
-### The Registry Authority — "the Registry"
+**Vocabulary.**
 
-Keepers of the Manifest. They licence hulls, bond cargo, underwrite insurance
-and run the patrols that make the Spine safe. They are not villains and not
-heroes: they are an institution with a mandate slightly larger than its budget,
-and they would rather fine you than fight you.
+| Plain term (code, data, docs) | What the player reads |
+| --- | --- |
+| credits | marks |
+| stock exchange | the Bourse |
+| commodity market | the Staple |
+| shipyard, ship editor | the Yard, the Loft |
+| blueprint | draught |
+| hangar | the Moorings |
+| mission, mission board | commission, the Factor |
+| news feed | the Gazette |
+| leaderboard | the Register |
+| wanted | posted |
+| fine | composition |
+| ship destroyed | written off |
+| insurance payout | the claim |
+| pirates | the Unlettered |
 
-- **Holds:** the Spine, and the lane beacons everywhere.
-- **Wants:** everything on the register, every fee collected, the lanes open.
-- **Livery:** cold white over blue-grey. Clean paint, stencilled hull numbers.
-- **Voice:** procedural, courteous, immovable. Cites clause numbers.
-- **Likes:** paying fines, delivering bonded cargo, killing pirates.
-- **Dislikes:** smuggling, unlicensed hulls, shooting lawful traffic.
+**Commodities.**
 
-### The Haulers' Compact — "the Compact"
+| Commodity | Tier | Used for |
+| --- | --- | --- |
+| Ore | raw | refined into Alloy |
+| Ice | raw | refined into Propellant; consumed at ports |
+| Grain | raw | made into Provisions |
+| Alloy | refined | hull, armor and structural modules; made into Machinery |
+| Propellant | refined | jump fuel |
+| Provisions | consumer | consumed at every port |
+| Machinery | manufactured | engines and reactors; consumed at ports |
+| Circuitry | manufactured | bridges, turrets, shield generators |
+| Ordnance | manufactured | missile ammunition; weapon modules |
+| Leaf | luxury | a mild stimulant grown only in the Marque and consumed in the Home Roads; the high-margin long haul |
 
-A mutual-aid league of freight crews, refinery towns and port locals that grew
-out of a strike fund. It is the closest thing the Reach has to a labour power:
-it cannot licence anything, but it can decide your cargo does not get unloaded.
+**Monopolies.** In the Home Roads each company holds a monopoly on one good: Kessler on Leaf, the Thirty on Alloy, Reprisal on Ordnance. Carrying a monopoly good there without good standing with its holder is smuggling. Patrols scan, and being caught means confiscation and a composition. There are no other illegal goods.
 
-- **Holds:** the Slack, in practice if not on paper.
-- **Wants:** freight rates that keep crews fed, and no single power over the lanes.
-- **Livery:** deep olive and brass. Repainted panels, visible weld seams.
-- **Voice:** direct, dry, first-person plural. Says what a job pays.
-- **Likes:** hauling into shortages, escorting freighters, hurting pirates.
-- **Dislikes:** blockades, running empty routes dry, Registry enforcement actions.
+**Letters of marque.** A captain in good standing can buy a letter from a company at its seat. While it's held, attacking the other two companies' ships outside the Home Roads doesn't get the captain posted, and prize cargo sells at a premium at the issuer's ports. Only cargo scooped from a destroyed ship counts as prize cargo, and the premium stays below the share of cargo lost when a ship is destroyed, so a capture staged between friends loses money. A player holding a letter counts as that company's ship for this rule. Holding one costs standing with the other two companies, and it lapses if standing with the issuer falls.
 
-### The Tailings Combine — "the Combine"
+**Listed companies.**
 
-Not a company: an assembly of frontier claim-holders who pooled enough guns to
-run their own courts. They honour the Manifest exactly as far as it is
-convenient, which is further than the Registry believes and less far than they
-claim.
+| Ticker | Company | Parent | Sector | Earns from |
+| --- | --- | --- | --- | --- |
+| KSC | Kessler Carriage | Kessler & Daughters | Freight | freight delivered in the Home Roads and Concessions |
+| DPR | Daughters' Provision | Kessler & Daughters | Agriculture | Grain, Provisions and Leaf leaving its ports |
+| HRC | Home Roads Chandlery | Kessler & Daughters | Ship fittings | its modules (bridges, hull, cargo bays, tanks) and Circuitry leaving its ports |
+| TLY | Tally Extraction | The Thirty | Mining | Ore and Ice leaving its ports |
+| TFA | Thirtyfold Alloy | The Thirty | Refining | Alloy and Machinery leaving its ports |
+| SLP | Slipway Thirty | The Thirty | Heavy yards | its modules (reactors, engines, thrusters, armor) |
+| RPO | Reprisal Ordnance | The Reprisal Company | Arms | its modules (weapons, turrets, racks, shield generators) and Ordnance leaving its ports |
+| MQP | Marque Propellant | The Reprisal Company | Fuel | Propellant leaving its ports |
+| PZS | Prize & Salvage | The Reprisal Company | Frontier freight | freight delivered in the Marque, and salvage |
+| UWH | Underwriters' Hall | independent | Insurance | premiums less claims |
 
-- **Holds:** the Tailings.
-- **Wants:** to be left alone with the ore, and to be taken seriously.
-- **Livery:** rust and sun-bleached sienna, hand-painted claim marks.
-- **Voice:** blunt, proud, slightly chippy about the Spine.
-- **Likes:** mining, smuggling past Registry inspection, frontier bounties.
-- **Dislikes:** Registry patrols, interference in claims.
+**Naming.**
 
-### Pirates
+- Systems are surveyors' and investors' surnames or plain words, as listed above.
+- Ports are terms from shipping, law and finance. Fixed: Countinghouse, Quorum, Barratry, Jettison, the Bourse, the Prize Court. Assign the rest from this bank: Demurrage, Lading, Tare, Bottomry, Ullage, Tontine, Agio, Specie, Salvage, Cabotage, Lazaret, Careenage, Chandlery, Ropewalk, Supercargo, Drawback, Entrepôt, Flotsam, Average, Manifest, Tret, Dunnage, Ballast, Stowage, Respondentia, Lien, Escrow, Tariff.
+- Ships are named with legal, insurance and accounting phrases or plain commercial optimism: Without Prejudice, Force Majeure, Fair Wear and Tear, Errors and Omissions, Net of Fees, Third Dividend, Prudent Return, Act of God, Mrs. Kessler's Patience.
+- People have surnames from many trading diasporas, mixed freely with given names: van der Meer, Adeyemi, Leung, Mehta, Carvalho, Bello, Sarkissian, Whitlock. There are no titles of nobility. Titles are offices: Factor, Supercargo, Underwriter, Subscriber, Master, Assessor.
+- Modules are named by maker and plain function, like a parts catalog: "Slipway Thirty Mk II Reactor".
 
-Not an organisation. Crews who came off the Manifest, by choice or by
-foreclosure, and now take tonnage instead of contracts. They are thickest in the
-Tailings, opportunistic in the Slack, and in the Spine they are a story.
-Standing with pirates exists and can be built, and it costs you everywhere else.
+**Voice.**
 
-- **Livery:** no livery. Mismatched panels, stripped identification.
-- **Voice:** terse, mocking, never theatrical.
+- Dry, exact and institutional. Understatement over drama. The world is not impressed by the player.
+- Humor comes from bureaucracy applied to violence and is never signposted. No punchlines, no exclamation marks, no winking at the reader.
+- Plain modern English with period institutional nouns. No archaic grammar, no technobabble, no chosen-one framing.
+- Port descriptions run two or three sentences with one concrete physical detail and one economic fact.
+- Gazette headlines are subject, verb, consequence. Semicolons are welcome.
+- System messages carry the voice too.
 
-### Independents
+Samples to match:
 
-Everyone unaffiliated: owner-operators, survey crews, mothballed-depot
-caretakers. No territory, no fleet, no agenda. They set the baseline the other
-standings are measured against and they are who most missions are for.
+- Port: "Demurrage began as a holding orbit for ships waiting on Hallam's inspectors and became a town when the queue never cleared. Everything here is priced by the hour. Kessler Carriage keeps its largest provisioning depot on the ring."
+- Headline: "Kessler Carriage cuts dividend after third convoy lost off Vane; Unlettered suspected."
+- Headline: "Thirty votes to reopen Ostrand diggings; Tally Extraction up on the count."
+- Commission: "The Factor at Lading requires forty units of Machinery at Quorum within two days. Payment on delivery, less the Factor's fee. Late delivery will be noted."
+- Rejected purchase: "The Staple declines. You are 1,240 marks short."
+- Death: "Written off at Bitter End. Underwriters' Hall has settled your claim for 18,400 marks and wishes you a more careful year."
+- Wanted: "The Prize Court has posted you. Composition is set at 6,000 marks, payable at any port that will still have you."
 
-## Corporations
+**The three chains.** Each runs five to seven commissions, is playable solo, and teaches one region.
 
-Ten listed companies back the stock exchange; each module's manufacturer is one
-of them. They are commercial entities, not powers: they own assets and report
-earnings, and the factions regulate them. Sectors, per the spec, are mining,
-refining, shipyards, arms, freight, fuel, agriculture and insurance.
+1. Kessler, "The Daughters' Audit". Old Mrs. Kessler has died and her will leaves the House to "my daughters". Seven women have filed claims. The player is hired as a discreet courier, carrying sealed ledgers between Home Roads ports while rival claimants try to intercept them. The ledgers turn out to show that the House has paid its dividend out of new deposits for a decade. Final choice: deliver them to the Prize Court or to the eldest daughter.
+2. The Thirty, "Subscriber Thirty-One". A subscriber has died in the Concessions and the bearer certificate for the seat is missing. The player traces it through a wreck, a salvage auction and the haven at Jettison, with Reprisal agents after the same paper. Whoever holds the certificate holds the seat, and the board would rather buy it back than admit that. Final choice: sell it to the Thirty or to the Reprisal Company.
+3. Reprisal, "Prize Money". The player flies with a Reprisal captain taking prizes in the Marque. The Prize Court rules one capture unlawful, because the ship belonged to a Kessler subsidiary flying false papers, and freezes the crew's shares. The player runs evidence, breaks a blockade at Landfall and is called as a witness. Final choice: testify truthfully or perjure for the crew.
 
-Names follow the Reach's own convention: a founder's surname, a surname pair, or
-a plain descriptive noun. Never an acronym, never a word with an X or a Z in it,
-never "Corp", "Industries" or "Dynamics".
+Endings change standing and rewards and post a Gazette item. Any market effect is small, temporary and capped per completion, and invariant 6 still holds.
 
-Authored in full with the content data set; the exchange milestone owns the list.
+---
 
-## Naming rules
+# Extensions
 
-Consistency here is what makes twenty systems feel like one place.
+Authored detail, added as content is written. Everything here follows the rules
+above. Each entry names where it is used, so nothing drifts out of sync with the
+data.
 
-**Systems.** Named by the survey crews that charted them and the freight crews
-that used them. Draw from: surveyor surnames (*Hadley's Pass*, *Coldharbour*),
-plain geography borrowed from shipping (*Narrows*, *Longwall*, *Cinder Flat*),
-and lane-era shorthand that stuck (*Ninth Mile*, *Transfer*). One or two words.
+## Port assignments
 
-**Ports.** Industrial and maritime toponyms, or a function plus a number.
-*Drydock Seven*, *Marrow Station*, *Bonded Yard*, *Fallow*. A port's name should
-hint at what it does.
+The spec fixes six port names and gives a bank to draw the rest from. Ports are
+assigned to systems as the galaxy data is authored in M3; this table is the
+record, so a name is never used twice.
 
-**Modules.** `Manufacturer + model + plain-English function`, e.g. *Kessler-Voss
-T3 Mainspar*, *Brightwater 40kN Thruster*, *Ardent Pattern-9 Cargo Bay*. The
-function is always a real word a dockworker would use. No "Mk." and no Roman
-numerals.
+| Port | System | Region | Owner | Status |
+|---|---|---|---|---|
+| Countinghouse | Hallam | Home Roads | Kessler & Daughters | Fixed by the spec: the House's seat |
+| the Bourse | Parity | Home Roads | neutral | Fixed by the spec: the stock exchange |
+| Underwriters' Hall | Parity | Home Roads | neutral | Fixed by the spec: insurance |
+| the Prize Court | Soundings | Home Roads | neutral | Fixed by the spec |
+| Quorum | Vane | Concessions | The Thirty | Fixed by the spec: the Thirty's seat |
+| Barratry | Landfall | the Marque | The Reprisal Company | Fixed by the spec: Reprisal's seat |
+| Jettison | Bitter End | the Marque | the Unlettered | Fixed by the spec: their haven |
 
-**Ships and blueprints.** NPC hull classes take working-vessel names: *Drayman*,
-*Thresher*, *Collier*, *Pilot Cutter*, *Longshoreman*. Players name their own.
+*(The remaining ports are assigned from the spec's bank when the galaxy data is
+authored. Unused names stay in the bank.)*
 
-**Never use:** apostrophes mid-word (*Zyx'thar*), Greek-letter designations
-(*Alpha Centauri III*), "Prime", "Nexus", "Citadel", "Sector 7", honorifics for
-ships, or anything that sounds like a fantasy kingdom. If a name would suit a
-space opera about a chosen one, it is wrong for this game.
+## Writing checklist
 
-## Writing voice
+Before any player-facing string ships, it passes these:
 
-The register is a working shipping industry: people who move freight for a
-living, writing for each other.
-
-- **Plain and specific.** Concrete nouns, working verbs. "The refinery takes ore
-  and pays late" beats "a hive of industry".
-- **Understated.** No exclamation marks. No sentence ends in a flourish. The
-  world is interesting; the prose does not need to insist.
-- **Dry, not jokey.** Humour comes from bureaucratic friction and crew
-  fatalism — a form that exists for a cargo that does not — never from gags or
-  winks at the player.
-- **Second person, present tense** for anything instructional: "You are cleared
-  to the inner berth." Third person for descriptions of places.
-- **Short.** A port description is two or three sentences. A mission brief is
-  what a dispatcher would actually type.
-- **No lore dumps.** The setting arrives through prices, fines, repair bills and
-  the things people complain about.
-
-**Avoid:** "ancient", "mysterious", "forbidden", "legendary", "the galaxy",
-"destiny", "unleash", "epic". Avoid any second-person flattery of the player
-("Only you can..."). Avoid contractions in Registry text and prefer them in
-Compact and Combine text — that contrast is most of the factions' accent.
-
-### Examples of the voice
-
-> **Coldharbour.** Four refineries, one of them running. The berths are sized for
-> the traffic the lane was supposed to carry, so docking is easy and the bars are
-> empty.
-
-> **Registry notice.** Your hull is not on the register for this class. Operation
-> is permitted for ninety days under clause 14, after which the berth fee
-> triples. We would rather you simply filed.
-
-> **Compact dispatch.** Marrow is short on feed grain and the usual hauler blew a
-> reactor at Ninth Mile. Pays over the board rate because it has to.
+- Uses the in-world term, not the plain one: marks, not credits; the Staple, not
+  the commodity market; draught, not blueprint.
+- No exclamation marks. No second-person flattery. The world is not impressed by
+  the player.
+- Port descriptions: two or three sentences, one concrete physical detail, one
+  economic fact.
+- Gazette headlines: subject, verb, consequence. Semicolons are welcome.
+- No archaic grammar, no technobabble, no chosen-one framing.
+- Nothing nautical or piratical: no sails, parchment, tricorns, pirate slang,
+  skulls. The 1600s are in the institutions, not the props.

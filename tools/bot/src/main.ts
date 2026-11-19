@@ -27,7 +27,9 @@ interface RunnerOptions {
 
 function parseOptions(argv: readonly string[]): RunnerOptions {
   const { values } = parseArgs({
-    args: [...argv],
+    // `pnpm run x -- --flag` forwards the bare `--` separator, which Node's
+    // parseArgs reads as end-of-options. Drop it.
+    args: argv.filter((arg) => arg !== '--'),
     options: {
       endpoint: { type: 'string', default: 'ws://127.0.0.1:2567' },
       bots: { type: 'string', default: '2' },
@@ -44,11 +46,11 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
   if (!Number.isFinite(seconds) || seconds <= 0) throw new Error(`--seconds must be positive`);
 
   return {
-    endpoint: values.endpoint!,
+    endpoint: values.endpoint,
     bots,
     seconds,
-    brain: values.brain!,
-    systemId: values.system!,
+    brain: values.brain,
+    systemId: values.system,
     quiet: values.quiet === true,
   };
 }

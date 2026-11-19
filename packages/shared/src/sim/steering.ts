@@ -36,7 +36,7 @@ export function turnToward(
     // Already going to arrive or overshoot: kill the rotation.
     return -sign(body.angVel) as -1 | 1;
   }
-  return sign(error) as -1 | 0 | 1;
+  return sign(error);
 }
 
 /** True when the ship is pointed close enough to `targetAngle` to burn. */

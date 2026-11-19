@@ -1,0 +1,166 @@
+/** Boot screen layout. Tokens only: no literal colours or durations. */
+
+.boot {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--space-3);
+  background:
+    radial-gradient(
+      ellipse 120% 80% at 50% 0%,
+      color-mix(in srgb, var(--nebula-home-roads) 22%, transparent),
+      transparent 70%
+    ),
+    var(--void);
+}
+
+.boot__frame {
+  width: min(560px, 100%);
+  animation: boot-rise var(--motion-slow) var(--ease-emphasis);
+}
+
+@keyframes boot-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot__frame {
+    animation-name: boot-fade;
+  }
+
+  @keyframes boot-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+.boot__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+}
+
+.boot__title {
+  font-size: var(--size-display);
+  line-height: var(--leading-display);
+  letter-spacing: 0.01em;
+}
+
+.boot__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.boot__badge--ok {
+  color: var(--amber);
+}
+
+.boot__badge--wait {
+  color: var(--text-muted);
+}
+
+.boot__badge--bad {
+  color: var(--danger);
+}
+
+.boot__body {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 132px;
+  padding: var(--space-3) var(--space-2);
+  align-content: start;
+}
+
+.boot__message {
+  color: var(--text-secondary);
+}
+
+.boot__failure {
+  display: grid;
+  gap: var(--space-1-5);
+  justify-items: start;
+}
+
+.boot__detail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
+  background: var(--inset);
+  border-left: 2px solid var(--danger-dim);
+}
+
+.boot__detail-label {
+  flex: none;
+  color: var(--text-disabled);
+}
+
+.boot__detail-text {
+  color: var(--text-muted);
+  font-size: var(--size-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.boot__roster {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.boot__roster th,
+.boot__roster td {
+  padding: var(--space-1) var(--space-1-5);
+  text-align: left;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.boot__roster th {
+  border-bottom-color: var(--rule-strong);
+}
+
+.boot__roster-num {
+  text-align: right;
+}
+
+.boot__roster tr.is-self td {
+  background: var(--amber-wash);
+  color: var(--text-primary);
+}
+
+.boot__you {
+  margin-left: var(--space-1);
+  color: var(--amber);
+}
+
+.boot__footer {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-1-5) var(--space-2);
+  background: var(--raised);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.boot__field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.boot__field-value {
+  color: var(--text-secondary);
+  font-size: var(--size-body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

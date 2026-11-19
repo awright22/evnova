@@ -14,14 +14,18 @@ game: no names, text, art or audio.
 
 ## Fonts
 
-*None vendored yet. Fonts land with the first interface work in M1.*
-
-Planned, both self-hosted from `@fontsource` packages:
+Vendored through `@fontsource` packages and served from our own build output;
+nothing loads from a third-party URL at runtime. Licences confirmed at the
+registry on 2026-11-19.
 
 | Asset | Author | Source | Licence |
 |---|---|---|---|
-| IBM Plex Sans | IBM / Bold Monday | `@fontsource/ibm-plex-sans` | OFL 1.1 |
-| Barlow Condensed | Jeremy Tribby | `@fontsource/barlow-condensed` | OFL 1.1 |
+| IBM Plex Sans | IBM / Bold Monday | `@fontsource/ibm-plex-sans` 5.3.0 | OFL 1.1 |
+| IBM Plex Sans Condensed | IBM / Bold Monday | `@fontsource/ibm-plex-sans-condensed` 5.3.0 | OFL 1.1 |
+| EB Garamond | Georg Duffner, Octavio Pardo | `@fontsource/eb-garamond` 5.3.0 | OFL 1.1 |
+
+Only the Latin subsets are imported. EB Garamond is loaded only where in-world
+documents render.
 
 ## Audio
 

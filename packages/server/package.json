@@ -1,5 +1,5 @@
 {
-  "name": "@manifest/server",
+  "name": "@marque/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "@colyseus/core": "^0.18.29",
     "@colyseus/schema": "^5.0.50",
     "@colyseus/tools": "^0.18.11",
-    "@manifest/shared": "workspace:*",
+    "@marque/shared": "workspace:*",
     "colyseus": "^0.18.12",
     "zod": "^4.6.7"
   },

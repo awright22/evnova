@@ -7,7 +7,7 @@
  */
 
 import type { BotBrain, BotView } from '../bot.ts';
-import type { ShipInput } from '@manifest/shared';
+import type { ShipInput } from '@marque/shared';
 
 export function circleBrain(direction: -1 | 1 = 1): BotBrain {
   return {

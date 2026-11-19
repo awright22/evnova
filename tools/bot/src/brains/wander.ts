@@ -6,9 +6,9 @@
  * seeded generator so a soak run reproduces exactly.
  */
 
-import { Rng, seekPoint } from '@manifest/shared';
+import { Rng, seekPoint } from '@marque/shared';
 import type { BotBrain, BotView } from '../bot.ts';
-import type { ShipInput } from '@manifest/shared';
+import type { ShipInput } from '@marque/shared';
 
 export interface WanderOptions {
   readonly seed: string;

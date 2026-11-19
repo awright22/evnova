@@ -1,7 +1,7 @@
 /**
  * Server entry point.
  *
- * Start with `pnpm dev` (watch mode) or `pnpm --filter @manifest/server start`
+ * Start with `pnpm dev` (watch mode) or `pnpm --filter @marque/server start`
  * against a production build. Set `COLYSEUS_LATENCY` to a round-trip
  * millisecond figure to exercise the netcode under simulated latency; the
  * framework reads it and delays both directions.
@@ -17,7 +17,7 @@ const started = await listen(server, config.port);
 const latency = process.env.COLYSEUS_LATENCY;
 console.log(
   [
-    `Manifest server listening on :${config.port}`,
+    `Marque server listening on :${config.port}`,
     `  environment    ${config.nodeEnv}`,
     `  origins        ${config.allowedOrigins.length > 0 ? config.allowedOrigins.join(', ') : 'any (development)'}`,
     `  invite gate    ${config.inviteCode ? 'on' : 'off'}`,

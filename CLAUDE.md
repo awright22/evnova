@@ -1,4 +1,4 @@
-# Space game: project rules
+# Marque: project rules
 
 Persistent multiplayer space trading and combat game for a small private group. TypeScript monorepo: static web client, authoritative game server, shared simulation code.
 
@@ -7,7 +7,7 @@ Persistent multiplayer space trading and combat game for a small private group. 
 - `docs/PROGRESS.md`: milestone checklist and current state. Update it in the same commit that completes an item.
 - `docs/DESIGN.md`: architecture and a dated decision log, one or two lines per decision.
 - `docs/ART_DIRECTION.md`: palette, type, motion, effects and audio rules, the feedback table, and the running list of looks to avoid.
-- `docs/LORE.md`: setting, factions, naming rules, writing voice.
+- `docs/LORE.md`: the setting from spec section 19, extended as content is authored.
 - `docs/HUMAN_TODO.md`: things only the owner can do, with exact steps.
 - `docs/IDEAS.md`: ideas outside the spec. Park them here instead of building them.
 - `CREDITS.md`: every third-party asset and its license.
@@ -67,6 +67,8 @@ Run servers as background processes and stop them when you're done with them. A 
 - If you see a better way to implement something, take it and log why.
 - If you want to change the game design or add a system, write it in `docs/IDEAS.md` and build the spec as written.
 - The spec lists non-goals. Don't build them.
+- Taste is fixed by spec sections 4 and 19: setting, names, vocabulary, voice, palette, typefaces. Extend them in the same voice. Don't replace them or add factions or institutions.
+- Player-facing text uses the in-world vocabulary. Code, data keys and docs use the plain terms.
 
 ## Subagents
 - Delegate only large, independent tracks that can run in parallel: authoring a content data set, sourcing and processing audio, building an interface screen while you work on the server.

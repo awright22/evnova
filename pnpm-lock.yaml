@@ -38,7 +38,16 @@ importers:
       '@colyseus/sdk':
         specifier: ^0.18.10
         version: 0.18.10(@colyseus/core@0.18.29)(typescript@7.0.2)(zod@4.6.7)
-      '@manifest/shared':
+      '@fontsource/eb-garamond':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/ibm-plex-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/ibm-plex-sans-condensed':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@marque/shared':
         specifier: workspace:*
         version: link:../shared
       pixi.js:
@@ -75,7 +84,7 @@ importers:
       '@colyseus/tools':
         specifier: ^0.18.11
         version: 0.18.11(@colyseus/core@0.18.29)(@colyseus/ws-transport@0.18.5)
-      '@manifest/shared':
+      '@marque/shared':
         specifier: workspace:*
         version: link:../shared
       colyseus:
@@ -103,22 +112,22 @@ importers:
       '@colyseus/sdk':
         specifier: ^0.18.10
         version: 0.18.10(@colyseus/core@0.18.29)(typescript@7.0.2)(zod@4.6.7)
-      '@manifest/shared':
+      '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
 
   tools/perf:
     dependencies:
-      '@manifest/bot':
+      '@marque/bot':
         specifier: workspace:*
         version: link:../bot
-      '@manifest/shared':
+      '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
 
   tools/shots:
     dependencies:
-      '@manifest/shared':
+      '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
     devDependencies:
@@ -128,10 +137,10 @@ importers:
 
   tools/soak:
     dependencies:
-      '@manifest/bot':
+      '@marque/bot':
         specifier: workspace:*
         version: link:../bot
-      '@manifest/shared':
+      '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
 
@@ -478,6 +487,15 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@fontsource/eb-garamond@5.3.0':
+    resolution: {integrity: sha512-VplwHpB8FLuzl+4G5LDci1b3Z4SghiuXH8XEgaxjnOb5aue5mEt1njmDKeO6iyLeGa73LffU7PC7hzncLRx0ZA==}
+
+  '@fontsource/ibm-plex-sans-condensed@5.3.0':
+    resolution: {integrity: sha512-fQyBpwbkguP4azjq7Cw8h/J3C/d8MFAzXOiSoFxyKCUK4x0XKrWEh3tGdTxhDM0HctVRQilQo1zGoyxDHLm5jQ==}
+
+  '@fontsource/ibm-plex-sans@5.3.0':
+    resolution: {integrity: sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2314,6 +2332,12 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@fontsource/eb-garamond@5.3.0': {}
+
+  '@fontsource/ibm-plex-sans-condensed@5.3.0': {}
+
+  '@fontsource/ibm-plex-sans@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

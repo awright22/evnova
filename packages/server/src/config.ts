@@ -22,7 +22,7 @@ const schema = z.object({
   ALLOWED_ORIGINS: z.string().default(''),
 
   /** SQLite file, or any connection string the database layer understands. */
-  DATABASE_URL: z.string().default('./data/manifest.db'),
+  DATABASE_URL: z.string().default('./data/marque.db'),
 });
 
 const parsed = schema.safeParse(process.env);

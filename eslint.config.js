@@ -44,8 +44,13 @@ export default tseslint.config(
     rules: { 'no-restricted-globals': 'off' },
   },
   {
+    // Build scripts and flat-config files are plain Node modules: no type-aware
+    // rules, and the Node globals they genuinely use.
     files: ['**/*.mjs', 'eslint.config.js', '**/*.config.ts'],
-    languageOptions: { globals: { ...globals.node } },
     ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: { ...globals.node },
+    },
   },
 );

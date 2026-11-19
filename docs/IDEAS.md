@@ -1,76 +1,78 @@
 # Ideas
 
 Parked ideas that are outside `docs/SPEC.md`. Nothing here gets built without a
-scope decision from the owner; the spec as written comes first.
+scope decision from the owner; the spec as written comes first. Ideas that would
+add a faction, an institution, a currency or a tonal register are not parked —
+they are out, because section 19 fixes those.
 
 Each entry says what it is, why it is tempting, and what it would cost.
 
 ---
 
-## Economy and exchange
+## Economy and the Bourse
 
-**Insurance that prices risk per pilot.** The insurer currently charges a flat
-premium baked into the hull cost. It could price on your actual loss history and
-the security level you fly in, which would make the Tailings feel expensive in a
-way players feel in their wallet rather than read in a tooltip.
+**Underwriters' Hall prices risk per captain.** The insurer currently charges a
+flat premium baked into the hull cost. It could rate on your actual loss history
+and the security of the regions you fly in, so the Marque feels expensive in the
+wallet rather than in a tooltip. Fits the setting exactly: the insurer is a
+listed company that would obviously do this.
 *Cost: a rating table and a premium recalculation on each build. Small.*
 
-**Commodity futures.** Lock a price now for delivery later. Would give traders
-something to do with capital other than shares, and would let a player hedge a
-long haul.
-*Cost: a new order type, settlement logic, and a sixth invariant family. Medium,
-and a real exploit surface — it needs the soak bots before it ships.*
+**Bottomry loans.** Borrow against a hull for a voyage, repay on return, lose
+nothing but the hull if you are written off. The word is already in the spec's
+port-name bank, and it is the period-accurate financing instrument for exactly
+this game.
+*Cost: medium. A loan ledger, a default path, and care that it cannot be used
+to launder marks past invariant 4.*
 
-**Published corporate reports.** A quarterly statement per corporation, in the
-Registry's procedural voice, listing the earning events the exchange already
-tracks. Pure presentation over data that exists, and very much the setting's
-register.
+**Published company accounts.** A periodic statement per listed company, in the
+Gazette's voice, itemising the earning events the exchange already tracks. Pure
+presentation over data that exists, and very much the setting's register.
 *Cost: small. Mostly writing.*
 
 ---
 
 ## World and content
 
-**Lane maintenance as a visible system.** The beacons have a maintenance
-backlog in the lore. Lanes could degrade, raising fuel cost or jump spool time
-until someone funds repairs — a credit sink with a visible consequence.
-*Cost: per-lane state, a funding mechanism, and tuning so it never strands a
-new player. Medium.*
+**Demurrage.** Ports charge by the hour for a berth held too long. A small sink
+that rewards decisiveness and is named for a port already in the bank.
+*Cost: small, but it risks punishing a player who walks away mid-session.
+Would need a generous free window.*
 
-**Derelicts.** A destroyed ship's wreck persists as a scannable hulk for a
-while, with a chance of salvage. Reinforces that the Reach is full of
-half-finished and abandoned infrastructure.
-*Cost: small on top of the debris work in M2, but it needs a scanning verb.*
+**Salvage rights as paper.** A wreck is not just cargo: the right to salvage it
+could be a document, issued by the Prize Court and tradeable between captains.
+Leans hard into "paper is power".
+*Cost: medium. Needs the wreck persistence below, plus a transfer path.*
 
-**Crew as a consumable.** Hiring crew to raise a ship's effective stats, paid
-per jump. A recurring sink that scales with ship size.
-*Cost: medium, and it competes with modules for the same design space.*
+**Wrecks that persist.** A written-off ship leaves a scannable hulk for a while,
+with a chance of salvage. Reinforces that violence here is an insurance event
+with a paper trail.
+*Cost: small on top of M2's debris work, but it needs a scanning verb.*
 
 ---
 
 ## Ships and combat
 
-**Module wear.** Modules degrade with use and need servicing, not just repair
-after damage. Would make the dock a routine stop rather than an emergency one.
-*Cost: per-module durability state and a service UI. Medium. Risks feeling like
-a chore — would need to be cheap and batched.*
+**Module wear.** Modules degrade with use and need servicing, not only repair
+after damage. Would make the Yard a routine stop rather than an emergency one.
+*Cost: medium. Risks feeling like a chore; would need to be cheap and batched.*
 
-**Blueprint versioning.** Keep a history per blueprint so a player can diff and
-roll back a refit. A small quality-of-life win for the editor.
-*Cost: small, once blueprints are stored.*
+**Draught versioning.** Keep a history per draught so a captain can diff and roll
+back a refit.
+*Cost: small, once draughts are stored.*
 
 ---
 
 ## Social
 
-**A shared fleet ledger.** Fleets could hold a common purse with per-member
-draw limits, for groups saving toward a capital hull.
-*Cost: medium, and it needs care to stay inside the ledger invariant.*
+**A fleet's common purse.** Fleets could hold a shared account with per-member
+draw limits, for groups saving toward a Capital Charter.
+*Cost: medium, and it needs care to stay inside invariant 4.*
 
-**Asynchronous contracts between players.** Post a haul, another player fills
-it, the Manifest escrows the payment. Real player-to-player economy without
-needing both online.
-*Cost: medium-large. Escrow plus expiry plus abuse handling.*
+**Commissions posted between captains.** Post a haul, another captain fills it,
+the Factor escrows the payment. A real player-to-player economy that does not
+need both online.
+*Cost: medium-large. Escrow, expiry and abuse handling.*
 
 ---
 

@@ -1,13 +1,17 @@
 {
-  "name": "@manifest/bot",
+  "name": "@marque/bot",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/bot.ts",
+    "./*": "./src/*"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@manifest/shared": "workspace:*",
+    "@marque/shared": "workspace:*",
     "@colyseus/sdk": "^0.18.10"
   }
 }
