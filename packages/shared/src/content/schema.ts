@@ -49,6 +49,28 @@ const Footprint = z.object({
   height: z.int().min(1).max(8),
 });
 
+/** What a weapon module does. Only weapon, turret and rack modules carry one. */
+export const WeaponDef = z.object({
+  /** Damage per round, before shields. */
+  damage: z.number().positive(),
+  roundsPerSecond: z.number().positive(),
+  /** Muzzle velocity in units per second. */
+  projectileSpeed: z.number().positive(),
+  /** Maximum distance a round travels before it expires. */
+  range: z.number().positive(),
+  /** Random angular spread in radians, applied from a seeded generator. */
+  spread: z.number().min(0).default(0),
+  /** Turrets only: half-arc the mount can traverse, in radians. */
+  arc: z.number().positive().optional(),
+  /** Turrets only: traverse rate in radians per second. */
+  tracking: z.number().positive().optional(),
+  /** Racks only: turn rate of the round, in radians per second. */
+  homing: z.number().positive().optional(),
+  /** Racks only: units of Ordnance each shot consumes. */
+  ammoPerShot: z.int().positive().optional(),
+});
+export type WeaponDef = z.infer<typeof WeaponDef>;
+
 /**
  * A module definition.
  *
@@ -82,6 +104,7 @@ export const ModuleDef = z
     shieldCapacity: z.number().positive().optional(),
     shieldRegen: z.number().positive().optional(),
     shieldDelay: z.number().positive().optional(),
+    weapon: WeaponDef.optional(),
   })
   .refine((m) => (m.type === 'engine') === (m.thrust !== undefined), {
     message: 'engines must declare thrust, and only engines may',
@@ -106,6 +129,18 @@ export const ModuleDef = z
   .refine((m) => (m.type === 'reactor') === (m.power.output !== undefined), {
     message: 'reactors must declare power output, and only reactors may',
     path: ['power', 'output'],
+  })
+  .refine(
+    (m) => (m.type === 'weapon' || m.type === 'turret' || m.type === 'rack') === (m.weapon !== undefined),
+    { message: 'only weapons, turrets and racks declare weapon stats, and all of them must', path: ['weapon'] },
+  )
+  .refine((m) => m.type !== 'turret' || m.weapon?.arc !== undefined, {
+    message: 'a turret must declare the arc it can traverse',
+    path: ['weapon', 'arc'],
+  })
+  .refine((m) => m.type !== 'rack' || m.weapon?.homing !== undefined, {
+    message: 'a missile rack must declare its rounds\' homing rate',
+    path: ['weapon', 'homing'],
   });
 export type ModuleDef = z.infer<typeof ModuleDef>;
 

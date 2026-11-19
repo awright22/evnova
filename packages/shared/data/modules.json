@@ -224,6 +224,98 @@
       "shieldRegen": 26,
       "shieldDelay": 4.5,
       "description": "Reprisal sells it as recovery of losses. It is a bubble."
+    },
+    {
+      "id": "rpo-gun-1",
+      "name": "Reprisal Ordnance Mk I Fixed Gun",
+      "type": "weapon",
+      "manufacturer": "RPO",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 3,
+      "hitPoints": 60,
+      "cost": 3200,
+      "bom": {
+        "ordnance": 4,
+        "alloy": 2
+      },
+      "power": {
+        "draw": 4
+      },
+      "weapon": {
+        "damage": 14,
+        "roundsPerSecond": 3,
+        "projectileSpeed": 900,
+        "range": 1400,
+        "spread": 0.012
+      },
+      "description": "Fires where the hull points. Cheap, accurate and entirely the pilot's problem."
+    },
+    {
+      "id": "rpo-turret-1",
+      "name": "Reprisal Ordnance Mk I Turret",
+      "type": "turret",
+      "manufacturer": "RPO",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 6,
+      "hitPoints": 85,
+      "cost": 7400,
+      "bom": {
+        "ordnance": 6,
+        "circuitry": 5,
+        "alloy": 3
+      },
+      "power": {
+        "draw": 7
+      },
+      "weapon": {
+        "damage": 11,
+        "roundsPerSecond": 2.5,
+        "projectileSpeed": 800,
+        "range": 1200,
+        "spread": 0.02,
+        "arc": 3.14159,
+        "tracking": 2.2
+      },
+      "description": "Tracks the mark within its arc. Heavier than the gun and worth it on a hull that cannot turn."
+    },
+    {
+      "id": "rpo-rack-1",
+      "name": "Reprisal Ordnance Pattern 2 Missile Rack",
+      "type": "rack",
+      "manufacturer": "RPO",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 4,
+      "hitPoints": 50,
+      "cost": 5600,
+      "bom": {
+        "ordnance": 8,
+        "alloy": 3
+      },
+      "power": {
+        "draw": 3
+      },
+      "weapon": {
+        "damage": 58,
+        "roundsPerSecond": 0.5,
+        "projectileSpeed": 380,
+        "range": 2600,
+        "spread": 0.0,
+        "homing": 2.6,
+        "ammoPerShot": 1
+      },
+      "description": "Carries Ordnance and spends it. A rack with an empty magazine is ballast."
     }
   ]
 }

@@ -20,6 +20,10 @@ export const ShipInput = schema(
     thrust: t.uint8<0 | 1>().default(0),
     /** Turn retrograde and burn to a stop. */
     brake: t.boolean().default(false),
+    /** Fire fixed guns and turrets. */
+    firePrimary: t.boolean().default(false),
+    /** Fire missile racks. */
+    fireSecondary: t.boolean().default(false),
   },
   'ShipInput',
 );

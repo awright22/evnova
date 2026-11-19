@@ -12,6 +12,7 @@ export * from './sim/timing.ts';
 export * from './sim/profile.ts';
 export * from './sim/flight.ts';
 export * from './sim/steering.ts';
+export * from './sim/combat.ts';
 export * from './content/schema.ts';
 export * from './content/load.ts';
 export * from './ships/geometry.ts';
