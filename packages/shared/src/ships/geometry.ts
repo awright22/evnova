@@ -12,8 +12,14 @@
 
 import type { ModuleDef, Placement, Rotation } from '../content/schema.ts';
 
-/** World units across one grid cell. */
-export const CELL_METRES = 2;
+/**
+ * World units across one grid cell.
+ *
+ * Sets the scale of everything: a six-cell shuttle is 36 units long, which at
+ * the flight view's two pixels per unit reads as a 72px hull, and a ship at its
+ * top speed crosses the screen in about three seconds.
+ */
+export const CELL_METRES = 6;
 
 /** A module placed on the grid, resolved against its definition. */
 export interface PlacedModule {

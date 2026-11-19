@@ -1,13 +1,14 @@
 /**
- * Boot screen.
+ * The application shell.
  *
- * M0's client: establishes the design tokens, connects to the server, and shows
- * the system roster. The flight view replaces the roster in M1; the connection
- * states and the shell around them stay.
+ * Connects to the server, then hands the room to the flight view. Every
+ * failure has a designed state: the interface never shows a white screen or
+ * raw error text.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { FlightView } from './flight/FlightView.tsx';
 import {
   BUILD_VERSION,
   SERVER_URL,
@@ -17,67 +18,43 @@ import {
 } from './net/connection.ts';
 import './styles/boot.css';
 
-interface RosterEntry {
-  readonly sessionId: string;
-  readonly callsign: string;
-  readonly speed: number;
-  readonly isSelf: boolean;
-}
-
 export function App(): React.JSX.Element {
   const [status, setStatus] = useState<ConnectionStatus>({ kind: 'connecting' });
-  const [roster, setRoster] = useState<readonly RosterEntry[]>([]);
   const [attempt, setAttempt] = useState(0);
-  const roomRef = useRef<ConnectionStatus | undefined>(undefined);
+  const current = useRef<ConnectionStatus | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     setStatus({ kind: 'connecting' });
 
-    void connect({ callsign: 'Observer' }).then((result) => {
+    // A draught can be named in the URL, so the contrasting designs can be
+    // flown and compared without a shipyard, which arrives in M5.
+    const params = new URLSearchParams(window.location.search);
+    const blueprint = params.get('draught') ?? undefined;
+    const callsign = params.get('callsign') ?? 'Free Captain';
+
+    void connect({ callsign, ...(blueprint ? { blueprint } : {}) }).then((result) => {
       if (cancelled) {
         if (result.kind === 'connected') void result.room.leave();
         return;
       }
-      roomRef.current = result;
+      current.current = result;
       setStatus(result);
     });
 
     return () => {
       cancelled = true;
-      const current = roomRef.current;
-      if (current?.kind === 'connected') void current.room.leave();
-      roomRef.current = undefined;
+      const open = current.current;
+      if (open?.kind === 'connected') void open.room.leave();
+      current.current = undefined;
     };
   }, [attempt]);
 
-  // Poll the synchronised state for the roster. M1 drives this from the
-  // render loop instead; a 4 Hz read is plenty for a text list.
-  useEffect(() => {
-    if (status.kind !== 'connected') {
-      setRoster([]);
-      return;
-    }
-    const { room } = status;
-    const read = (): void => {
-      const entries: RosterEntry[] = [];
-      room.state.ships.forEach((ship, sessionId) => {
-        entries.push({
-          sessionId,
-          callsign: ship.callsign,
-          speed: Math.hypot(ship.vx, ship.vy),
-          isSelf: sessionId === room.sessionId,
-        });
-      });
-      entries.sort((a, b) => a.callsign.localeCompare(b.callsign));
-      setRoster(entries);
-    };
-    read();
-    const timer = setInterval(read, 250);
-    return () => clearInterval(timer);
-  }, [status]);
-
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
+
+  if (status.kind === 'connected') {
+    return <FlightView room={status.room} />;
+  }
 
   return (
     <main className="boot">
@@ -91,13 +68,11 @@ export function App(): React.JSX.Element {
         </header>
 
         <div className="boot__body">
-          {status.kind === 'connecting' && (
+          {status.kind === 'connecting' ? (
             <p className="boot__message">Opening the link.</p>
+          ) : (
+            <Failure status={status} onRetry={retry} />
           )}
-
-          {status.kind === 'failed' && <Failure status={status} onRetry={retry} />}
-
-          {status.kind === 'connected' && <Roster entries={roster} />}
         </div>
 
         <footer className="boot__footer">
@@ -110,11 +85,8 @@ export function App(): React.JSX.Element {
 }
 
 function StatusBadge({ status }: { status: ConnectionStatus }): React.JSX.Element {
-  const tone =
-    status.kind === 'connected' ? 'ok' : status.kind === 'connecting' ? 'wait' : 'bad';
-  const text =
-    status.kind === 'connected' ? 'Linked' : status.kind === 'connecting' ? 'Linking' : 'No link';
-
+  const tone = status.kind === 'connecting' ? 'wait' : 'bad';
+  const text = status.kind === 'connecting' ? 'Linking' : 'No link';
   return (
     <span className={`boot__badge boot__badge--${tone}`}>
       <span className="dot" />
@@ -145,34 +117,6 @@ function Failure({
         </button>
       )}
     </div>
-  );
-}
-
-function Roster({ entries }: { entries: readonly RosterEntry[] }): React.JSX.Element {
-  if (entries.length === 0) {
-    return <p className="boot__message">Linked. No hulls in this system.</p>;
-  }
-
-  return (
-    <table className="boot__roster">
-      <thead>
-        <tr>
-          <th className="label">Callsign</th>
-          <th className="label boot__roster-num">Speed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {entries.map((entry) => (
-          <tr key={entry.sessionId} className={entry.isSelf ? 'is-self' : undefined}>
-            <td>
-              {entry.callsign}
-              {entry.isSelf && <span className="micro boot__you">you</span>}
-            </td>
-            <td className="boot__roster-num data">{entry.speed.toFixed(0)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
 

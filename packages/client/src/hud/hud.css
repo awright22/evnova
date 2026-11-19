@@ -1,0 +1,157 @@
+/** Cockpit overlay. Anchored to the edges; the middle of the view stays clear. */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
+  padding: var(--space-2);
+  gap: var(--space-2);
+}
+
+.hud__corner {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+
+.hud__corner--tl {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.hud__corner--tr {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.hud__corner--bl {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.hud__corner--br {
+  grid-column: 3;
+  grid-row: 3;
+  align-self: end;
+  justify-self: end;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-half);
+  padding: 0;
+  background: none;
+  border: none;
+  clip-path: none;
+}
+
+.hud__identity {
+  display: grid;
+  gap: 1px;
+}
+
+.hud__callsign {
+  font-family: var(--font-condensed);
+  font-size: var(--size-h2);
+  line-height: var(--leading-h2);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hud__system {
+  display: grid;
+  gap: 1px;
+  justify-items: end;
+}
+
+.hud__system-name {
+  font-family: var(--font-condensed);
+  font-size: var(--size-h3);
+  line-height: var(--leading-h3);
+  font-weight: 600;
+  color: var(--amber);
+  letter-spacing: var(--track-h3);
+  text-transform: uppercase;
+}
+
+.hud__row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.hud__reading {
+  display: grid;
+  gap: 1px;
+}
+
+.hud__reading-value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: var(--size-body);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.hud__unit {
+  color: var(--text-muted);
+}
+
+.hud__speed {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.hud__speed-value {
+  font-size: var(--size-display);
+  line-height: var(--leading-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--amber);
+}
+
+.hud__throttle {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 14px;
+}
+
+.hud__seg {
+  width: 4px;
+  height: 100%;
+  background: var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.hud__seg--lit {
+  background: var(--amber);
+}
+
+.hud__radar {
+  width: 148px;
+  height: 148px;
+  padding: var(--space-half);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+
+.hud__radar-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hud__radar-label {
+  color: var(--text-muted);
+}

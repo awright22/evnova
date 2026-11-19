@@ -70,7 +70,30 @@ export function stepFlight(
   const subSteps = timing.subSteps >= 1 ? timing.subSteps : 1;
   for (let i = 0; i < subSteps; i++) {
     stepFlightOnce(body, cmd, profile, timing.subDt);
+    quantise(body);
   }
+}
+
+/**
+ * Round the body to single precision.
+ *
+ * The synchronised state carries these fields as `float32`, so the server's
+ * authoritative values live on the float32 grid while a client's predicted
+ * mirror is an ordinary float64 object. Integrating at two different
+ * precisions diverges systematically — slowly at low speed, faster near top
+ * speed where the thrust taper is steepest — and it shows up as a small,
+ * persistent reconcile correction rather than an obvious break.
+ *
+ * Rounding here puts both sides, and the wire, on one grid. It costs six
+ * `Math.fround` calls per sub-step.
+ */
+function quantise(body: FlightBody): void {
+  body.x = Math.fround(body.x);
+  body.y = Math.fround(body.y);
+  body.vx = Math.fround(body.vx);
+  body.vy = Math.fround(body.vy);
+  body.angle = Math.fround(body.angle);
+  body.angVel = Math.fround(body.angVel);
 }
 
 function stepFlightOnce(

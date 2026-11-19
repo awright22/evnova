@@ -20,9 +20,11 @@ import {
 import { classifyDrift, type DriftStatus } from '@colyseus/sdk/predict/drift';
 import {
   PATCH_RATE,
-  SPIKE_PROFILE,
   ShipInput,
   SystemState,
+  content,
+  deriveStats,
+  placeAll,
   stepFlight,
   type ShipProfile,
   type ShipState,
@@ -89,6 +91,8 @@ export interface BotOptions {
   readonly brain: BotBrain;
   readonly roomName?: string;
   readonly systemId?: string;
+  /** Draught to fly. Falls back to the starter. */
+  readonly blueprint?: string;
 }
 
 /** Netcode health, sampled from the SDK's own telemetry. */
@@ -118,17 +122,30 @@ export class Bot {
     private readonly me: Reconciler<ShipState>,
     private readonly input: InputHandle<ShipInput>,
     private readonly options: BotOptions,
+    private readonly profile: ShipProfile,
   ) {}
 
   static async connect(options: BotOptions): Promise<Bot> {
     const sdk = new ColyseusSDK(options.endpoint);
     const room = await sdk.joinOrCreate<SystemState>(
       options.roomName ?? 'system',
-      { callsign: options.callsign, systemId: options.systemId },
+      {
+        callsign: options.callsign,
+        systemId: options.systemId,
+        ...(options.blueprint !== undefined ? { blueprint: options.blueprint } : {}),
+      },
       SystemState,
     );
 
     const self = await waitForOwnShip(room);
+
+    // Derive handling from the draught the server assigned, from the same data
+    // the server used. A bot that predicts with the wrong profile would report
+    // divergence that says nothing about the netcode.
+    const { blueprints, modules, tuning } = content();
+    const blueprint = blueprints.get(self.blueprint);
+    if (!blueprint) throw new Error(`unknown draught "${self.blueprint}"`);
+    const profile = deriveStats(placeAll(blueprint.placements, modules), tuning).profile;
 
     const predict = Predict.get(room, { mode: 'lerp', delay: INTERP_DELAY_MS });
 
@@ -144,14 +161,14 @@ export class Bot {
     const me = predict.reconciler(self, {
       input,
       step: (ctx, state, cmd) => {
-        stepFlight(state, cmd, SPIKE_PROFILE, ctx);
+        stepFlight(state, cmd, profile, ctx);
       },
       smoothMs: 65,
       snap: SNAP_DISTANCE,
       warnOnDivergence: DRIFT_TOLERANCE,
     });
 
-    const bot = new Bot(room, self, predict, me, input, options);
+    const bot = new Bot(room, self, predict, me, input, options, profile);
     bot.start();
     return bot;
   }
@@ -176,7 +193,7 @@ export class Bot {
       const view: BotView = {
         self: this.me.state,
         ships: this.room.state.ships,
-        profile: SPIKE_PROFILE,
+        profile: this.profile,
         sessionId: this.room.sessionId,
         serverNow: this.room.clock.serverNow(),
         step: this.steps,

@@ -1,7 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // This package evaluates code inside a browser page, so those callbacks
+    // need the DOM types even though the tool itself runs under Node.
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src/**/*.ts"]
 }

@@ -9,6 +9,7 @@
 import { createEndpoint, createRouter } from '@colyseus/core';
 
 import { metricsReport } from './metrics.ts';
+import { content, deriveStats, placeAll } from '@marque/shared';
 
 export const routes = createRouter({
   health: createEndpoint('/health', { method: 'GET' }, () =>
@@ -18,4 +19,21 @@ export const routes = createRouter({
   metrics: createEndpoint('/metrics', { method: 'GET' }, () =>
     Promise.resolve(metricsReport()),
   ),
+
+  /**
+   * Derived handling for every shipped draught, as the server computes it.
+   * A client deriving different numbers from the same data is the first thing
+   * to check when prediction drifts, so the comparison is one request away.
+   */
+  draughts: createEndpoint('/draughts', { method: 'GET' }, () => {
+    const { blueprints, modules, tuning } = content();
+    return Promise.resolve(
+      Object.fromEntries(
+        [...blueprints].map(([id, bp]) => [
+          id,
+          deriveStats(placeAll(bp.placements, modules), tuning).profile,
+        ]),
+      ),
+    );
+  }),
 });

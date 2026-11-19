@@ -9,5 +9,8 @@
   "dependencies": {
     "@marque/shared": "workspace:*",
     "@marque/bot": "workspace:*"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }

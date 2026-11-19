@@ -22,6 +22,7 @@ interface RunnerOptions {
   seconds: number;
   brain: string;
   systemId: string;
+  draught: string | undefined;
   quiet: boolean;
 }
 
@@ -35,7 +36,8 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
       bots: { type: 'string', default: '2' },
       seconds: { type: 'string', default: '20' },
       brain: { type: 'string', default: 'circle' },
-      system: { type: 'string', default: 'spike' },
+      system: { type: 'string', default: 'parity' },
+      draught: { type: 'string' },
       quiet: { type: 'boolean', default: false },
     },
   });
@@ -51,9 +53,13 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
     seconds,
     brain: values.brain,
     systemId: values.system,
+    draught: values.draught,
     quiet: values.quiet === true,
   };
 }
+
+/** The shipped designs, cycled through when no draught is named. */
+const DRAUGHTS = ['prudent-return', 'force-majeure', 'fair-wear-and-tear'] as const;
 
 function makeBrain(kind: string, index: number): BotBrain {
   switch (kind) {
@@ -115,6 +121,9 @@ async function main(): Promise<void> {
         callsign: `Bot-${String(i + 1).padStart(2, '0')}`,
         brain: makeBrain(options.brain, i),
         systemId: options.systemId,
+        // With no draught named, bots spread across the shipped designs so a
+        // system shows contrasting hulls rather than a row of identical ones.
+        blueprint: options.draught ?? DRAUGHTS[i % DRAUGHTS.length]!,
       });
       bots.push(bot);
     }

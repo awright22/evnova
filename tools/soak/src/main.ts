@@ -101,7 +101,7 @@ async function main(): Promise<void> {
           endpoint: `ws://127.0.0.1:${options.port}`,
           callsign: `Soak-${String(i + 1).padStart(2, '0')}`,
           brain,
-          systemId: 'soak',
+          systemId: 'parity',
         }),
       );
     }

@@ -190,3 +190,63 @@ export const Tuning = z.object({
   licences: z.record(LicenceId, LicenceDef),
 });
 export type Tuning = z.infer<typeof Tuning>;
+
+export const RegionId = z.enum(['home-roads', 'concessions', 'marque']);
+export type RegionId = z.infer<typeof RegionId>;
+
+export const PortOwner = z.enum(['kessler', 'thirty', 'reprisal', 'unlettered', 'neutral']);
+export type PortOwner = z.infer<typeof PortOwner>;
+
+/** Services a port offers. The plain terms; the interface shows the in-world ones. */
+export const PortService = z.enum([
+  'staple',
+  'bourse',
+  'factor',
+  'yard',
+  'moorings',
+  'repair',
+]);
+export type PortService = z.infer<typeof PortService>;
+
+const HexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const PortDef = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  owner: PortOwner,
+  x: z.number(),
+  y: z.number(),
+  radius: z.number().positive(),
+  services: z.array(PortService),
+  surfaceColour: HexColour,
+  accentColour: HexColour,
+  description: z.string().min(1),
+});
+export type PortDef = z.infer<typeof PortDef>;
+
+export const StarDef = z.object({
+  name: z.string().min(1),
+  radius: z.number().positive(),
+  colour: HexColour,
+  coronaColour: HexColour,
+  /** Tints the lighting on every hull in the system. */
+  lightTint: HexColour,
+});
+export type StarDef = z.infer<typeof StarDef>;
+
+export const SystemDef = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  region: RegionId,
+  description: z.string().min(1),
+  star: StarDef,
+  /** Distance from the centre at which the system ends. */
+  radius: z.number().positive(),
+  ports: z.array(PortDef),
+});
+export type SystemDef = z.infer<typeof SystemDef>;
+
+export const SystemLibrary = z.object({
+  systems: z.array(SystemDef).min(1),
+});
+export type SystemLibrary = z.infer<typeof SystemLibrary>;

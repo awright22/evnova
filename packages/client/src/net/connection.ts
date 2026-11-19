@@ -29,6 +29,8 @@ export type FailureReason = 'unreachable' | 'rejected' | 'timeout' | 'unknown';
 export interface ConnectOptions {
   readonly callsign: string;
   readonly endpoint?: string;
+  /** Draught to fly. The server falls back to the starter if it is unknown. */
+  readonly blueprint?: string;
   readonly signal?: AbortSignal;
 }
 
@@ -43,7 +45,11 @@ export async function connect(options: ConnectOptions): Promise<ConnectionStatus
     const room = await withTimeout(
       sdk.joinOrCreate<SystemState>(
         'system',
-        { callsign: options.callsign, version: BUILD_VERSION },
+        {
+          callsign: options.callsign,
+          version: BUILD_VERSION,
+          ...(options.blueprint !== undefined ? { blueprint: options.blueprint } : {}),
+        },
         SystemState,
       ),
       CONNECT_TIMEOUT_MS,

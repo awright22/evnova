@@ -1,0 +1,57 @@
+{
+  "$comment": "Star systems. M1 ships one; the full galaxy of twenty is authored in M3. Names, regions and port assignments come from spec section 19.",
+  "systems": [
+    {
+      "id": "parity",
+      "name": "Parity",
+      "region": "home-roads",
+      "description": "The clearing house of settled space. Nothing is mined here and nothing is grown here; everything is priced here.",
+      "star": {
+        "name": "Parity",
+        "radius": 150,
+        "colour": "#F2E4C8",
+        "coronaColour": "#F0D2A0",
+        "lightTint": "#DCE8F5"
+      },
+      "radius": 30000,
+      "ports": [
+        {
+          "id": "the-bourse",
+          "name": "the Bourse",
+          "owner": "neutral",
+          "x": 4200,
+          "y": -2100,
+          "radius": 95,
+          "services": [
+            "staple",
+            "bourse",
+            "factor",
+            "yard",
+            "moorings"
+          ],
+          "surfaceColour": "#8FA2B8",
+          "accentColour": "#5E86B8",
+          "description": "A ring of counting floors built around the original beacon. Every quote in the Reach is struck here first and arrives everywhere else late."
+        },
+        {
+          "id": "underwriters-hall",
+          "name": "Underwriters' Hall",
+          "owner": "neutral",
+          "x": -5400,
+          "y": 3300,
+          "radius": 110,
+          "services": [
+            "staple",
+            "factor",
+            "moorings",
+            "repair"
+          ],
+          "surfaceColour": "#A4A79E",
+          "accentColour": "#C3CCD6",
+          "description": "Insures every hull that matters and most that do not. The Hall is listed on its own exchange, which nobody there finds remarkable."
+        }
+      ],
+      "$comment": "Star and port radii are visual sizes in world units, not astronomy: a top-down view draws them at a fixed scale, so a true-scale star would be wider than the screen at any distance."
+    }
+  ]
+}

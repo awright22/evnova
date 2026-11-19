@@ -144,6 +144,30 @@ async function main(): Promise<void> {
 
     const captured: { name: string; file: string; description: string }[] = [];
 
+    // Bot traffic, so flight captures show a system with other hulls in it
+    // rather than one ship alone.
+    const wantBots = Math.max(0, ...screens.map((screen) => screen.bots ?? 0));
+    let bots: ManagedProcess | undefined;
+    if (wantBots > 0) {
+      console.log(`Flying ${wantBots} bot(s) for traffic...`);
+      bots = start(
+        'bot traffic',
+        'pnpm',
+        [
+          'exec', 'tsx', 'tools/bot/src/main.ts',
+          '--bots', String(wantBots),
+          '--seconds', '600',
+          '--brain', 'wander',
+          '--endpoint', `ws://127.0.0.1:${options.serverPort}`,
+          '--quiet',
+        ],
+        { cwd: REPO_ROOT },
+      );
+      processes.push(bots);
+      // Give them time to join and spread out.
+      await sleep(6000);
+    }
+
     try {
       for (const screen of screens) {
         const file = await capture(browser, baseUrl, screen, options);
@@ -195,8 +219,13 @@ async function capture(
     if (screen.setup) await screen.setup(page);
 
     await page.goto(`${baseUrl}${screen.path ?? '/'}`, { waitUntil: 'networkidle' });
-    if (screen.settle) await page.waitForSelector(screen.settle, { timeout: 15_000 });
+    if (screen.settle) await page.waitForSelector(screen.settle, { timeout: 20_000 });
+    // Settle first, then act: the ship has to exist before it can be flown.
     if (screen.settleMs) await sleep(screen.settleMs);
+    if (screen.act) {
+      await page.focus('body');
+      await screen.act(page);
+    }
 
     const file = `${screen.name}.png`;
     await page.screenshot({ path: resolve(options.outDir, file) });

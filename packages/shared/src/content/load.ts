@@ -8,6 +8,7 @@
 
 import blueprintData from '../../data/blueprints.json' with { type: 'json' };
 import moduleData from '../../data/modules.json' with { type: 'json' };
+import systemData from '../../data/systems.json' with { type: 'json' };
 import tuningData from '../../data/tuning.json' with { type: 'json' };
 
 import type {
@@ -16,9 +17,11 @@ import type {
 import {
   BlueprintLibrary,
   ModuleCatalogue,
+  SystemLibrary,
   Tuning,
   type LicenceId,
   type ModuleDef,
+  type SystemDef,
 } from './schema.ts';
 
 export interface Content {
@@ -26,6 +29,7 @@ export interface Content {
   readonly modules: ReadonlyMap<string, ModuleDef>;
   readonly blueprints: ReadonlyMap<string, Blueprint>;
   readonly licences: ReadonlyMap<LicenceId, LicenceDef>;
+  readonly systems: ReadonlyMap<string, SystemDef>;
 }
 
 /**
@@ -39,6 +43,7 @@ export function loadContent(): Content {
   const tuning = parse(Tuning, stripComments(tuningData), 'data/tuning.json');
   const catalogue = parse(ModuleCatalogue, stripComments(moduleData), 'data/modules.json');
   const library = parse(BlueprintLibrary, stripComments(blueprintData), 'data/blueprints.json');
+  const systemLibrary = parse(SystemLibrary, stripComments(systemData), 'data/systems.json');
 
   const modules = new Map<string, ModuleDef>();
   for (const module of catalogue.modules) {
@@ -65,7 +70,20 @@ export function loadContent(): Content {
     Object.entries(tuning.licences) as [LicenceId, LicenceDef][],
   );
 
-  return { tuning, modules, blueprints, licences };
+  const systems = new Map<string, SystemDef>();
+  for (const system of systemLibrary.systems) {
+    if (systems.has(system.id)) throw new Error(`duplicate system id "${system.id}"`);
+    const portIds = new Set<string>();
+    for (const port of system.ports) {
+      if (portIds.has(port.id)) {
+        throw new Error(`system "${system.id}" has two ports called "${port.id}"`);
+      }
+      portIds.add(port.id);
+    }
+    systems.set(system.id, system);
+  }
+
+  return { tuning, modules, blueprints, licences, systems };
 }
 
 /**

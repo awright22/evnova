@@ -3,10 +3,6 @@
  *
  * One entry per screen or state. A screen with a designed failure state gets an
  * entry for each, because those are exactly the states that rot unnoticed.
- *
- * `setup` runs before the capture and can block routes, stub state or drive the
- * interface. `settle` is a selector the harness waits for, so captures never
- * race a transition.
  */
 
 import type { Page } from 'playwright';
@@ -22,21 +18,80 @@ export interface Screen {
   readonly settle?: string;
   /** Extra settle time in ms, for animations that have no end selector. */
   readonly settleMs?: number;
+  /** Drive the page before capturing: hold keys, wait, fly somewhere. */
+  readonly act?: (page: Page) => Promise<void>;
+  /** Bot traffic to fly in the same system during this capture. */
+  readonly bots?: number;
+}
+
+/** Hold a key for a while, so the capture catches the ship actually moving. */
+async function hold(page: Page, key: string, ms: number): Promise<void> {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(ms);
+  await page.keyboard.up(key);
 }
 
 export const SCREENS: readonly Screen[] = [
   {
-    name: 'boot-linked',
-    description: 'Boot screen with a live link to the server and a system roster.',
-    settle: '.boot__roster, .boot__message',
+    name: 'flight-at-rest',
+    description: 'The flight view on arrival: backdrop, star, the hull and the HUD at rest.',
+    settle: '.hud',
+    settleMs: 1200,
+    bots: 3,
+  },
+  {
+    name: 'flight-under-burn',
+    description: 'Under full burn: plume extended, camera led and zoomed out, speed up.',
+    settle: '.hud',
     settleMs: 400,
+    bots: 3,
+    act: async (page) => {
+      await hold(page, 'ArrowUp', 2600);
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(250);
+    },
+  },
+  {
+    name: 'flight-turning',
+    description: 'Burning into a turn, which is the hardest case for prediction.',
+    settle: '.hud',
+    settleMs: 400,
+    bots: 3,
+    act: async (page) => {
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(1400);
+      await page.keyboard.down('ArrowRight');
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'draught-force-majeure',
+    description: 'Force Majeure under burn: two engines, four thrusters, no hold.',
+    path: '/?draught=force-majeure&callsign=Force%20Majeure',
+    settle: '.hud',
+    settleMs: 400,
+    bots: 3,
+    act: async (page) => {
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(2200);
+    },
+  },
+  {
+    name: 'draught-fair-wear-and-tear',
+    description: 'Fair Wear and Tear under burn: five bays, one large engine, visibly slower to answer.',
+    path: '/?draught=fair-wear-and-tear&callsign=Fair%20Wear',
+    settle: '.hud',
+    settleMs: 400,
+    bots: 3,
+    act: async (page) => {
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(2200);
+    },
   },
   {
     name: 'boot-unreachable',
-    description: 'Boot screen when the server does not answer: a designed state, not an error dump.',
+    description: 'The terminal when the server does not answer: a designed state, not an error dump.',
     setup: async (page) => {
-      // Fail the websocket and the matchmaking request, so the client takes
-      // its unreachable path rather than timing out slowly.
       await page.route('**/matchmake/**', (route) => route.abort('connectionrefused'));
     },
     settle: '.boot__failure',

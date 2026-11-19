@@ -124,6 +124,10 @@ importers:
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+    devDependencies:
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
 
   tools/shots:
     dependencies:
@@ -143,6 +147,16 @@ importers:
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+
+  tools/verify:
+    dependencies:
+      '@marque/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
 
 packages:
 
