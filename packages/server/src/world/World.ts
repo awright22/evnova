@@ -1,0 +1,124 @@
+/**
+ * The world service.
+ *
+ * Owns the database, accounts, captains and — from M4 — the economy, the
+ * exchange, missions and the Gazette. It runs on its own clock and keeps
+ * ticking whether or not any room exists, which is what makes prices move
+ * overnight and freight redistribute while nobody is online.
+ *
+ * The clock is injected so the soak can run a month of world time in minutes.
+ */
+
+import { readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { Accounts } from '../accounts.ts';
+import { config } from '../config.ts';
+import { openStore, type Store } from '../db/index.ts';
+import { PilotStore } from './PilotStore.ts';
+
+/** Time, injected. Real time in production; accelerated in the soak. */
+export interface WorldClock {
+  now(): number;
+}
+
+export const SYSTEM_CLOCK: WorldClock = { now: () => Date.now() };
+
+/** How often changed captains are written. The spec allows losing a few seconds. */
+const FLUSH_INTERVAL_MS = 4000;
+
+/** How often a daily snapshot is considered. */
+const SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
+
+export class World {
+  readonly store: Store;
+  readonly accounts: Accounts;
+  readonly pilots: PilotStore;
+
+  private flushTimer: NodeJS.Timeout | undefined;
+  private snapshotTimer: NodeJS.Timeout | undefined;
+  private lastSnapshotDay = '';
+
+  constructor(
+    readonly clock: WorldClock = SYSTEM_CLOCK,
+    databaseUrl: string = config.databaseUrl,
+  ) {
+    this.store = openStore(databaseUrl);
+    this.accounts = new Accounts(this.store);
+    this.pilots = new PilotStore(this.store);
+  }
+
+  /** Start the background work: flushing and snapshots. */
+  start(): void {
+    this.flushTimer ??= setInterval(() => {
+      try {
+        this.pilots.flush();
+      } catch (error) {
+        // A failed flush must not stop the world: the next one will try again.
+        console.error('flushing captains failed:', error);
+      }
+    }, FLUSH_INTERVAL_MS);
+
+    this.snapshotTimer ??= setInterval(() => this.maybeSnapshot(), SNAPSHOT_INTERVAL_MS);
+    // Take one at startup so a fresh deployment has a restore point.
+    this.maybeSnapshot();
+  }
+
+  /**
+   * One snapshot a day, keeping the configured number.
+   *
+   * `VACUUM INTO` is an online copy, so this does not stop the simulation.
+   */
+  private maybeSnapshot(): void {
+    if (config.databaseUrl === ':memory:') return;
+
+    const day = new Date(this.clock.now()).toISOString().slice(0, 10);
+    if (day === this.lastSnapshotDay) return;
+    this.lastSnapshotDay = day;
+
+    try {
+      this.store.snapshot(join(config.snapshotDir, `marque-${day}.db`));
+      this.pruneSnapshots();
+    } catch (error) {
+      console.error('snapshot failed:', error);
+    }
+  }
+
+  private pruneSnapshots(): void {
+    try {
+      const files = readdirSync(config.snapshotDir)
+        .filter((name) => /^marque-\d{4}-\d{2}-\d{2}\.db$/.test(name))
+        .sort();
+      for (const stale of files.slice(0, Math.max(0, files.length - config.snapshotKeep))) {
+        rmSync(join(config.snapshotDir, stale), { force: true });
+      }
+    } catch (error) {
+      console.error('pruning snapshots failed:', error);
+    }
+  }
+
+  /** Write everything and close. Called on graceful shutdown. */
+  shutdown(): void {
+    if (this.flushTimer) clearInterval(this.flushTimer);
+    if (this.snapshotTimer) clearInterval(this.snapshotTimer);
+    this.flushTimer = undefined;
+    this.snapshotTimer = undefined;
+
+    const written = this.pilots.flush();
+    if (written > 0) console.log(`wrote ${written} captain(s) on shutdown`);
+    this.store.close();
+  }
+}
+
+/** The world, created once per process. */
+let instance: World | undefined;
+
+export function world(): World {
+  instance ??= new World();
+  return instance;
+}
+
+/** Replace the world, for tests. */
+export function setWorld(next: World | undefined): void {
+  instance = next;
+}

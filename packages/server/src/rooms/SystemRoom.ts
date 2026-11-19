@@ -11,6 +11,7 @@
  */
 
 import { ClientState, Room, validate, type Client, type StepContext } from '@colyseus/core';
+import { config } from '../config.ts';
 import {
   EMPTY_LOADOUT,
   SCOOP_RANGE,
@@ -32,6 +33,9 @@ import {
 } from '@marque/shared';
 
 import { registerRoom, TickMetrics } from '../metrics.ts';
+import { AuthError, type Account } from '../accounts.ts';
+import { world } from '../world/World.ts';
+import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
 import { unletteredPilot, type NpcPilot } from './npc.ts';
@@ -50,7 +54,9 @@ export interface SystemRoomOptions {
 }
 
 export interface JoinOptions {
-  callsign?: string;
+  /** Issued at sign-up and stored by the client. */
+  deviceToken?: string;
+  /** Draught to fly, for development. A captain's own draught wins. */
   blueprint?: string;
 }
 
@@ -62,6 +68,20 @@ const SPAWN_STANDOFF = 1600;
 
 /** A wreck lingers this long before it is cleared. */
 const WRECK_LINGER_MS = 6000;
+
+/**
+ * How long a hull stays in space after its captain drops, per the spec:
+ * fifteen seconds, or thirty if it was shot at recently. Reconnecting inside
+ * the window resumes the same hull.
+ */
+const GRACE_MS = 15_000;
+const GRACE_AFTER_DAMAGE_MS = 30_000;
+
+/** Damage within this long counts as recent, for the longer grace window. */
+const RECENT_DAMAGE_MS = 20_000;
+
+/** How often a captain's hull state is copied to their row. */
+const PERSIST_EVERY_TICKS = TICK_RATE * 2;
 
 /** Ordnance a hull carries when it launches, until the Staple exists. */
 const STARTING_AMMO = 24;
@@ -109,6 +129,10 @@ export class SystemRoom extends Room<{
 
   /** Intent timestamps per connection, for the rate limit. */
   private readonly intentLog = new Map<string, number[]>();
+
+  /** Captains in this room, by session and by account. */
+  private readonly pilotsBySession = new Map<string, Pilot>();
+  private readonly sessionsByAccount = new Map<string, string>();
 
   /**
    * Intents that need a result.
@@ -234,22 +258,143 @@ export class SystemRoom extends Room<{
     this.unregisterMetrics = undefined;
   }
 
-  override onJoin(client: Client, options: JoinOptions = {}): void {
-    const callsign = sanitiseCallsign(options.callsign) || `Captain-${client.sessionId.slice(0, 4)}`;
-    const { blueprints } = content();
+  /**
+   * Who is this.
+   *
+   * A device token is the only credential a room accepts; opening an account
+   * and recovering one are HTTP routes, so the room never sees a phrase.
+   * Development builds may join without one, which gives a throwaway captain.
+   */
+  override onAuth(_client: Client, options: JoinOptions = {}): Account | undefined {
+    const token = typeof options.deviceToken === 'string' ? options.deviceToken : '';
+    if (token === '') {
+      if (config.isProduction) throw new AuthError('bad-token');
+      return undefined;
+    }
+    return world().accounts.signIn(token);
+  }
 
+  override onJoin(client: Client, options: JoinOptions = {}): void {
+    const account = client.auth as Account | undefined;
+    const pilot = account ? world().pilots.load(account.id) : undefined;
+
+    if (pilot) {
+      this.pilotsBySession.set(client.sessionId, pilot);
+      this.sessionsByAccount.set(pilot.accountId, client.sessionId);
+      this.spawnFromPilot(client.sessionId, pilot);
+      return;
+    }
+
+    // No account: a throwaway captain, for development and the harnesses.
+    const { blueprints } = content();
     const requested = typeof options.blueprint === 'string' ? options.blueprint : undefined;
     const blueprintId =
       requested !== undefined && blueprints.has(requested) ? requested : STARTER_BLUEPRINT;
-
-    this.spawnHull(client.sessionId, blueprintId, callsign, false);
+    this.spawnHull(client.sessionId, blueprintId, `Captain-${client.sessionId.slice(0, 4)}`, false);
   }
 
+  /**
+   * A captain dropped without saying goodbye.
+   *
+   * Their hull stays in space for the grace window, still simulated and still
+   * vulnerable, because vanishing the instant someone shoots at you would be
+   * the cheapest escape in the game. Reconnecting inside the window resumes
+   * the same hull.
+   */
+  override async onDrop(client: Client): Promise<void> {
+    this.persist(client.sessionId);
+
+    const runtime = this.runtimes.get(client.sessionId);
+    const hurtRecently =
+      runtime !== undefined &&
+      runtime.lastHitAt > 0 &&
+      this.clock.elapsedTime - runtime.lastHitAt < RECENT_DAMAGE_MS;
+
+    const grace = hurtRecently ? GRACE_AFTER_DAMAGE_MS : GRACE_MS;
+    await this.allowReconnection(client, grace / 1000);
+  }
+
+  override onReconnect(client: Client): void {
+    const pilot = this.pilotsBySession.get(client.sessionId);
+    console.log(
+      `[${this.roomId}] ${pilot?.callsign ?? client.sessionId} resumed the hull they left`,
+    );
+  }
+
+  /**
+   * A captain is gone for good: they left, or the grace window closed.
+   */
   override onLeave(client: Client): void {
-    // M3 adds the grace window from the spec: a hull persists in space for a
-    // short time after its captain drops.
-    this.removeHull(client.sessionId);
     this.intentLog.delete(client.sessionId);
+    this.persist(client.sessionId);
+    this.releaseCaptain(client.sessionId);
+    this.removeHull(client.sessionId);
+  }
+
+  /** Spawn a hull from what the captain's row says about it. */
+  private spawnFromPilot(sessionId: string, pilot: Pilot): void {
+    const { blueprints, modules, tuning } = content();
+    const blueprint = blueprints.get(pilot.blueprintId) ?? blueprints.get(STARTER_BLUEPRINT);
+    if (!blueprint) throw new Error('no draught to fly');
+
+    const runtime = new ShipRuntime(blueprint, modules, tuning, EMPTY_LOADOUT, pilot.ammo);
+
+    // Restore damage, but never more modules than this draught has: a row
+    // written against a different draught must not corrupt the hull.
+    pilot.moduleHp.slice(0, runtime.hp.length).forEach((hp, index) => {
+      const max = runtime.modules[index]?.def.hitPoints ?? 0;
+      runtime.hp[index] = Math.max(0, Math.min(max, hp));
+    });
+
+    const ship = new ShipState();
+    ship.x = pilot.x;
+    ship.y = pilot.y;
+    ship.angle = pilot.angle;
+    ship.callsign = pilot.callsign;
+    ship.blueprint = blueprint.id;
+    ship.hostile = false;
+    ship.shield = Math.min(pilot.shield, runtime.shieldCapacity);
+    for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
+
+    // A captain who has never flown, or who was written off, starts off a berth.
+    if (ship.x === 0 && ship.y === 0) {
+      const berth = this.system?.ports[0];
+      const rng = new Rng(`${this.roomId}:${sessionId}`);
+      const bearing = rng.range(-Math.PI, Math.PI);
+      ship.x = (berth?.x ?? 0) + Math.cos(bearing) * SPAWN_STANDOFF;
+      ship.y = (berth?.y ?? 0) + Math.sin(bearing) * SPAWN_STANDOFF;
+      ship.angle = Math.atan2((berth?.y ?? 0) - ship.y, (berth?.x ?? 0) - ship.x);
+    }
+
+    this.runtimes.set(sessionId, runtime);
+    this.state.ships.set(sessionId, ship);
+  }
+
+  /** Write a captain's hull state back to their row. */
+  private persist(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    const ship = this.state.ships.get(sessionId);
+    const runtime = this.runtimes.get(sessionId);
+    if (!pilot || !ship || !runtime) return;
+
+    pilot.systemId = this.state.systemId;
+    pilot.x = ship.x;
+    pilot.y = ship.y;
+    pilot.angle = ship.angle;
+    pilot.blueprintId = ship.blueprint;
+    pilot.moduleHp = [...runtime.hp];
+    pilot.shield = ship.shield;
+    pilot.ammo = runtime.ammo;
+    world().pilots.touch(pilot.accountId);
+  }
+
+  private releaseCaptain(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (pilot) {
+      world().pilots.release(pilot.accountId);
+      this.sessionsByAccount.delete(pilot.accountId);
+    }
+    this.pilotsBySession.delete(sessionId);
   }
 
   // --- Spawning -----------------------------------------------------------
@@ -322,6 +467,13 @@ export class SystemRoom extends Room<{
 
     this.combat.step(ctx.dt, ctx.tick);
     this.combat.stepCanisters(ctx.dt);
+
+    // Position and damage are fast-changing, so they are copied to the
+    // captain's row on a cadence rather than every step; the world writes
+    // them to disk from there.
+    if (ctx.tick % PERSIST_EVERY_TICKS === 0) {
+      for (const sessionId of this.pilotsBySession.keys()) this.persist(sessionId);
+    }
 
     this.state.tick = ctx.tick;
     this.tick.record(performance.now() - startedAt);
@@ -461,15 +613,6 @@ export class SystemRoom extends Room<{
     // outcome depends on a client receiving it.
     this.broadcast('impact', event);
   }
-}
-
-function sanitiseCallsign(raw: string | undefined): string {
-  if (typeof raw !== 'string') return '';
-  return raw
-    .normalize('NFKC')
-    .replace(/[^\p{L}\p{N} '-]/gu, '')
-    .trim()
-    .slice(0, 20);
 }
 
 /** Unlettered hulls carry no registry, so they go by what crews call them. */

@@ -11,6 +11,13 @@ import { listen } from '@colyseus/tools';
 
 import { config } from './config.ts';
 import { server } from './server.ts';
+import { world } from './world/World.ts';
+
+// The world owns the database, accounts and captains, and keeps ticking
+// whether or not a room exists. It starts before the listener so a client
+// cannot arrive before persistence is ready.
+const game = world();
+game.start();
 
 const started = await listen(server, config.port);
 
@@ -21,15 +28,32 @@ console.log(
     `  environment    ${config.nodeEnv}`,
     `  origins        ${config.allowedOrigins.length > 0 ? config.allowedOrigins.join(', ') : 'any (development)'}`,
     `  invite gate    ${config.inviteCode ? 'on' : 'off'}`,
+    `  database       ${config.databaseUrl}`,
     latency ? `  latency sim    ${latency} ms round trip` : null,
   ]
     .filter((line) => line !== null)
     .join('\n'),
 );
 
-/** Graceful shutdown: drain rooms before the process exits. */
+/**
+ * Graceful shutdown.
+ *
+ * Rooms drain first, which runs every captain's `onLeave` and writes their
+ * hull state; then the world flushes whatever is still dirty and closes the
+ * database. A kill in the middle costs at most the last few seconds of
+ * position, which is what the spec allows.
+ */
+let shuttingDown = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    void started.gracefullyShutdown().then(() => process.exit(0));
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void started
+      .gracefullyShutdown()
+      .catch((error: unknown) => console.error('shutdown failed:', error))
+      .finally(() => {
+        game.shutdown();
+        process.exit(0);
+      });
   });
 }

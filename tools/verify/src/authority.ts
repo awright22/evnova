@@ -206,3 +206,7 @@ function waitForShip(room: Room<unknown, SystemState>, timeoutMs = 15_000) {
 }
 
 await main();
+
+// The SDK keeps sockets and timers alive after a room closes, so the check
+// ends deliberately rather than waiting for an event loop that will not drain.
+process.exit(process.exitCode ?? 0);
