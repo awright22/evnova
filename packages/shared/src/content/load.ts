@@ -7,6 +7,7 @@
  */
 
 import blueprintData from '../../data/blueprints.json' with { type: 'json' };
+import commodityData from '../../data/commodities.json' with { type: 'json' };
 import moduleData from '../../data/modules.json' with { type: 'json' };
 import systemData from '../../data/systems.json' with { type: 'json' };
 import tuningData from '../../data/tuning.json' with { type: 'json' };
@@ -16,9 +17,11 @@ import type {
   LicenceDef} from './schema.ts';
 import {
   BlueprintLibrary,
+  CommodityCatalogue,
   ModuleCatalogue,
   SystemLibrary,
   Tuning,
+  type CommodityDef,
   type LicenceId,
   type ModuleDef,
   type SystemDef,
@@ -30,6 +33,7 @@ export interface Content {
   readonly blueprints: ReadonlyMap<string, Blueprint>;
   readonly licences: ReadonlyMap<LicenceId, LicenceDef>;
   readonly systems: ReadonlyMap<string, SystemDef>;
+  readonly commodities: ReadonlyMap<string, CommodityDef>;
 }
 
 /**
@@ -41,6 +45,11 @@ export interface Content {
  */
 export function loadContent(): Content {
   const tuning = parse(Tuning, stripComments(tuningData), 'data/tuning.json');
+  const commodityCatalogue = parse(
+    CommodityCatalogue,
+    stripComments(commodityData),
+    'data/commodities.json',
+  );
   const catalogue = parse(ModuleCatalogue, stripComments(moduleData), 'data/modules.json');
   const library = parse(BlueprintLibrary, stripComments(blueprintData), 'data/blueprints.json');
   const systemLibrary = parse(SystemLibrary, stripComments(systemData), 'data/systems.json');
@@ -64,6 +73,14 @@ export function loadContent(): Content {
       }
     }
     blueprints.set(blueprint.id, blueprint);
+  }
+
+  const commodities = new Map<string, CommodityDef>();
+  for (const commodity of commodityCatalogue.commodities) {
+    if (commodities.has(commodity.id)) {
+      throw new Error(`duplicate commodity id "${commodity.id}"`);
+    }
+    commodities.set(commodity.id, commodity);
   }
 
   const licences = new Map<LicenceId, LicenceDef>(
@@ -110,7 +127,7 @@ export function loadContent(): Content {
     }
   }
 
-  return { tuning, modules, blueprints, licences, systems };
+  return { tuning, modules, blueprints, licences, systems, commodities };
 }
 
 /**

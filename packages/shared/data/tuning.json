@@ -67,6 +67,23 @@
     "system": "parity",
     "ordnance": 24
   },
+  "market": {
+    "$comment": "Price is the base price scaled by target over stock, raised to the elasticity, and clamped to the tier's band. Elasticity at 0.6 means a berth down to a quarter of its target quotes about 2.3x: enough that a shortage is worth flying to, not so much that one hold empties a berth's purse. The spread is what a berth keeps between what it pays and what it charges, and is what makes invariant 1 true: buying and selling back at one berth always loses it.",
+    "elasticity": 0.6,
+    "spread": 0.12,
+    "bands": {
+      "raw": { "min": 0.35, "max": 3.2 },
+      "refined": { "min": 0.4, "max": 2.8 },
+      "consumer": { "min": 0.4, "max": 2.8 },
+      "manufactured": { "min": 0.45, "max": 2.6 },
+      "luxury": { "min": 0.3, "max": 3.6 }
+    },
+    "landingFee": 60,
+    "$comment2": "A berth wants targetHours of whatever it makes or eats on hand, never fewer than baselineTarget, and can hold capacityMultiple times that. A commodity a berth neither makes nor eats still trades, at the baseline: the berth is a market in it, just not a source or a sink.",
+    "targetHours": 18,
+    "baselineTarget": 120,
+    "capacityMultiple": 3.5
+  },
   "law": {
     "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of damage dealt — shields included, because the offence is the attack and not whether it got through — plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at Home Roads berths until it is paid.",
     "compositionPerDamage": 9,

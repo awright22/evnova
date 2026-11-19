@@ -14,6 +14,8 @@ export * from './sim/flight.ts';
 export * from './sim/steering.ts';
 export * from './sim/combat.ts';
 export * from './sim/law.ts';
+export * from './economy/price.ts';
+export * from './economy/market.ts';
 export * from './content/schema.ts';
 export * from './content/load.ts';
 export * from './ships/geometry.ts';

@@ -1,0 +1,85 @@
+{
+  "$comment": "The ten commodities of spec section 19. Base price is what a unit fetches at a berth holding exactly its target stock; everything else is derived from stock against that target. Mass is carried mass, so a hold of Ore flies worse than a hold of Leaf. Tiers run raw, refined, consumer, manufactured, luxury, and a tier's members share a price band in tuning.",
+  "commodities": [
+    {
+      "id": "ore",
+      "name": "Ore",
+      "tier": "raw",
+      "basePrice": 34,
+      "tonnesPerUnit": 1.4,
+      "description": "Rock with metal in it. Heavy, cheap, and the first thing any new berth ships."
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "tier": "raw",
+      "basePrice": 28,
+      "tonnesPerUnit": 1.2,
+      "description": "Water and volatiles. Refined into Propellant, and drunk by everyone who is not."
+    },
+    {
+      "id": "grain",
+      "name": "Grain",
+      "tier": "raw",
+      "basePrice": 41,
+      "tonnesPerUnit": 1.0,
+      "description": "Grown under glass on the agricultural concessions. Keeps badly; moves constantly."
+    },
+    {
+      "id": "alloy",
+      "name": "Alloy",
+      "tier": "refined",
+      "basePrice": 96,
+      "tonnesPerUnit": 1.1,
+      "description": "Ore with the rock taken out. The Thirty holds the Home Roads monopoly on it."
+    },
+    {
+      "id": "propellant",
+      "name": "Propellant",
+      "tier": "refined",
+      "basePrice": 78,
+      "tonnesPerUnit": 0.8,
+      "description": "What a lane costs. Refined from Ice, sold at every berth that wants return traffic."
+    },
+    {
+      "id": "provisions",
+      "name": "Provisions",
+      "tier": "consumer",
+      "basePrice": 112,
+      "tonnesPerUnit": 0.9,
+      "description": "Food that keeps. Every berth eats; none of them grow enough."
+    },
+    {
+      "id": "machinery",
+      "name": "Machinery",
+      "tier": "manufactured",
+      "basePrice": 268,
+      "tonnesPerUnit": 1.3,
+      "description": "Engines, pumps, reactors and the parts that keep them turning."
+    },
+    {
+      "id": "circuitry",
+      "name": "Circuitry",
+      "tier": "manufactured",
+      "basePrice": 342,
+      "tonnesPerUnit": 0.4,
+      "description": "Light, valuable and fragile. Bridges, turret gear and shield controllers."
+    },
+    {
+      "id": "ordnance",
+      "name": "Ordnance",
+      "tier": "manufactured",
+      "basePrice": 196,
+      "tonnesPerUnit": 1.0,
+      "description": "Rounds and warheads. The Reprisal Company holds the Home Roads monopoly on it."
+    },
+    {
+      "id": "leaf",
+      "name": "Leaf",
+      "tier": "luxury",
+      "basePrice": 460,
+      "tonnesPerUnit": 0.3,
+      "description": "A mild stimulant, grown only in the Marque and chewed throughout the Home Roads. The long haul everyone eventually tries."
+    }
+  ]
+}

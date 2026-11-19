@@ -210,6 +210,39 @@ export type LicenceDef = z.infer<typeof LicenceDef>;
 export const SecurityLevel = z.enum(['secured', 'contested', 'lawless']);
 export type SecurityLevel = z.infer<typeof SecurityLevel>;
 
+/** What a commodity is made of, in the economy's terms. */
+export const CommodityTier = z.enum([
+  'raw',
+  'refined',
+  'consumer',
+  'manufactured',
+  'luxury',
+]);
+export type CommodityTier = z.infer<typeof CommodityTier>;
+
+export const CommodityDef = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  tier: CommodityTier,
+  /** Marks a unit fetches at a berth holding exactly its target stock. */
+  basePrice: z.int().positive(),
+  /** Carried mass, so a hold of Ore flies worse than a hold of Leaf. */
+  tonnesPerUnit: z.number().positive(),
+  description: z.string().min(1),
+});
+export type CommodityDef = z.infer<typeof CommodityDef>;
+
+export const CommodityCatalogue = z.object({
+  commodities: z.array(CommodityDef).min(1),
+});
+export type CommodityCatalogue = z.infer<typeof CommodityCatalogue>;
+
+/** The floor and ceiling a tier's price is held between, as base multiples. */
+const PriceBand = z.object({
+  min: z.number().positive(),
+  max: z.number().positive(),
+});
+
 export const Tuning = z.object({
   flight: z.object({
     topSpeedCoefficient: z.number().positive(),
@@ -245,6 +278,26 @@ export const Tuning = z.object({
     draught: z.string().min(1),
     system: z.string().min(1),
     ordnance: z.int().nonnegative(),
+  }),
+  market: z.object({
+    /** How hard price answers scarcity. */
+    elasticity: z.number().positive(),
+    /** What a berth keeps between what it pays and what it charges, 0..1. */
+    spread: z.number().min(0).max(1),
+    bands: z.object({
+      raw: PriceBand,
+      refined: PriceBand,
+      consumer: PriceBand,
+      manufactured: PriceBand,
+      luxury: PriceBand,
+    }),
+    landingFee: z.int().nonnegative(),
+    /** Hours of throughput a berth wants on hand. */
+    targetHours: z.number().positive(),
+    /** And the least it wants, for something it neither makes nor eats. */
+    baselineTarget: z.int().positive(),
+    /** How much more than its target a berth can physically hold. */
+    capacityMultiple: z.number().min(1),
   }),
   law: z.object({
     compositionPerDamage: z.number().nonnegative(),
@@ -296,6 +349,19 @@ export type PortService = z.infer<typeof PortService>;
 
 const HexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
+/**
+ * What a berth makes and what it eats, in units an hour.
+ *
+ * Everything else about its market follows from these: the target stock it
+ * wants on hand, the capacity it can hold, and which way its prices drift
+ * when nobody trades with it.
+ */
+export const PortTrade = z.object({
+  produces: z.record(z.string(), z.number().nonnegative()).default({}),
+  consumes: z.record(z.string(), z.number().nonnegative()).default({}),
+});
+export type PortTrade = z.infer<typeof PortTrade>;
+
 export const PortDef = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -304,6 +370,8 @@ export const PortDef = z.object({
   y: z.number(),
   radius: z.number().positive(),
   services: z.array(PortService),
+  /** Present on every berth with a Staple; absent on one without. */
+  trade: PortTrade.optional(),
   surfaceColour: HexColour,
   accentColour: HexColour,
   description: z.string().min(1),

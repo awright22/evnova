@@ -40,7 +40,15 @@
           ],
           "surfaceColour": "#8FA2B8",
           "accentColour": "#5E86B8",
-          "description": "A ring of counting floors built around the original beacon. Every quote in the Reach is struck here first and arrives everywhere else late."
+          "description": "A ring of counting floors built around the original beacon. Every quote in the Reach is struck here first and arrives everywhere else late.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 4,
+              "leaf": 7
+            }
+          }
         },
         {
           "id": "underwriters-hall",
@@ -57,7 +65,15 @@
           ],
           "surfaceColour": "#A4A79E",
           "accentColour": "#C3CCD6",
-          "description": "Insures every hull that matters and most that do not. The Hall is listed on its own exchange, which nobody there finds remarkable."
+          "description": "Insures every hull that matters and most that do not. The Hall is listed on its own exchange, which nobody there finds remarkable.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "leaf": 5
+            }
+          }
         }
       ]
     },
@@ -99,7 +115,18 @@
           ],
           "surfaceColour": "#C8C1AC",
           "accentColour": "#E9E2D0",
-          "description": "The House's seat, and the only address in the Reach where a debt can be settled in person. The inner berths are reserved; everyone else waits."
+          "description": "The House's seat, and the only address in the Reach where a debt can be settled in person. The inner berths are reserved; everyone else waits.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "circuitry": 6
+            },
+            "consumes": {
+              "provisions": 4,
+              "leaf": 8,
+              "alloy": 5
+            }
+          }
         },
         {
           "id": "demurrage",
@@ -115,7 +142,15 @@
           ],
           "surfaceColour": "#9A9387",
           "accentColour": "#B8B2A0",
-          "description": "Began as a holding orbit for ships waiting on Hallam's inspectors and became a town when the queue never cleared. Everything here is priced by the hour."
+          "description": "Began as a holding orbit for ships waiting on Hallam's inspectors and became a town when the queue never cleared. Everything here is priced by the hour.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "leaf": 4
+            }
+          }
         }
       ]
     },
@@ -155,7 +190,15 @@
           ],
           "surfaceColour": "#A6AFB8",
           "accentColour": "#5E86B8",
-          "description": "A transfer yard where Kessler freight changes hulls on its way inward. The Factor's board is always full and never pays well."
+          "description": "A transfer yard where Kessler freight changes hulls on its way inward. The Factor's board is always full and never pays well.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "propellant": 9
+            }
+          }
         }
       ]
     },
@@ -210,7 +253,15 @@
           ],
           "surfaceColour": "#8E9298",
           "accentColour": "#A4A79E",
-          "description": "A weighing station the Court uses to settle disputed manifests. Half the traffic is here under protest."
+          "description": "A weighing station the Court uses to settle disputed manifests. Half the traffic is here under protest.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "leaf": 3
+            }
+          }
         }
       ]
     },
@@ -250,7 +301,17 @@
           ],
           "surfaceColour": "#9FA98C",
           "accentColour": "#C8C1AC",
-          "description": "Grain, Provisions and the lending house that finances both. A voyage out of Bottomry is usually somebody else's capital."
+          "description": "Grain, Provisions and the lending house that finances both. A voyage out of Bottomry is usually somebody else's capital.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "provisions": 46
+            },
+            "consumes": {
+              "grain": 44,
+              "leaf": 4
+            }
+          }
         },
         {
           "id": "tontine",
@@ -265,7 +326,17 @@
           ],
           "surfaceColour": "#8A9490",
           "accentColour": "#A4A79E",
-          "description": "A survivors' fund that outlived its members and became a port. The last three subscribers own the whole ring between them."
+          "description": "A survivors' fund that outlived its members and became a port. The last three subscribers own the whole ring between them.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "provisions": 34
+            },
+            "consumes": {
+              "grain": 32,
+              "leaf": 3
+            }
+          }
         }
       ]
     },
@@ -308,7 +379,18 @@
           ],
           "surfaceColour": "#A8AFB6",
           "accentColour": "#5E86B8",
-          "description": "An exchange house that grew a shipyard because the traffic stopped here anyway. The spread on Leaf is set at Agio and argued about everywhere else."
+          "description": "An exchange house that grew a shipyard because the traffic stopped here anyway. The spread on Leaf is set at Agio and argued about everywhere else.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "machinery": 12,
+              "circuitry": 5
+            },
+            "consumes": {
+              "alloy": 16,
+              "provisions": 3
+            }
+          }
         },
         {
           "id": "lazaret",
@@ -324,7 +406,15 @@
           ],
           "surfaceColour": "#9C9A93",
           "accentColour": "#C3CCD6",
-          "description": "Quarantine berths for hulls arriving out of the Concessions. Most clear in a day. The ones that do not are not discussed."
+          "description": "Quarantine berths for hulls arriving out of the Concessions. Most clear in a day. The ones that do not are not discussed.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "leaf": 3
+            }
+          }
         }
       ]
     },
@@ -364,7 +454,17 @@
           ],
           "surfaceColour": "#7E8A96",
           "accentColour": "#3A6FD8",
-          "description": "A refuelling stop clamped to an asteroid, named for what the tanks are short by the time they arrive. The Thirty runs it at a loss and says so in every report."
+          "description": "A refuelling stop clamped to an asteroid, named for what the tanks are short by the time they arrive. The Thirty runs it at a loss and says so in every report.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "propellant": 36
+            },
+            "consumes": {
+              "ice": 48,
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -408,7 +508,18 @@
           ],
           "surfaceColour": "#6F86A8",
           "accentColour": "#3A6FD8",
-          "description": "The Thirty's seat. The board meets behind a door that has never been photographed, and the count is posted on the outer hull within the hour."
+          "description": "The Thirty's seat. The board meets behind a door that has never been photographed, and the count is posted on the outer hull within the hour.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "alloy": 30,
+              "machinery": 12
+            },
+            "consumes": {
+              "ore": 39,
+              "provisions": 4
+            }
+          }
         },
         {
           "id": "specie",
@@ -424,7 +535,17 @@
           ],
           "surfaceColour": "#7C8692",
           "accentColour": "#5E86B8",
-          "description": "A bullion yard that settles the Thirty's accounts in metal when a counterparty will not take paper. It is a short list and it is getting longer."
+          "description": "A bullion yard that settles the Thirty's accounts in metal when a counterparty will not take paper. It is a short list and it is getting longer.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "alloy": 18
+            },
+            "consumes": {
+              "ore": 24,
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -464,7 +585,18 @@
           ],
           "surfaceColour": "#8B8276",
           "accentColour": "#3A6FD8",
-          "description": "Loads Ore into anything that will carry it and takes Provisions back in part payment. The dust gets into the berths and never leaves."
+          "description": "Loads Ore into anything that will carry it and takes Provisions back in part payment. The dust gets into the berths and never leaves.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "ore": 40,
+              "ice": 26
+            },
+            "consumes": {
+              "provisions": 4,
+              "machinery": 4
+            }
+          }
         },
         {
           "id": "dunnage",
@@ -479,7 +611,17 @@
           ],
           "surfaceColour": "#8A8C86",
           "accentColour": "#A4A79E",
-          "description": "Packing, bracing and the cheapest repair berths in the Concessions. What they lack in equipment they make up in willingness."
+          "description": "Packing, bracing and the cheapest repair berths in the Concessions. What they lack in equipment they make up in willingness.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "alloy": 7,
+              "machinery": 5,
+              "circuitry": 3,
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -520,7 +662,17 @@
           ],
           "surfaceColour": "#79838F",
           "accentColour": "#3A6FD8",
-          "description": "Hulls come here to be opened up and have their plating replaced. The Thirty's heavy yards work to a standard nobody else in the Concessions matches."
+          "description": "Hulls come here to be opened up and have their plating replaced. The Thirty's heavy yards work to a standard nobody else in the Concessions matches.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "alloy": 14,
+              "machinery": 4,
+              "circuitry": 4,
+              "provisions": 3
+            }
+          }
         },
         {
           "id": "entrepot",
@@ -536,7 +688,14 @@
           ],
           "surfaceColour": "#8E959C",
           "accentColour": "#C3CCD6",
-          "description": "A bonded warehouse that will hold anything for anyone and ask about the paperwork afterwards. Officially neutral. Practically useful."
+          "description": "A bonded warehouse that will hold anything for anyone and ask about the paperwork afterwards. Officially neutral. Practically useful.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -577,7 +736,18 @@
           ],
           "surfaceColour": "#95948A",
           "accentColour": "#E9E2D0",
-          "description": "Built long and thin along a ridge for a manufacturing process nobody uses any more. Kessler keeps it open because the berths are cheap and the crews are good."
+          "description": "Built long and thin along a ridge for a manufacturing process nobody uses any more. Kessler keeps it open because the berths are cheap and the crews are good.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "machinery": 18
+            },
+            "consumes": {
+              "alloy": 15,
+              "circuitry": 5,
+              "provisions": 3
+            }
+          }
         },
         {
           "id": "drawback",
@@ -592,7 +762,16 @@
           ],
           "surfaceColour": "#8C8F94",
           "accentColour": "#A4A79E",
-          "description": "Refunds the duty on goods that pass through without stopping, which is most of them. The town is funded entirely by the ones that do."
+          "description": "Refunds the duty on goods that pass through without stopping, which is most of them. The town is funded entirely by the ones that do.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "grain": 34
+            },
+            "consumes": {
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -635,7 +814,18 @@
           ],
           "surfaceColour": "#74808E",
           "accentColour": "#3A6FD8",
-          "description": "A staging yard for everything heading into the Marque. The Factor's board here pays more than anywhere inward and the reasons are not always printed."
+          "description": "A staging yard for everything heading into the Marque. The Factor's board here pays more than anywhere inward and the reasons are not always printed.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 4,
+              "machinery": 6,
+              "propellant": 7,
+              "circuitry": 3,
+              "ordnance": 4
+            }
+          }
         },
         {
           "id": "flotsam",
@@ -651,7 +841,17 @@
           ],
           "surfaceColour": "#898D8F",
           "accentColour": "#C3CCD6",
-          "description": "A salvage market that buys without provenance and sells without warranty. The Court knows about it and has never been able to make the charge stick."
+          "description": "A salvage market that buys without provenance and sells without warranty. The Court knows about it and has never been able to make the charge stick.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "alloy": 8,
+              "circuitry": 3
+            },
+            "consumes": {
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -691,7 +891,17 @@
           ],
           "surfaceColour": "#8692A0",
           "accentColour": "#5E86B8",
-          "description": "Lends against cargo rather than hulls, which suits captains whose hulls are not strictly theirs. The rates reflect it."
+          "description": "Lends against cargo rather than hulls, which suits captains whose hulls are not strictly theirs. The rates reflect it.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "grain": 40
+            },
+            "consumes": {
+              "provisions": 3,
+              "machinery": 3
+            }
+          }
         }
       ]
     },
@@ -732,7 +942,16 @@
           ],
           "surfaceColour": "#8B8E8C",
           "accentColour": "#C3CCD6",
-          "description": "Where a general average is declared and the loss shared out among everyone whose cargo was aboard. Nobody arrives at Average in a good mood."
+          "description": "Where a general average is declared and the loss shared out among everyone whose cargo was aboard. Nobody arrives at Average in a good mood.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "grain": 38
+            },
+            "consumes": {
+              "provisions": 3
+            }
+          }
         },
         {
           "id": "stowage",
@@ -747,7 +966,17 @@
           ],
           "surfaceColour": "#9A978D",
           "accentColour": "#E9E2D0",
-          "description": "Deep berths and patient loaders. Kessler sends anything fragile here and pays the extra day without complaining."
+          "description": "Deep berths and patient loaders. Kessler sends anything fragile here and pays the extra day without complaining.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "provisions": 22
+            },
+            "consumes": {
+              "grain": 24,
+              "machinery": 3
+            }
+          }
         }
       ]
     },
@@ -791,7 +1020,19 @@
           ],
           "surfaceColour": "#3F6E68",
           "accentColour": "#2FA596",
-          "description": "Reprisal's seat, where a letter of marque is bought and a capture is condemned. The prize hall keeps a running board of what each crew is owed."
+          "description": "Reprisal's seat, where a letter of marque is bought and a capture is condemned. The prize hall keeps a running board of what each crew is owed.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "ordnance": 9
+            },
+            "consumes": {
+              "provisions": 4,
+              "machinery": 6,
+              "alloy": 7,
+              "circuitry": 3
+            }
+          }
         },
         {
           "id": "salvage",
@@ -808,7 +1049,17 @@
           ],
           "surfaceColour": "#4A6A66",
           "accentColour": "#2FA596",
-          "description": "Breaks up what Barratry condemns and sells it back by the tonne. A good place to buy plating and a poor place to ask where it came from."
+          "description": "Breaks up what Barratry condemns and sells it back by the tonne. A good place to buy plating and a poor place to ask where it came from.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "alloy": 10,
+              "circuitry": 4
+            },
+            "consumes": {
+              "provisions": 3
+            }
+          }
         }
       ]
     },
@@ -848,7 +1099,19 @@
           ],
           "surfaceColour": "#5C6460",
           "accentColour": "#2FA596",
-          "description": "Everything on this ring is security against something. Reprisal holds most of the paper and the rest is held by people who do not file."
+          "description": "Everything on this ring is security against something. Reprisal holds most of the paper and the rest is held by people who do not file.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "ore": 24,
+              "ice": 22
+            },
+            "consumes": {
+              "provisions": 3,
+              "machinery": 4,
+              "ordnance": 3
+            }
+          }
         }
       ]
     },
@@ -888,7 +1151,15 @@
           ],
           "surfaceColour": "#6B6A64",
           "accentColour": "#C98B5E",
-          "description": "Holds payment for both sides of a deal neither trusts. The fee is high and the alternative is worse."
+          "description": "Holds payment for both sides of a deal neither trusts. The fee is high and the alternative is worse.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "propellant": 5
+            }
+          }
         }
       ]
     },
@@ -929,7 +1200,16 @@
           ],
           "surfaceColour": "#4A525E",
           "accentColour": "#3C4044",
-          "description": "No registry, no inspectors, and a market that will buy anything that fits through the door. The berths are free and the departure tax is whatever they decide."
+          "description": "No registry, no inspectors, and a market that will buy anything that fits through the door. The berths are free and the departure tax is whatever they decide.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {},
+            "consumes": {
+              "provisions": 3,
+              "propellant": 8,
+              "ordnance": 5
+            }
+          }
         }
       ]
     },
@@ -969,7 +1249,17 @@
           ],
           "surfaceColour": "#6E6150",
           "accentColour": "#C98B5E",
-          "description": "Grows Leaf and files nothing about it. The name was somebody's idea of a joke and has outlasted them."
+          "description": "Grows Leaf and files nothing about it. The name was somebody's idea of a joke and has outlasted them.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "leaf": 24
+            },
+            "consumes": {
+              "provisions": 4,
+              "machinery": 5
+            }
+          }
         },
         {
           "id": "tret",
@@ -985,7 +1275,17 @@
           ],
           "surfaceColour": "#565B52",
           "accentColour": "#4A525E",
-          "description": "An allowance for waste in transit, and a town that lives on it. What arrives here was short on somebody else's manifest."
+          "description": "An allowance for waste in transit, and a town that lives on it. What arrives here was short on somebody else's manifest.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "leaf": 13
+            },
+            "consumes": {
+              "provisions": 3,
+              "ordnance": 2
+            }
+          }
         }
       ]
     },
@@ -1026,7 +1326,17 @@
           ],
           "surfaceColour": "#5E6358",
           "accentColour": "#2FA596",
-          "description": "Reprisal charges for the privilege of going no further. The levy funds the beacon, which is the only thing out here that still works."
+          "description": "Reprisal charges for the privilege of going no further. The levy funds the beacon, which is the only thing out here that still works.",
+          "trade": {
+            "$comment": "Units an hour. Target stock and capacity follow from these.",
+            "produces": {
+              "ordnance": 5
+            },
+            "consumes": {
+              "provisions": 3,
+              "propellant": 6
+            }
+          }
         }
       ]
     }
