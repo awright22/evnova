@@ -24,12 +24,157 @@ export interface Screen {
   readonly bots?: number;
 }
 
+/**
+ * What the client publishes on `window` when opened with `?harness=1`: enough
+ * of the room for a capture to fly the ship. Described here rather than
+ * imported because this file is typechecked for Node, and the code that uses
+ * it runs in the page.
+ */
+interface HarnessWindow {
+  __marqueHarness?: {
+    room: {
+      sessionId: string;
+      state: {
+        ships: Map<
+          string,
+          { x: number; y: number; angle: number; destroyedAt: number }
+        >;
+      };
+    };
+  };
+}
+
 /** Hold a key for a while, so the capture catches the ship actually moving. */
 async function hold(page: Page, key: string, ms: number): Promise<void> {
   await page.keyboard.down(key);
   await page.waitForTimeout(ms);
   await page.keyboard.up(key);
 }
+
+/**
+ * Fly onto the mark and shoot it, the way a captain would.
+ *
+ * A fixed gun fires along the hull's facing, so a capture that holds the
+ * trigger without steering lands nothing. This reads the ship's heading and
+ * the mark's bearing through the `?harness=1` seam and taps the turn keys
+ * until they agree, then fires. Nothing here reaches past the client: it is
+ * the same information the screen shows, read instead of looked at.
+ *
+ * Returns false when there is nothing to shoot at.
+ */
+async function engageNearest(page: Page, seconds: number): Promise<boolean> {
+  const deadline = Date.now() + seconds * 1000;
+
+  /** Where the nearest hull is, relative to the nose. */
+  const read = (): Promise<{ delta: number; range: number } | null> =>
+    page.evaluate(() => {
+      // This runs in the page, not in Node, so the browser globals are named
+      // through globalThis rather than typed from the DOM lib.
+      const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
+      const room = harness?.room;
+      if (!room) return null;
+      const self = room.state.ships.get(room.sessionId);
+      if (!self) return null;
+
+      let nearest: { range: number; bearing: number } | undefined;
+      for (const [id, ship] of room.state.ships) {
+        if (id === room.sessionId || ship.destroyedAt > 0) continue;
+        const range = Math.hypot(ship.x - self.x, ship.y - self.y);
+        if (!nearest || range < nearest.range) {
+          nearest = { range, bearing: Math.atan2(ship.y - self.y, ship.x - self.x) };
+        }
+      }
+      if (!nearest) return null;
+
+      let delta = nearest.bearing - self.angle;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      return { delta, range: nearest.range };
+    });
+
+  const first = await read();
+  if (!first) return false;
+
+  // The trigger stays down for the whole engagement, so every pass through
+  // the bearing puts rounds on the mark. Holding a key and watching the world
+  // is what a captain does; tapping between round trips to the browser is not
+  // fast enough to fly with.
+  await page.keyboard.down('Space');
+
+  try {
+    while (Date.now() < deadline) {
+      const aim = await read();
+      if (!aim) break;
+
+      // How wide the mark is from here. Close in, almost any facing hits, and
+      // holding out for a tight bearing just saws the nose back and forth.
+      const tolerance = Math.min(
+        MAX_AIM_TOLERANCE,
+        Math.max(AIM_TOLERANCE, Math.atan2(HULL_HALF_WIDTH, Math.max(1, aim.range))),
+      );
+
+      if (Math.abs(aim.delta) > tolerance) {
+        // Hold the turn until the nose comes round, releasing a little early
+        // so the hull's remaining spin carries it the rest of the way.
+        const key = aim.delta > 0 ? 'ArrowRight' : 'ArrowLeft';
+        const wanted = Math.sign(aim.delta);
+        const release = Math.max(AIM_RELEASE, tolerance);
+        await page.keyboard.down(key);
+        const turnUntil = Date.now() + 3000;
+        while (Date.now() < turnUntil) {
+          const now = await read();
+          if (!now) break;
+          if (Math.sign(now.delta) !== wanted || Math.abs(now.delta) < release) break;
+        }
+        await page.keyboard.up(key);
+        continue;
+      }
+
+      if (aim.range > GUN_REACH) {
+        await page.keyboard.down('ArrowUp');
+        const closeUntil = Date.now() + 2500;
+        while (Date.now() < closeUntil) {
+          const now = await read();
+          if (!now) break;
+          if (now.range <= STANDOFF || Math.abs(now.delta) > tolerance * 3) break;
+        }
+        await page.keyboard.up('ArrowUp');
+        // Stop the closing speed, so the capture fights rather than rams.
+        if (aim.range < GUN_REACH) await hold(page, 'ArrowDown', 700);
+        continue;
+      }
+
+      // On the mark and in range: let the guns work.
+      await page.waitForTimeout(400);
+    }
+  } finally {
+    await page.keyboard.up('Space');
+  }
+
+  return true;
+}
+
+/** How close to the bearing counts as on the mark, at the edge of reach. */
+const AIM_TOLERANCE = 0.12;
+
+/** And the widest it ever opens up to, close in. */
+const MAX_AIM_TOLERANCE = 0.5;
+
+/** Roughly half a hull across, in world units, for that widening. */
+const HULL_HALF_WIDTH = 40;
+
+/** Close to here and no closer: the capture is fighting, not ramming. */
+const STANDOFF = 420;
+
+/**
+ * And when to let go of the turn. Wider than the tolerance because the hull
+ * keeps rotating after the key is up: releasing exactly on the bearing
+ * overshoots it every time.
+ */
+const AIM_RELEASE = 0.4;
+
+/** Inside this the starter's gun reaches, with room for the mark to move. */
+const GUN_REACH = 850;
 
 export const SCREENS: readonly Screen[] = [
   {
@@ -94,20 +239,18 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'combat',
     description: 'A fight: rounds in flight, shield ripples, the mark bracketed and the lead indicator up.',
-    path: '/?callsign=Free%20Captain',
+    path: '/?callsign=Free%20Captain&harness=1',
     settle: '.hud',
     settleMs: 2500,
     bots: 2,
     act: async (page) => {
-      // Mark the nearest hull, then hold the trigger while closing on it, so
-      // the capture catches rounds in flight rather than an empty sky.
+      // Mark the nearest hull and actually fight it, so the capture catches
+      // rounds in flight and shields rippling rather than an empty sky.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
+      await engageNearest(page, 14);
       await page.keyboard.down('Space');
-      await page.keyboard.down('ArrowUp');
-      await page.waitForTimeout(3500);
-      await page.keyboard.up('ArrowUp');
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(400);
     },
   },
   {
@@ -172,6 +315,52 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.hud__travel', { timeout: 20_000 });
       await page.keyboard.press('KeyL');
       await page.waitForSelector('.port', { timeout: 20_000 });
+      await page.waitForTimeout(800);
+    },
+  },
+  {
+    name: 'chat',
+    description: 'The chat overlay: the composer open on the global channel, with the log behind it.',
+    path: '/?callsign=Say%20Again',
+    settle: '.hud',
+    settleMs: 900,
+    bots: 2,
+    act: async (page) => {
+      // Say a few things, so the log behind the composer is not empty.
+      for (const line of [
+        'Anyone running Leaf out of Tolliver this week?',
+        'Two of them sitting off the lane at Soundings. Mind yourself.',
+      ]) {
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('.chat__input', { timeout: 20_000 });
+        await page.keyboard.type(line, { delay: 8 });
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(500);
+      }
+      // Leave it open on a third, mid-sentence, which is what it looks like.
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('.chat__input', { timeout: 20_000 });
+      await page.keyboard.type('Fair winds. I am alongside at the Bourse if', { delay: 8 });
+      await page.waitForTimeout(400);
+    },
+  },
+  {
+    name: 'posted',
+    description:
+      'Posted by the Prize Court: the composition owing beside the purse, after firing on lawful traffic in the Home Roads.',
+    path: '/?callsign=Barratry&harness=1',
+    settle: '.hud',
+    settleMs: 1500,
+    bots: 2,
+    act: async (page) => {
+      // Fire on a lawful hull in a secured system. The Court notices.
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(300);
+      // A generous window: this runs after a dozen other captures, with bot
+      // traffic in the system and software rasterisation under it all, so the
+      // frame loop and every round trip to the page are slower than they look.
+      await engageNearest(page, 60);
+      await page.waitForSelector('.hud__posted', { timeout: 20_000 });
       await page.waitForTimeout(800);
     },
   },

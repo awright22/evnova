@@ -1,0 +1,149 @@
+/**
+ * Chat. It sits above the bottom-left instruments, left-aligned on the same
+ * edge, so it reads as one column with them rather than a second interface.
+ */
+
+.chat {
+  position: absolute;
+  bottom: 212px;
+  left: var(--space-2);
+  z-index: 3;
+  display: grid;
+  gap: var(--space-1);
+  width: min(460px, 42vw);
+  pointer-events: none;
+}
+
+.chat--open {
+  bottom: var(--space-2);
+  width: min(620px, 54vw);
+  pointer-events: auto;
+}
+
+.chat__log {
+  display: grid;
+  gap: 2px;
+  align-content: end;
+  max-height: 180px;
+  overflow: hidden;
+}
+
+.chat--open .chat__log {
+  max-height: 320px;
+  padding: var(--space-1) var(--space-1-5);
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  border: var(--border-width) solid var(--rule-faint);
+}
+
+.chat__line {
+  margin: 0;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+  animation: chat-in var(--motion-base) var(--ease-standard);
+}
+
+/* Shut, the log has no panel behind it, so each line carries its own ground. */
+.chat:not(.chat--open) .chat__line {
+  padding: 1px var(--space-0-5);
+  background: color-mix(in srgb, var(--void) 62%, transparent);
+  width: fit-content;
+}
+
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Where a global line was said, which a system line does not need. */
+.chat__origin {
+  margin-right: var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.chat__who {
+  margin-right: var(--space-0-5);
+  font-weight: 600;
+  color: var(--amber);
+}
+
+.chat__who::after {
+  content: ':';
+  color: var(--text-disabled);
+}
+
+.chat__line--system .chat__who {
+  color: var(--shield);
+}
+
+.chat__body {
+  color: var(--text-primary);
+}
+
+.chat__composer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+}
+
+/** Which channel the line will go out on, in that channel's colour. */
+.chat__channel {
+  padding: 2px var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  font-weight: 600;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid currentcolor;
+}
+
+.chat__channel--global {
+  color: var(--amber);
+}
+
+.chat__channel--system {
+  color: var(--shield);
+}
+
+.chat__input {
+  min-width: 0;
+  padding: 2px 0;
+  font: inherit;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-bottom: var(--border-width) solid var(--rule-strong);
+  outline: none;
+}
+
+.chat__input:focus {
+  border-bottom-color: var(--amber);
+}
+
+.chat__hint {
+  color: var(--text-disabled);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat__line {
+    animation: none;
+  }
+}

@@ -12,6 +12,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { ChatLine } from '@marque/shared';
+
+import { ChatOverlay } from './chat/ChatOverlay.tsx';
 import { FlightView } from './flight/FlightView.tsx';
 import { GameClient, type GameSnapshot } from './game/GameClient.ts';
 import { Register } from './game/Register.tsx';
@@ -32,12 +35,16 @@ export function App(): React.JSX.Element {
 
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() => client.snapshot());
   const [chartOpen, setChartOpen] = useState(false);
+  const [chat, setChat] = useState<readonly ChatLine[]>([]);
+  const [composing, setComposing] = useState(false);
 
   useEffect(() => {
     const unsubscribe = client.subscribe(setSnapshot);
+    const unsubscribeChat = client.subscribeChat(setChat);
     void client.start();
     return () => {
       unsubscribe();
+      unsubscribeChat();
       client.dispose();
     };
   }, [client]);
@@ -50,6 +57,21 @@ export function App(): React.JSX.Element {
       setChartOpen(false);
     },
     [client],
+  );
+
+  // Chat follows the captain between flight and a berth, and keeps the same
+  // log across a jump: only the system channel's name changes.
+  const systemName =
+    chart?.byId.get(snapshot.systemId || purse.system)?.name ?? snapshot.systemId;
+
+  const chatOverlay = (
+    <ChatOverlay
+      lines={chat}
+      systemName={systemName}
+      captureKeys={!chartOpen}
+      onSay={(channel, body) => client.say(channel, body)}
+      onComposingChange={setComposing}
+    />
   );
 
   // The chart is available from flight and from a berth.
@@ -113,6 +135,7 @@ export function App(): React.JSX.Element {
             onLaunch={() => client.launch()}
             onOpenChart={() => setChartOpen(true)}
           />
+          {chatOverlay}
           {chartOverlay}
         </>
       );
@@ -137,8 +160,10 @@ export function App(): React.JSX.Element {
               onOpenChart={() => setChartOpen(true)}
               onJump={() => client.jumpPlotted()}
               onCancelJump={() => client.cancelJump()}
+              composing={composing}
             />
           )}
+          {chatOverlay}
           {chartOverlay}
         </>
       );

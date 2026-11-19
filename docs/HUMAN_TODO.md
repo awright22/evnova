@@ -100,17 +100,118 @@ starve each other's frame loops.
 
 ---
 
-## 4. Coming at M3: deployment
+## 4. Deployment
 
-Not needed yet. I will write the exact steps here when the deployment work
-lands, and build everything up to the point that needs your accounts. It will
-involve:
+Everything that can be built is built: `Dockerfile`, `fly.toml` and
+`.github/workflows/deploy-client.yml` are in the repository and the production
+server bundle has been run and checked here. What is left needs your accounts.
 
-- A GitHub Pages source setting for the client (free).
-- A small always-on host with a persistent volume for the server. Fly.io is the
-  default in the spec; this is the one item that **costs money** (expect a few
-  dollars a month for the smallest instance plus a 1 GB volume).
-- A shared invite code and an admin callsign, set as server configuration.
+The client is free to host. The server is the one item that **costs money**:
+expect a few dollars a month for the smallest always-on machine plus a 1 GB
+volume.
+
+Do the server first, because the client build needs the server's URL.
+
+### 4a. The server, on Fly.io
+
+1. Install `flyctl` and sign in:
+
+   ```bash
+   curl -L https://fly.io/install.sh | sh
+   ```
+
+   ```bash
+   fly auth signup
+   ```
+
+2. From the repository root, create the app without deploying. Pick your own
+   name — `marque` is almost certainly taken — and a region near your group
+   (`fly platform regions` lists them):
+
+   ```bash
+   fly launch --no-deploy --copy-config --name YOUR-APP-NAME --region iad
+   ```
+
+   Answer no if it offers to add a database or Redis: the world is a SQLite
+   file on the volume.
+
+3. Create the volume the world lives on. It must be in the same region:
+
+   ```bash
+   fly volumes create marque_data --size 1 --region iad
+   ```
+
+4. Set the invite code. Anyone with it can open an account, and an empty value
+   means no gate at all, so set one before the first deploy:
+
+   ```bash
+   fly secrets set INVITE_CODE="pick-a-phrase-your-group-will-share"
+   ```
+
+5. Tell the server which origin may connect. Use your Pages URL, with no
+   trailing slash. For a project page that is
+   `https://YOUR-GITHUB-USERNAME.github.io`:
+
+   ```bash
+   fly secrets set ALLOWED_ORIGINS="https://YOUR-GITHUB-USERNAME.github.io"
+   ```
+
+6. Deploy, and check it answers:
+
+   ```bash
+   fly deploy
+   ```
+
+   ```bash
+   curl https://YOUR-APP-NAME.fly.dev/health
+   ```
+
+   That should print `{"status":"ok",...}`. If it does not, `fly logs` says
+   why.
+
+Your server URL for the next part is `wss://YOUR-APP-NAME.fly.dev` — note
+`wss`, not `https`.
+
+### 4b. The client, on GitHub Pages
+
+1. In the repository on GitHub: **Settings → Pages → Build and deployment →
+   Source**, choose **GitHub Actions**.
+
+2. In **Settings → Secrets and variables → Actions → Variables**, add a
+   repository variable:
+
+   - Name: `MARQUE_SERVER_URL`
+   - Value: `wss://YOUR-APP-NAME.fly.dev`
+
+   The deploy workflow fails with that instruction if the variable is missing,
+   rather than publishing a client that cannot reach anything.
+
+3. Push to `main`, or run **Actions → Deploy client → Run workflow**. The run
+   prints the published URL.
+
+If you serve the client from your own domain or a user page rather than a
+project page, also set a `MARQUE_BASE` variable to the path it is served from
+(`/` for a user page or a custom domain). The default is `/<repository-name>/`,
+which is right for a project page.
+
+### 4c. Afterwards
+
+- Give your group the invite code and the Pages URL. Nothing else is needed:
+  an account is a callsign plus the device they open it on.
+- `fly ssh console -C "ls /data/snapshots"` lists the daily snapshots. The
+  server keeps seven.
+- To restore one: `fly ssh console`, stop the process, copy the snapshot over
+  `/data/marque.db`, and restart the machine.
+
+### What I could not verify here
+
+- **The container image has never been built.** This machine has no usable
+  Docker daemon. The production server bundle has been built and run outside a
+  container — it boots, migrates the database and serves `/health` — so what
+  is untested is the image build itself: the base image, the native build of
+  `better-sqlite3`, and the volume mount. If `fly deploy` fails, send me the
+  output and I will fix it.
+- **No deploy has run**, since both need your accounts.
 
 ---
 

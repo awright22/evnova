@@ -78,8 +78,8 @@ export interface ImpactEvent {
   readonly kind: number;
   /** True when this hit took a module to zero. */
   readonly disabled: boolean;
-  /** Structure the hit actually took off, for scaling a composition. */
-  readonly structureLost: number;
+  /** Damage this hit landed, shields included, for scaling a composition. */
+  readonly damageDealt: number;
 }
 
 export class CombatSystem {
@@ -291,7 +291,7 @@ export class CombatSystem {
       shooterId: round.owner,
       kind: round.kind,
       disabled,
-      structureLost: outcome.toModule,
+      damageDealt: outcome.toShield + outcome.toModule,
     });
 
     if (runtime.writtenOff && ship.destroyedAt === 0) {

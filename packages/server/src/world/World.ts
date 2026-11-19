@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { Accounts } from '../accounts.ts';
 import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
+import { ChatLog } from './ChatLog.ts';
 import { Ledger } from './Ledger.ts';
 import { PilotStore } from './PilotStore.ts';
 
@@ -36,6 +37,7 @@ export class World {
   readonly accounts: Accounts;
   readonly pilots: PilotStore;
   readonly ledger: Ledger;
+  readonly chat = new ChatLog();
 
   private flushTimer: NodeJS.Timeout | undefined;
   private snapshotTimer: NodeJS.Timeout | undefined;

@@ -11,7 +11,7 @@
  */
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
-import { SystemState } from '@marque/shared';
+import { CHAT_BACKLOG, SystemState, scrubChat, type ChatLine } from '@marque/shared';
 
 import { loadChart, type Chart } from '../map/galaxy.ts';
 import { explainFailure, type FailureReason } from '../net/connection.ts';
@@ -77,11 +77,39 @@ export interface GameSnapshot {
   readonly course: string | undefined;
 }
 
+/**
+ * A seam for the capture and verification harnesses.
+ *
+ * Opening the client with `?harness=1` publishes the room on `window` so a
+ * script can read the world the way a player reads the screen, and fly the
+ * ship properly instead of pressing keys blind. It is off unless that flag is
+ * passed, and it grants nothing: the server is authoritative, so a client that
+ * can see its own room state can see no more than devtools already shows.
+ */
+declare global {
+  interface Window {
+    __marqueHarness?: { room: Room<unknown, SystemState> };
+  }
+}
+
+function exposeToHarness(room: Room<unknown, SystemState>): void {
+  if (typeof window === 'undefined') return;
+  if (new URLSearchParams(window.location.search).get('harness') !== '1') return;
+  window.__marqueHarness = { room };
+}
+
 type Listener = (snapshot: GameSnapshot) => void;
+type ChatListener = (lines: readonly ChatLine[]) => void;
 
 export class GameClient {
   private readonly sdk: ColyseusSDK;
   private readonly listeners = new Set<Listener>();
+  /**
+   * Chat has its own subscription rather than riding the game snapshot: a
+   * line arriving should not re-render the flight view.
+   */
+  private readonly chatListeners = new Set<ChatListener>();
+  private chatLines: ChatLine[] = [];
 
   private mode: GameMode = { kind: 'connecting' };
   private room: Room<unknown, SystemState> | undefined;
@@ -136,6 +164,35 @@ export class GameClient {
   private emit(): void {
     const snapshot = this.snapshot();
     for (const listener of this.listeners) listener(snapshot);
+  }
+
+  /** Subscribe to the chat alone. Returns an unsubscribe. */
+  subscribeChat(listener: ChatListener): () => void {
+    this.chatListeners.add(listener);
+    listener(this.chatLines);
+    return () => this.chatListeners.delete(listener);
+  }
+
+  private emitChat(): void {
+    // A new array each time so React sees the change.
+    const lines = this.chatLines;
+    for (const listener of this.chatListeners) listener(lines);
+  }
+
+  /** Keep the client's own copy bounded, as the server's is. */
+  private pushChat(incoming: readonly ChatLine[]): void {
+    const seen = new Set(this.chatLines.map((line) => line.id));
+    const added = incoming.filter((line) => !seen.has(line.id));
+    if (added.length === 0) return;
+    this.chatLines = [...this.chatLines, ...added].slice(-CHAT_BACKLOG);
+    this.emitChat();
+  }
+
+  /** Say something. Refusals land as a notice like any other intent. */
+  say(channel: 'global' | 'system', body: string): void {
+    const trimmed = scrubChat(body);
+    if (trimmed === '') return;
+    void this.request('chat', { channel, body: trimmed });
   }
 
   /** Begin: load the chart, then join wherever the captain left off. */
@@ -202,6 +259,7 @@ export class GameClient {
 
   private attach(room: Room<unknown, SystemState>): void {
     this.room = room;
+    exposeToHarness(room);
     this.systemId = room.state.systemId;
     // Arriving somewhere clears the course that brought us here.
     if (this.course === this.systemId) this.course = undefined;
@@ -239,6 +297,14 @@ export class GameClient {
         ? 'Not enough Propellant aboard.'
         : 'The lane would not take the hull that close to the star.';
       this.emit();
+    });
+
+    room.onMessage('chat', (payload) => {
+      this.pushChat([payload as ChatLine]);
+    });
+
+    room.onMessage('chat-backlog', (payload) => {
+      this.pushChat((payload as { lines: ChatLine[] }).lines);
     });
 
     room.onMessage('posted', (payload) => {

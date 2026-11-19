@@ -1,0 +1,93 @@
+# Publish the client to GitHub Pages.
+#
+# The client is static files; the server URL and the base path are baked in at
+# build time, which is why this is a separate workflow from CI rather than an
+# artifact of it. Set MARQUE_SERVER_URL as a repository variable before the
+# first run: see docs/HUMAN_TODO.md.
+
+name: Deploy client
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/client/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-client.yml'
+  workflow_dispatch:
+
+# Pages needs these; nothing else in this workflow writes to the repository.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and let a running one finish: cancelling mid-deploy
+# can leave Pages serving a half-published build.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Fail here rather than publishing a client that cannot reach a server.
+      - name: Require the server URL
+        run: |
+          if [ -z "${{ vars.MARQUE_SERVER_URL }}" ]; then
+            echo "MARQUE_SERVER_URL is not set."
+            echo "Set it as a repository variable (Settings -> Secrets and variables"
+            echo "-> Actions -> Variables), for example wss://marque.fly.dev."
+            exit 1
+          fi
+
+      - name: Build
+        env:
+          MARQUE_SERVER_URL: ${{ vars.MARQUE_SERVER_URL }}
+          # Project pages are served from /<repo>/, so the asset base has to
+          # match or every script 404s.
+          MARQUE_BASE: ${{ vars.MARQUE_BASE || format('/{0}/', github.event.repository.name) }}
+          MARQUE_VERSION: ${{ github.sha }}
+        run: pnpm --filter @marque/client run build
+
+      # Pages serves static files, so an unknown path is a 404 rather than the
+      # app. Copying index.html to 404.html makes a deep link load the client.
+      - name: Add the fallback document
+        run: cp packages/client/dist/index.html packages/client/dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: packages/client/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

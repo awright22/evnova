@@ -76,6 +76,53 @@ export const PortServiceIntent = z.object({
 });
 export type PortServiceIntent = z.infer<typeof PortServiceIntent>;
 
+/** The longest line the Register will print. */
+export const CHAT_MAX_LENGTH = 240;
+
+/** How many recent lines a captain is given on arrival. */
+export const CHAT_BACKLOG = 40;
+
+/**
+ * Strip a line down to what the Register prints.
+ *
+ * Control characters, newlines and runs of whitespace all collapse: the chat
+ * is one line per message, and nothing a captain types may move another
+ * captain's interface around.
+ */
+export function scrubChat(body: string): string {
+  return body
+    // eslint-disable-next-line no-control-regex -- removing them is the point.
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, CHAT_MAX_LENGTH);
+}
+
+/**
+ * Say something, on the global channel or to this system only.
+ *
+ * The body is bounded here and scrubbed on the server: the Register prints
+ * plain text, and a line that could carry control characters or run to a
+ * thousand glyphs is not plain text.
+ */
+export const ChatIntent = z.object({
+  channel: z.enum(['global', 'system']),
+  body: z.string().min(1).max(CHAT_MAX_LENGTH),
+});
+export type ChatIntent = z.infer<typeof ChatIntent>;
+
+/** A line as it reaches the other captains. */
+export interface ChatLine {
+  readonly id: string;
+  readonly channel: 'global' | 'system';
+  readonly callsign: string;
+  /** Where the speaker was, so a global line carries its origin. */
+  readonly system: string;
+  readonly body: string;
+  /** Server wall-clock at the time it was said, for ordering and timestamps. */
+  readonly at: number;
+}
+
 /** Scoop a canister the hull is close enough to reach. */
 export const ScoopIntent = z.object({
   id: z.string().max(64),

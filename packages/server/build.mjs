@@ -7,7 +7,23 @@
  */
 
 import { build } from 'esbuild';
-import { rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
+
+/**
+ * Third-party runtime dependencies, which the image installs beside the
+ * bundle. Read from the manifest rather than listed here, so adding one
+ * cannot leave the bundle quietly trying to inline a native module.
+ *
+ * Workspace packages are deliberately NOT external: they are TypeScript
+ * source with no build of their own, so Node could not load them from
+ * node_modules. They are bundled in, which is the whole point of this step.
+ */
+const manifest = JSON.parse(
+  await readFile(new URL('./package.json', import.meta.url), 'utf8'),
+);
+const external = Object.keys(manifest.dependencies ?? {}).filter(
+  (name) => !name.startsWith('@marque/'),
+);
 
 await rm(new URL('./dist/', import.meta.url), { recursive: true, force: true });
 
@@ -20,9 +36,7 @@ const result = await build({
   format: 'esm',
   sourcemap: true,
   minify: false,
-  // Native and optional dependencies stay external: they are installed
-  // alongside the bundle in the container image.
-  packages: 'external',
+  external,
   logLevel: 'info',
   metafile: true,
 });

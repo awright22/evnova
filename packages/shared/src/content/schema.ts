@@ -246,7 +246,7 @@ export const Tuning = z.object({
     ordnance: z.int().nonnegative(),
   }),
   law: z.object({
-    compositionPerStructure: z.number().nonnegative(),
+    compositionPerDamage: z.number().nonnegative(),
     compositionPerWriteOff: z.int().nonnegative(),
     /** Security levels whose berths turn a posted captain away. */
     postedRefusedIn: z.array(SecurityLevel),

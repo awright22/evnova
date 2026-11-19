@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/dist
+artifacts
+data
+.git
+.github
+docs
+*.log

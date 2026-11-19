@@ -1,0 +1,53 @@
+# Fly.io host configuration for the game server.
+#
+# One machine with one persistent volume. The world is a single SQLite file
+# and the server is authoritative over rooms held in that one process, so this
+# does not scale horizontally without moving to Redis presence and a shared
+# database. For a small private group it does not need to.
+#
+# `app` and `primary_region` are set by the owner at first deploy; see
+# docs/HUMAN_TODO.md.
+
+app = "marque"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "2567"
+  NODE_ENV = "production"
+  DATABASE_URL = "/data/marque.db"
+  SNAPSHOT_DIR = "/data/snapshots"
+  SNAPSHOT_KEEP = "7"
+
+# The world lives here: the database, its write-ahead log and the daily
+# snapshots. Destroying this volume destroys every account.
+[[mounts]]
+  source = "marque_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 2567
+  force_https = true
+  # Never scale to zero: captains are persistent and a sleeping machine drops
+  # live rooms. Never scale past one: see the note at the top.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+# Give the process time to flush captains and close the database before the
+# host kills it. The server handles SIGINT and SIGTERM.
+[deploy]
+  strategy = "immediate"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

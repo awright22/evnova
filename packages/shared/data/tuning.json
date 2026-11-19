@@ -67,8 +67,8 @@
     "ordnance": 24
   },
   "law": {
-    "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of structure taken off, plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at every berth but the Unlettered's until it is paid.",
-    "compositionPerStructure": 9,
+    "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of damage dealt — shields included, because the offence is the attack and not whether it got through — plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at Home Roads berths until it is paid.",
+    "compositionPerDamage": 9,
     "compositionPerWriteOff": 6000,
     "postedRefusedIn": ["secured"],
     "weightBySecurity": {

@@ -36,14 +36,17 @@ import {
   TICK_RATE,
   Rng,
   clamp,
+  ChatIntent,
   berthRefusesPosted,
   compositionForDamage,
   compositionForWriteOff,
   content,
+  scrubChat,
   deriveStats,
   placeAll,
   stepFlight,
   type Blueprint,
+  type ChatLine,
   type FlightCommand,
   type SystemDef,
 } from '@marque/shared';
@@ -113,6 +116,13 @@ const STARTING_AMMO = 24;
 const INTENT_BUDGET = 30;
 const INTENT_WINDOW_MS = 1000;
 
+/** Chat is typed by a person, so it gets a person's budget. */
+const CHAT_BUDGET = 6;
+const CHAT_WINDOW_MS = 10_000;
+
+/** The presence topic every room listens on for the global channel. */
+const GLOBAL_CHAT_TOPIC = 'chat:global';
+
 export class SystemRoom extends Room<{
   state: SystemState;
   input: ShipInput;
@@ -136,6 +146,11 @@ export class SystemRoom extends Room<{
   private readonly pilots = new Map<string, NpcPilot>();
   /** Where each NPC holds when it has nothing to answer for. */
   private readonly stations = new Map<string, { x: number; y: number }>();
+  /** When each captain last spoke, for the chat budget. */
+  private readonly chatLog = new Map<string, number[]>();
+  private nextChatId = 1;
+  /** Torn down on dispose so a room does not keep answering after it ends. */
+  private unsubscribeChat: (() => void) | undefined;
 
   private system: SystemDef | undefined;
   private combat!: CombatSystem;
@@ -433,9 +448,44 @@ export class SystemRoom extends Room<{
       }
       world().pilots.touch(pilot.accountId);
 
-      this.spawnFromPilot(client.sessionId, pilot);
+      // A hull alongside has had time on the berth's power: shields are
+      // charged on launch. Structure still costs money to put right.
+      this.spawnFromPilot(client.sessionId, pilot, { chargeShields: true });
       this.sendPurse(client.sessionId);
       return { launched: true };
+    }),
+
+    /**
+     * Say something. The global channel goes out through presence, so it
+     * reaches every room in the process and, behind Redis presence, every
+     * process. The system channel is this room's own business.
+     */
+    chat: validate(ChatIntent, (client: Client, message: ChatIntent, ctx) => {
+      if (!this.allowChat(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-signed-in');
+
+      const body = scrubChat(message.body);
+      if (body === '') return ctx.reject('malformed');
+
+      const line: ChatLine = {
+        id: `${this.roomId}:${this.nextChatId++}`,
+        channel: message.channel,
+        callsign: pilot.callsign,
+        system: this.state.systemId,
+        at: Date.now(),
+        body,
+      };
+
+      if (line.channel === 'global') {
+        this.presence.publish(GLOBAL_CHAT_TOPIC, line);
+      } else {
+        world().chat.add(line);
+        this.broadcast('chat', line);
+      }
+
+      return { said: line.id };
     }),
 
     scoop: validate(ScoopIntent, (client: Client, message: ScoopIntent, ctx) => {
@@ -484,6 +534,16 @@ export class SystemRoom extends Room<{
       this.roomId,
     );
 
+    // Every room hears the global channel and passes it to its own captains.
+    const onGlobal = (line: ChatLine): void => {
+      world().chat.add(line);
+      this.broadcast('chat', line);
+    };
+    void this.presence.subscribe(GLOBAL_CHAT_TOPIC, onGlobal);
+    this.unsubscribeChat = () => {
+      void this.presence.unsubscribe(GLOBAL_CHAT_TOPIC, onGlobal);
+    };
+
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE, { subSteps: SUB_STEPS });
 
     this.unregisterMetrics = registerRoom({
@@ -509,6 +569,22 @@ export class SystemRoom extends Room<{
   }
 
   /** True when this connection is inside its intent budget. */
+  /**
+   * Chat gets its own, tighter budget.
+   *
+   * It is the one intent a captain sends by typing, so the limit is about a
+   * person's pace rather than a client's: a few lines in a row is normal
+   * conversation, a hundred is not.
+   */
+  private allowChat(sessionId: string): boolean {
+    const now = this.clock.elapsedTime;
+    const log = this.chatLog.get(sessionId) ?? [];
+    const recent = log.filter((at) => now - at < CHAT_WINDOW_MS);
+    recent.push(now);
+    this.chatLog.set(sessionId, recent);
+    return recent.length <= CHAT_BUDGET;
+  }
+
   private allowIntent(sessionId: string): boolean {
     const now = this.clock.elapsedTime;
     const log = this.intentLog.get(sessionId) ?? [];
@@ -521,6 +597,8 @@ export class SystemRoom extends Room<{
   override onDispose(): void {
     this.unregisterMetrics?.();
     this.unregisterMetrics = undefined;
+    this.unsubscribeChat?.();
+    this.unsubscribeChat = undefined;
   }
 
   /**
@@ -546,6 +624,9 @@ export class SystemRoom extends Room<{
     if (pilot) {
       this.pilotsBySession.set(client.sessionId, pilot);
       this.sessionsByAccount.set(pilot.accountId, client.sessionId);
+
+      // What has been said recently, so the overlay is not blank on arrival.
+      client.send('chat-backlog', { lines: world().chat.backlogFor(this.state.systemId) });
 
       // A landed captain has no hull in space. They see the port's terminal
       // until they launch.
@@ -607,7 +688,11 @@ export class SystemRoom extends Room<{
   }
 
   /** Spawn a hull from what the captain's row says about it. */
-  private spawnFromPilot(sessionId: string, pilot: Pilot): void {
+  private spawnFromPilot(
+    sessionId: string,
+    pilot: Pilot,
+    options: { chargeShields?: boolean } = {},
+  ): void {
     const { blueprints, modules, tuning } = content();
     const blueprint = blueprints.get(pilot.blueprintId) ?? blueprints.get(STARTER_BLUEPRINT);
     if (!blueprint) throw new Error('no draught to fly');
@@ -634,6 +719,7 @@ export class SystemRoom extends Room<{
     ship.hostile = false;
     // Being posted follows the captain between systems and across sessions.
     ship.posted = pilot.composition > 0;
+    if (options.chargeShields) pilot.shield = runtime.shieldCapacity;
     ship.shield = Math.min(pilot.shield, runtime.shieldCapacity);
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
 
@@ -723,12 +809,20 @@ export class SystemRoom extends Room<{
 
   // --- Spawning -----------------------------------------------------------
 
+  /**
+   * Put a hull in the system.
+   *
+   * Where it goes follows what it is: a captain is set down off the berth
+   * like any other captain, a patrol stands a little further out over it, and
+   * the Unlettered hold well off in open space. `role` left out means a
+   * captain, which is what an anonymous hull from a tool is.
+   */
   private spawnHull(
     id: string,
     blueprintId: string,
     callsign: string,
     hostile: boolean,
-    role: NpcRole = 'unlettered',
+    role?: NpcRole,
   ): void {
     const { blueprints, modules, tuning } = content();
     const blueprint: Blueprint | undefined = blueprints.get(blueprintId);
@@ -739,12 +833,15 @@ export class SystemRoom extends Room<{
     const rng = new Rng(`${this.roomId}:${id}`);
     const bearing = rng.range(-Math.PI, Math.PI);
     const { raiderStandoff, raiderScatter, spawnStandoff } = tuning.world;
-    const distance = raiderScatter * Math.sqrt(rng.next());
+    // A captain is set down where they are put; the others scatter, so a wing
+    // does not arrive stacked on one point.
+    const distance = role === undefined ? 0 : raiderScatter * Math.sqrt(rng.next());
 
-    // The Unlettered hold off the berth. A patrol stands over it.
     const berth = this.system?.ports[0];
     const standoff =
-      role === 'patrol' ? (berth?.radius ?? 0) + spawnStandoff * 2 : raiderStandoff;
+      role === 'unlettered'
+        ? raiderStandoff
+        : (berth?.radius ?? 0) + spawnStandoff * (role === 'patrol' ? 2 : 1);
     const anchorX = berth ? berth.x + Math.cos(bearing) * standoff : 0;
     const anchorY = berth ? berth.y + Math.sin(bearing) * standoff : 0;
     this.stations.set(id, { x: anchorX, y: anchorY });
@@ -1106,21 +1203,21 @@ export class SystemRoom extends Room<{
   /**
    * Firing on lawful traffic where law reaches.
    *
-   * The Prize Court strikes a composition per point of structure taken off,
-   * weighted by the system's security: the Home Roads at full, the Concessions
+   * The Prize Court strikes a composition per point of damage dealt, shields
+   * included, weighted by the system's security: the Home Roads at full, the Concessions
    * lightly, the Marque not at all. A posted captain is refused at every berth
    * but the Unlettered's, and patrols answer for them.
    *
    * It does not apply to the Unlettered, who are nobody's lawful traffic, and
    * it cannot be run up by shooting a wreck.
    */
-  private postIfUnlawful(shooterId: string, targetId: string, structureLost: number): void {
-    if (structureLost <= 0) return;
+  private postIfUnlawful(shooterId: string, targetId: string, damageDealt: number): void {
+    if (damageDealt <= 0) return;
 
     const security = this.system?.security;
     if (!security) return;
     const { law } = content().tuning;
-    const struck = compositionForDamage(structureLost, security, law);
+    const struck = compositionForDamage(damageDealt, security, law);
     if (struck <= 0) return;
 
     // Only a captain can be posted, and only for a hull that was lawful.
@@ -1151,7 +1248,7 @@ export class SystemRoom extends Room<{
   }
 
   private broadcastImpact(event: ImpactEvent): void {
-    this.postIfUnlawful(event.shooterId, event.targetId, event.structureLost);
+    this.postIfUnlawful(event.shooterId, event.targetId, event.damageDealt);
 
     // Presentation only: clients draw a ripple or sparks. Nothing about the
     // outcome depends on a client receiving it.

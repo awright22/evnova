@@ -52,6 +52,8 @@ export interface FlightViewProps {
   /** Spool for the plotted course. False when nothing is plotted. */
   onJump: () => boolean;
   onCancelJump: () => void;
+  /** True while the chat composer has the keyboard. */
+  readonly composing: boolean;
 }
 
 export function FlightView({
@@ -64,6 +66,7 @@ export function FlightView({
   onOpenChart,
   onJump,
   onCancelJump,
+  composing,
 }: FlightViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const radarRef = useRef<HTMLCanvasElement | null>(null);
@@ -98,6 +101,14 @@ export function FlightView({
 
   // The frame loop is started once; these keep it reading current values
   // rather than the ones captured when it started.
+  const keyboardRef = useRef<KeyboardInput | undefined>(undefined);
+
+  // Something else has the keyboard: let go of anything held, so a key down
+  // when the composer opened does not fly the ship through the conversation.
+  useEffect(() => {
+    if (composing) keyboardRef.current?.releaseAll();
+  }, [composing]);
+
   const liveRef = useRef({
     purse,
     notice,
@@ -187,6 +198,7 @@ export function FlightView({
       app.stage.addChild(scene.root);
 
       keyboard = new KeyboardInput();
+      keyboardRef.current = keyboard;
 
       // Browsers refuse to start audio without a gesture, so the mix is built
       // on the first key press and torn down with the view.

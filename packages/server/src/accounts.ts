@@ -23,7 +23,12 @@ import { schema, type Store } from './db/index.ts';
  * What a captain opens with: the draught from content, and tanks filled to
  * what that draught holds rather than to a number written here.
  */
-function openingKit(): { draught: string; ordnance: number; propellant: number } {
+function openingKit(): {
+  draught: string;
+  ordnance: number;
+  propellant: number;
+  shield: number;
+} {
   const { blueprints, modules, tuning } = content();
   const blueprint = blueprints.get(tuning.start.draught);
   if (!blueprint) throw new Error(`start draught "${tuning.start.draught}" is missing`);
@@ -32,6 +37,8 @@ function openingKit(): { draught: string; ordnance: number; propellant: number }
     draught: blueprint.id,
     ordnance: tuning.start.ordnance,
     propellant: Math.floor(stats.propellantCapacity),
+    // Shields up. A hull leaves the berth charged, not naked.
+    shield: Math.floor(stats.shieldCapacity),
   };
 }
 
@@ -140,6 +147,7 @@ export class Accounts {
             // Full tanks, whatever the starting draught holds. A fixed number
             // here would read as "60 of 30 aboard" the moment either changed.
             propellant: opening.propellant,
+            shield: opening.shield,
             updatedAt: now,
           })
           .run();

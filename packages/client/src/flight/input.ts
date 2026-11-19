@@ -86,6 +86,17 @@ export class KeyboardInput {
 
   private readonly target: Window;
 
+  /**
+   * Drop every held key.
+   *
+   * Called when something else takes the keyboard, such as the chat composer
+   * opening: a key held at that moment has no keyup to clear it while the
+   * captain types, and the ship would burn through the whole conversation.
+   */
+  releaseAll(): void {
+    this.pressed.clear();
+  }
+
   /** Sample the current intent. Called once per fixed step. */
   sample(): FlightIntent {
     const left = anyPressed(this.pressed, TURN_LEFT);
