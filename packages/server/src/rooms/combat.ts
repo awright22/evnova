@@ -74,6 +74,8 @@ export interface ImpactEvent {
   readonly shielded: boolean;
   readonly targetId: string;
   readonly kind: number;
+  /** True when this hit took a module to zero. */
+  readonly disabled: boolean;
 }
 
 export class CombatSystem {
@@ -266,8 +268,9 @@ export class CombatSystem {
     ship.shield = Math.max(0, ship.shield - outcome.toShield);
     runtime.lastHitAt = this.world.now();
 
+    let disabled = false;
     if (outcome.toModule > 0) {
-      runtime.damageModule(moduleIndex, outcome.toModule);
+      disabled = runtime.damageModule(moduleIndex, outcome.toModule);
       ship.moduleHp[moduleIndex] = Math.max(0, Math.round(runtime.hp[moduleIndex] ?? 0));
     }
 
@@ -277,6 +280,7 @@ export class CombatSystem {
       shielded: outcome.toModule === 0,
       targetId,
       kind: round.kind,
+      disabled,
     });
 
     if (runtime.writtenOff && ship.destroyedAt === 0) {

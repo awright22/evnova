@@ -18,6 +18,7 @@ import {
 } from '@marque/shared';
 
 import { AudioMix } from '../audio/mix.ts';
+import { CombatAudio } from '../audio/combat.ts';
 import { EngineSound } from '../audio/engine.ts';
 import { Hud, type HudReadout } from '../hud/Hud.tsx';
 import { drawRadar, type RadarContact } from '../hud/radar.ts';
@@ -41,9 +42,15 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
     contacts: 0,
     rtt: 0,
     linkOk: false,
+    shield: 0,
+    shieldMax: 0,
+    integrity: 1,
+    target: undefined,
+    refusal: undefined,
   });
 
   const [failure, setFailure] = useState<string | undefined>(undefined);
+  const [writtenOff, setWrittenOff] = useState<WrittenOff | undefined>(undefined);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -56,6 +63,7 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
     let keyboard: KeyboardInput | undefined;
     let mix: AudioMix | undefined;
     let engine: EngineSound | undefined;
+    let combat: CombatAudio | undefined;
     let frame = 0;
 
     const start = async (): Promise<void> => {
@@ -65,6 +73,23 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
       const { systems, blueprints, modules, tuning } = content();
       const shieldCapacities = new Map<string, number>();
       const muzzleSpeeds = new Map<string, number>();
+      const intactStructure = new Map<string, number>();
+
+      /** Structure remaining, against the draught's intact total. */
+      const integrityOf = (frame: ShipFrame): number => {
+        let total = intactStructure.get(frame.blueprint) ?? 0;
+        if (total === 0) {
+          const bp = blueprints.get(frame.blueprint);
+          for (const placement of bp?.placements ?? []) {
+            total += modules.get(placement.moduleId)?.hitPoints ?? 0;
+          }
+          intactStructure.set(frame.blueprint, total);
+        }
+        if (total <= 0) return 0;
+        let left = 0;
+        for (const hp of frame.moduleHp) left += hp;
+        return Math.max(0, Math.min(1, left / total));
+      };
       const system: SystemDef =
         systems.get(room.state.systemId) ?? [...systems.values()][0]!;
 
@@ -104,6 +129,7 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
         void mix.unlock().then(() => {
           if (disposed || !mix) return;
           engine = new EngineSound(mix);
+          combat = new CombatAudio(mix);
         });
       };
       window.addEventListener('keydown', startAudio, { once: true });
@@ -115,6 +141,8 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
       const frames: ShipFrame[] = [];
       const contacts: RadarContact[] = [];
       const stepLog: number[] = [];
+      const knownRounds = new Set<string>();
+      let lastMark = '';
       let lastNow = performance.now();
 
       // Effects live in world space, under the same camera transform as hulls.
@@ -165,20 +193,67 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
       // Impacts and write-offs are presentation: the outcome already happened
       // on the server, and these only decide what it looks like.
       session.on('impact', (payload) => {
-        const event = payload as { x: number; y: number; shielded: boolean; targetId: string };
+        const event = payload as {
+          x: number;
+          y: number;
+          shielded: boolean;
+          targetId: string;
+          disabled: boolean;
+        };
         const victim = session!.shipViews().find((v) => v.id === event.targetId);
-        const normal = victim
-          ? Math.atan2(event.y - victim.y, event.x - victim.x)
-          : 0;
-        if (event.shielded) effects.shieldHit(event.x, event.y, normal);
-        else effects.hullHit(event.x, event.y, normal);
+        const normal = victim ? Math.atan2(event.y - victim.y, event.x - victim.x) : 0;
+        const mine = event.targetId === session!.sessionId;
+
+        if (event.shielded) {
+          effects.shieldHit(event.x, event.y, normal);
+          combat?.play('shieldHit', event.x, event.y);
+          // Taking a hit is felt, not just seen. Shields absorb most of it.
+          if (mine) scene!.camera.impact(0.25);
+        } else {
+          effects.hullHit(event.x, event.y, normal);
+          combat?.play('hullHit', event.x, event.y);
+          if (mine) scene!.camera.impact(0.6);
+        }
+
+        if (event.disabled) {
+          combat?.play('moduleDisabled', event.x, event.y);
+          if (mine) scene!.camera.impact(0.8);
+        }
       });
 
+      session.on('respawned', () => setWrittenOff(undefined));
+
       session.on('written-off', (payload) => {
-        const event = payload as { x: number; y: number; blueprint: string; id: string };
+        const event = payload as {
+          x: number;
+          y: number;
+          blueprint: string;
+          id: string;
+          callsign: string;
+          killedBy: string;
+        };
+
+        if (event.id === session!.sessionId) {
+          // Death has a designed state, not a blank screen. Underwriters' Hall
+          // settles half the hull's cost, which is computable from the draught.
+          const bp = blueprints.get(event.blueprint);
+          const cost = bp
+            ? bp.placements.reduce(
+                (sum, placement) => sum + (modules.get(placement.moduleId)?.cost ?? 0),
+                0,
+              )
+            : 0;
+          const killer = session!.shipViews().find((v) => v.id === event.killedBy);
+          setWrittenOff({
+            system: system.name,
+            claim: Math.round(cost / 2),
+            by: killer?.callsign ?? '',
+          });
+        }
         const art = blueprints.get(event.blueprint);
         const size = art ? art.placements.length / 12 : 1;
         effects.explosion(event.x, event.y, 0, 0, size);
+        combat?.play(size > 1.2 ? 'explosionLarge' : 'explosionSmall', event.x, event.y);
         // The hull is gone: a restrained shake, and never under reduced motion.
         scene!.camera.impact(event.id === session!.sessionId ? 1 : 0.35);
       });
@@ -241,7 +316,34 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           }
         }
 
-        const rounds: ProjectileFrame[] = session.projectileViews().map((round) => ({
+        // A round appearing is a shot fired: the sound follows the state
+        // rather than the input, so remote weapons sound like the player's.
+        const roundViews = session.projectileViews();
+        let firedThisFrame = 0;
+        if (combat && self) {
+          combat.setListener(self.x, self.y);
+        }
+        for (const round of roundViews) {
+          if (knownRounds.has(round.id)) continue;
+          knownRounds.add(round.id);
+          if (round.isMine) firedThisFrame++;
+          combat?.play(
+            round.kind === 2 ? 'missile' : round.kind === 1 ? 'turret' : 'gun',
+            round.x,
+            round.y,
+          );
+        }
+        // Forget rounds that are gone, so the set does not grow without bound.
+        if (knownRounds.size > 512) {
+          const live = new Set(roundViews.map((r) => r.id));
+          for (const id of knownRounds) if (!live.has(id)) knownRounds.delete(id);
+        }
+
+        // Firing kicks the hull back: a restrained recoil, so a volley reads
+        // as weight rather than a silent stream of rounds.
+        if (firedThisFrame > 0 && scene) scene.camera.impact(Math.min(0.18, firedThisFrame * 0.09));
+
+        const rounds: ProjectileFrame[] = roundViews.map((round) => ({
           id: round.id,
           x: round.x,
           y: round.y,
@@ -249,6 +351,13 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           kind: round.kind,
           isMine: round.isMine,
         }));
+
+        // A new mark gets a quiet two-tone acknowledgement.
+        const mark = session.currentTarget;
+        if (mark !== lastMark) {
+          lastMark = mark;
+          if (mark && self) combat?.play('lock', self.x, self.y);
+        }
 
         const canisterViews = session.canisterViews();
         const canisters: CanisterFrame[] = canisterViews.map((canister) => ({
@@ -284,6 +393,24 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           readout.contacts = Math.max(0, frames.length - 1);
           readout.rtt = telemetry.rtt;
           readout.linkOk = telemetry.status !== 'diverging';
+          readout.shield = predicted.shield;
+          readout.shieldMax = shieldCapacityOf(self.blueprint);
+          readout.integrity = integrityOf(self);
+          readout.refusal = session.lastRefusal;
+
+          // The mark's own state, which the spec asks the interface to show.
+          const marked = frames.find((f) => f.isTarget);
+          if (marked) {
+            readout.target = {
+              callsign: marked.callsign,
+              range: Math.hypot(marked.x - self.x, marked.y - self.y),
+              shield: marked.shieldFraction,
+              integrity: integrityOf(marked),
+              hostile: marked.hostile,
+            };
+          } else {
+            readout.target = undefined;
+          }
 
           const radar = radarRef.current;
           if (radar) drawRadar(radar, self.x, self.y, self.angle, contacts, system);
@@ -356,6 +483,7 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
   return (
     <div className="flight">
       <div ref={hostRef} className="flight__canvas" />
+      {writtenOff && <WrittenOffPanel event={writtenOff} />}
       {failure === undefined ? (
         <Hud readout={readoutRef} radarRef={radarRef} />
       ) : (
@@ -379,4 +507,34 @@ const SCOOP_REACH = 85;
 function remoteThrottle(vx: number, vy: number): number {
   const speed = Math.hypot(vx, vy);
   return speed > 8 ? Math.min(1, speed / 220) : 0;
+}
+
+interface WrittenOff {
+  readonly system: string;
+  readonly claim: number;
+  readonly by: string;
+}
+
+/**
+ * Written off.
+ *
+ * Marks, draughts, shares and parked hulls survive it; this hull and its cargo
+ * do not. The Hall settles half the hull's cost and the captain wakes at the
+ * last port they landed at, which for now means a fresh starter in place.
+ */
+function WrittenOffPanel({ event }: { event: WrittenOff }): React.JSX.Element {
+  return (
+    <div className="flight__written-off" role="status">
+      <div className="flight__written-off-panel panel">
+        <h2>Written off at {event.system}</h2>
+        <p>
+          Underwriters&apos; Hall has settled your claim for{' '}
+          <span className="data">{event.claim.toLocaleString()}</span> marks and wishes you a
+          more careful year.
+          {event.by && <> The loss is recorded against {event.by}.</>}
+        </p>
+        <p className="micro">A replacement hull is being brought up.</p>
+      </div>
+    </div>
+  );
 }

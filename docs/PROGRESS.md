@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M2 — Combat**
+**Current milestone: M3 — World**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -38,19 +38,19 @@ Done when:
   on this machine, which has no GPU.** See the M1 report and
   `docs/HUMAN_TODO.md`.
 
-## M2. Combat
+## M2. Combat — complete
 
-- [ ] Guns, turrets and missiles
-- [ ] Shields, module damage, brownout, destruction, debris and canisters
-- [ ] Targeting interface
-- [ ] Unlettered AI
-- [ ] Death, insurance and respawn
-- [ ] All combat effects and audio from the feedback table
+- [x] Guns, turrets and missiles
+- [x] Shields, module damage, brownout, destruction, debris and canisters
+- [x] Targeting interface
+- [x] Unlettered AI
+- [x] Death, insurance and respawn
+- [x] All combat effects and audio from the feedback table
 
 Done when:
-- [ ] A client sending forged positions, hits or stats has no effect on outcomes
-- [ ] A six-ship fight holds the performance and tick budgets
-- [ ] Where armor, reactors and engines are placed measurably changes fight outcomes between otherwise equal designs
+- [x] A client sending forged positions, hits or stats has no effect on outcomes
+- [x] A six-ship fight holds the tick budget (client frame rate still needs a GPU)
+- [x] Where armour, reactors and engines are placed measurably changes fight outcomes between otherwise equal designs
 
 ## M3. World
 
@@ -348,3 +348,86 @@ clients on a software rasteriser both reported `diverging`, while a single
 client on the same machine reported `matched` at 0.0000 with identical derived
 profiles. The clients were not diverging; they were not running. `pnpm verify`
 runs at 640x360 for that reason.
+
+## M2. Combat — 2026-11-20
+
+### What is now playable
+
+You can fight. Space fires fixed guns and turrets, Shift fires missile racks,
+and Tab cycles the mark. Unlettered raiders appear while captains are in the
+system, close to weapons range, shoot, and run once badly hurt.
+
+Shields take a hit first and pass through only what they could not absorb.
+What gets through strikes a specific module, because the module grid is the
+hitbox: a round is swept as a segment through the hull's cells and resolves to
+whatever is in the way. A module at zero is disabled rather than removed — it
+keeps its cells and blocks rounds, but its contribution is gone, so losing an
+engine costs thrust and losing an outboard plate moves the balance point and
+changes how the hull turns.
+
+Losing reactors browns the hull out, starving weapons first, then shields,
+then engines, so a hull that cannot shoot can still run. A hull is written off
+when its bridge goes or its structure falls past a quarter, and it spills part
+of its cargo as canisters anyone can scoop.
+
+### How to run it
+
+```bash
+pnpm dev
+```
+
+Then open <http://127.0.0.1:5173>. Raiders arrive on their own. For more
+company:
+
+```bash
+pnpm bot --bots 4 --seconds 300 --brain fighter
+```
+
+| Command | What it does |
+|---|---|
+| `pnpm verify:authority` | Misbehaves in every way the protocol allows and checks nothing changed |
+| `pnpm sim -- --fight` | Soaks a fight and holds the tick to its budget |
+| `pnpm shots` | Captures seven screens, including a fight |
+
+### Measurements
+
+**Server authority** (`pnpm verify:authority`), six checks, all holding. The
+input sanitiser is exact: an `int8` turn axis arriving as `127` clamps to the
+hull's own ceiling of 2.004 rad/s, and an out-of-range thrust axis cannot
+drive the hull past its top speed. Messages claiming to set position, damage
+or stats change nothing. Marking a hull that does not exist, marking its own
+hull, and scooping something that is not there are each refused with a typed
+reason.
+
+**A six-ship fight** (`pnpm sim -- --bots 6 --minutes 1.5 --fight`): worst p99
+server tick **1.18 ms** against a 4 ms budget, no tick over 33 ms, no client
+diverged.
+
+**Placement decides outcomes**: a test pours identical rounds in from dead
+ahead at two hulls built from the same parts. The one plated at the nose
+survives the burst that writes off the one plated at the tail.
+
+### Known issues
+
+- **Client frame rate is still unverified.** Unchanged from M1: this container
+  has no GPU. The server side of the six-ship budget is measured and passes.
+- **Turrets do not visually traverse.** They track and lead correctly in the
+  simulation, and their rounds come out aimed, but the mount is drawn fixed.
+- **A wreck vanishes after six seconds** rather than leaving a hulk. Salvage is
+  parked in `docs/IDEAS.md`.
+- **Ordnance is the only cargo that exists**, so it is the only thing a wreck
+  spills. Real holds arrive with the Staple in M4.
+- **Insurance is quoted, not paid.** The written-off panel states the claim the
+  Hall settles, computed from the draught, but there is nowhere to pay it until
+  accounts land in M3 and marks in M4.
+
+### What writing the authority check found
+
+Colyseus disconnects a client with close code 4002 both for a message type it
+has no handler for and for a send whose payload fails validation. That is
+reasonable as a default and wrong for this game: a version skew would read to a
+captain as a mysterious drop rather than a designed state. Intents are now sent
+as requests, so a refusal settles with one of the protocol's typed reasons; a
+fallback handler absorbs unknown types; `onUncaughtException` keeps a handler
+bug from taking the process down with everyone on it; and the intent channel is
+rate limited per connection.

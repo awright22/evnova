@@ -112,3 +112,30 @@ jobs:
       # network.
       - name: Fly two browser clients
         run: pnpm verify -- --latency 150 --seconds 12
+
+  authority:
+    name: Server authority and a six-ship fight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # A client that forges positions, hits or stats must change nothing.
+      - name: Verify the server's authority
+        run: pnpm verify:authority
+
+      # A fight is the heaviest thing a room does. The soak fails if the tick
+      # leaves its budget or any client's prediction diverges.
+      - name: Soak a fight
+        run: pnpm sim -- --bots 6 --minutes 1.5 --latency 150 --fight

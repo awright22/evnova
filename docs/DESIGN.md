@@ -330,3 +330,46 @@ is Web Audio synthesis. The engine is filtered brown noise plus a low
 oscillator, with brightness and level following throttle over 80ms. The bus
 structure (master, music, effects, interface) is in place so the M9 mix has
 somewhere to land.
+
+**2026-11-20 — Rounds are synchronised as a birth, not a path.** A gun round
+travels a straight line from a known position at a known time, so its entry is
+written once and clients reckon it forward. Three hundred rounds in flight cost
+three hundred adds and three hundred removes rather than a stream of positions.
+Missiles steer, so their entry is refreshed every four ticks, which is the only
+place the wire carries a round's path.
+
+**2026-11-20 — No lag compensation for travelling rounds.** `allowRewindState`
+is for hitscan: rewinding a round that takes a second to arrive would be wrong,
+because both sides can see it in flight. Travel time is the game — it is why
+the lead indicator exists. Rewind arrives with beam weapons in M8, where it is
+the right tool.
+
+**2026-11-20 — The grid is the hitbox, and the sweep is a segment.** A round is
+walked through the hull's local cell space at half-cell steps and resolves to
+the module it struck. A point test at the end position tunnels straight through
+a one-cell module at any plausible round speed, which a test now holds against.
+
+**2026-11-20 — Unknown message types and failed validation must not
+disconnect.** Colyseus disconnects with close code 4002 for both, by design. A
+version skew or a stray message would then read to a player as a mysterious
+drop. A `'*'` fallback handler counts and ignores unknown types, intents are
+sent as requests so a refusal settles the promise with a typed reason, and
+`onUncaughtException` keeps a handler bug from taking the process down.
+
+**2026-11-20 — The intent channel is rate limited per connection.** The spec
+asks for it, and the fallback handler makes it necessary: without a budget,
+unknown messages would be a free way to make the server write logs.
+
+**2026-11-20 — Gun rounds fire at 520 units a second, not 900.** At 900 a round
+crossed the whole view between frames on a loaded machine: rounds were real but
+unreadable, and leading a target meant nothing. Slower rounds are visible, and
+the lead indicator earns its place.
+
+**2026-11-20 — NPCs produce a flight command and two fire bits.** An Unlettered
+pilot's output is the same shape a keyboard produces, so the simulation cannot
+tell them apart and anything true of a captain's hull is true of theirs.
+
+**2026-11-20 — Effects are pooled into two Graphics objects.** The budget is
+three thousand particles; a container with three thousand children costs more in
+transform maths than the drawing does. A fixed pool also bounds a long fight:
+when it is exhausted the effect is dropped rather than the pool grown.

@@ -14,6 +14,7 @@ import { parseArgs } from 'node:util';
 
 import { Bot, type BotBrain, type BotTelemetry } from './bot.ts';
 import { circleBrain } from './brains/circle.ts';
+import { fighterBrain } from './brains/fighter.ts';
 import { wanderBrain } from './brains/wander.ts';
 
 interface RunnerOptions {
@@ -68,8 +69,10 @@ function makeBrain(kind: string, index: number): BotBrain {
       return circleBrain(index % 2 === 0 ? 1 : -1);
     case 'wander':
       return wanderBrain({ seed: `bot-${index}` });
+    case 'fighter':
+      return fighterBrain(`bot-${index}`);
     default:
-      throw new Error(`unknown brain "${kind}" (expected: circle, wander)`);
+      throw new Error(`unknown brain "${kind}" (expected: circle, wander, fighter)`);
   }
 }
 

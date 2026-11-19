@@ -77,6 +77,8 @@ export interface BotView {
   readonly serverNow: number;
   /** Fixed step index this command is for. */
   readonly step: number;
+  /** Ask the server to mark a hull, through the same intent a captain uses. */
+  readonly mark: (id: string) => void;
 }
 
 /** A bot strategy. Stages one command per fixed step. */
@@ -168,6 +170,12 @@ export class Bot {
       warnOnDivergence: DRIFT_TOLERANCE,
     });
 
+    // Presentation broadcasts are for browsers. Registering no-ops keeps the
+    // SDK from warning once per message that nothing is listening.
+    for (const type of ['impact', 'written-off', 'respawned']) {
+      room.onMessage(type, () => undefined);
+    }
+
     const bot = new Bot(room, self, predict, me, input, options, profile);
     bot.start();
     return bot;
@@ -197,6 +205,9 @@ export class Bot {
         sessionId: this.room.sessionId,
         serverNow: this.room.clock.serverNow(),
         step: this.steps,
+        mark: (id: string) => {
+          void this.room.request('target', { id }).catch(() => undefined);
+        },
       };
 
       // Reset to neutral so a brain that sets nothing coasts rather than

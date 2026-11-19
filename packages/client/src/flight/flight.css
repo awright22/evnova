@@ -23,3 +23,45 @@
   padding: var(--space-2);
   max-width: 560px;
 }
+
+/**
+ * Written off.
+ *
+ * A designed state rather than a blank screen: it says what happened, what it
+ * cost, and what happens next.
+ */
+.flight__written-off {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  animation: written-off-in var(--motion-slow) var(--ease-emphasis);
+}
+
+.flight__written-off-panel {
+  display: grid;
+  gap: var(--space-1-5);
+  max-width: 520px;
+  padding: var(--space-3);
+  border-color: var(--danger-dim);
+}
+
+.flight__written-off-panel p {
+  color: var(--text-secondary);
+}
+
+@keyframes written-off-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flight__written-off {
+    animation-duration: var(--motion-instant);
+  }
+}

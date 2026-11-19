@@ -155,3 +155,127 @@
 .hud__radar-label {
   color: var(--text-muted);
 }
+
+/* --- The mark ---------------------------------------------------------- */
+
+.hud__target {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  align-self: start;
+  display: grid;
+  gap: 3px;
+  padding: var(--space-1) var(--space-2);
+  min-width: 300px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+
+.hud__target-row {
+  display: grid;
+  grid-template-columns: 78px 1fr auto;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.hud__target-range {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.hud__target--hostile {
+  border-color: var(--danger-dim);
+}
+
+.hud__target-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-half);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.hud__target-name {
+  font-family: var(--font-condensed);
+  font-size: var(--size-h3);
+  line-height: var(--leading-h3);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* --- Gauges ------------------------------------------------------------ */
+
+.hud__bars {
+  display: grid;
+  gap: 3px;
+  padding-top: var(--space-half);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.hud__gauge {
+  display: grid;
+  /* Wide enough for the longest label the instrument carries. */
+  grid-template-columns: 78px 1fr auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.hud__gauge-track {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.hud__gauge-track .hud__seg {
+  flex: 1;
+  height: 100%;
+  background: var(--rule);
+}
+
+.hud__gauge-track--shield .hud__seg--lit {
+  background: var(--shield);
+}
+
+.hud__gauge-track--hull .hud__seg--lit {
+  background: var(--hull);
+}
+
+.hud__gauge-track--danger .hud__seg--lit {
+  background: var(--danger);
+}
+
+.hud__gauge-readout {
+  min-width: 44px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: var(--size-body-sm);
+}
+
+/* --- A refused intent -------------------------------------------------- */
+
+.hud__refusal {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  justify-self: center;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  border-color: var(--danger-dim);
+  color: var(--text-secondary);
+  animation: refusal-in var(--motion-base) var(--ease-emphasis);
+}
+
+@keyframes refusal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
