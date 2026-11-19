@@ -79,10 +79,16 @@
       "luxury": { "min": 0.3, "max": 3.6 }
     },
     "landingFee": 60,
-    "$comment2": "A berth wants targetHours of whatever it makes or eats on hand, never fewer than baselineTarget, and can hold capacityMultiple times that. A commodity a berth neither makes nor eats still trades, at the baseline: the berth is a market in it, just not a source or a sink.",
-    "targetHours": 18,
-    "baselineTarget": 120,
+    "$comment2": "A berth wants targetHours of whatever it makes or eats on hand, never fewer than baselineTarget, and can hold capacityMultiple times that. Five days of throughput: a berth holding only hours of it empties between freight runs and spends its life at the price ceiling, which is not a market, and the time constant has to be long enough that a captain's hold is a nudge rather than a shock. A commodity a berth neither makes nor eats still trades, at the baseline: the berth is a market in it, just not a source or a sink.",
+    "targetHours": 120,
+    "baselineTarget": 600,
     "capacityMultiple": 3.5
+  },
+  "freight": {
+    "$comment": "What the Reach's own freighters move, from surplus to shortage. Deliberately slower than a captain: an overused lane has to decay faster than the freighters repair it, and a rested one has to recover while nobody is looking. threshold is how far from target a berth must be before freight bothers with it, as a fraction, and maxHops is how far a load will travel: the Reach is six lanes across, so freight can in principle reach anywhere, which it must, because Leaf is grown only in the Marque and chewed only in the Home Roads.",
+    "unitsPerHour": 260,
+    "threshold": 0.08,
+    "maxHops": 6
   },
   "law": {
     "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of damage dealt — shields included, because the offence is the attack and not whether it got through — plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at Home Roads berths until it is paid.",

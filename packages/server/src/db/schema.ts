@@ -8,7 +8,7 @@
  * Tables arrive with the milestone that needs them. These are M3's.
  */
 
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * An account.
@@ -118,13 +118,55 @@ export const ledger = sqliteTable(
   ],
 );
 
+/**
+ * What each berth is holding.
+ *
+ * One row per berth per commodity, because the invariants are about integers
+ * and an integer in a column can be constrained, summed and checked. A berth
+ * with no row for a commodity has not been opened yet, and is seeded at its
+ * target the first time anyone asks.
+ */
+export const stockpiles = sqliteTable(
+  'stockpiles',
+  {
+    portId: text('port_id').notNull(),
+    commodityId: text('commodity_id').notNull(),
+    /** Units on hand. Never negative, never past capacity. */
+    stock: integer('stock').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.portId, table.commodityId] }),
+    index('stockpiles_commodity').on(table.commodityId),
+  ],
+);
+
+/**
+ * What a captain is carrying.
+ *
+ * A row per captain per commodity, dropped when it reaches nothing, so the
+ * table holds only real cargo and a sum over it is the hold's contents.
+ */
+export const cargo = sqliteTable(
+  'cargo',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    commodityId: text('commodity_id').notNull(),
+    /** Units aboard. Never negative. */
+    units: integer('units').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.commodityId] })],
+);
+
 /** Schema version, so a migration knows what it is upgrading. */
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * Migrations, applied in order.
@@ -197,6 +239,29 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
       );
       CREATE INDEX IF NOT EXISTS ledger_account ON ledger (account_id, at);
       CREATE INDEX IF NOT EXISTS ledger_category ON ledger (category);
+    `,
+  },
+  {
+    // The economy: what each berth holds, and what each captain carries.
+    // Both are integers with a CHECK, because invariant 5 says no cargo count
+    // goes negative and a constraint is worth more than a convention.
+    version: 4,
+    up: `
+      CREATE TABLE IF NOT EXISTS stockpiles (
+        port_id TEXT NOT NULL,
+        commodity_id TEXT NOT NULL,
+        stock INTEGER NOT NULL CHECK (stock >= 0),
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (port_id, commodity_id)
+      );
+      CREATE INDEX IF NOT EXISTS stockpiles_commodity ON stockpiles (commodity_id);
+
+      CREATE TABLE IF NOT EXISTS cargo (
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        commodity_id TEXT NOT NULL,
+        units INTEGER NOT NULL CHECK (units > 0),
+        PRIMARY KEY (account_id, commodity_id)
+      );
     `,
   },
 ];

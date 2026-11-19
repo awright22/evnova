@@ -17,6 +17,8 @@ import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
 import { ChatLog } from './ChatLog.ts';
 import { Ledger } from './Ledger.ts';
+import { Freight } from './Freight.ts';
+import { Market } from './Market.ts';
 import { PilotStore } from './PilotStore.ts';
 
 /** Time, injected. Real time in production; accelerated in the soak. */
@@ -38,6 +40,14 @@ export const SYSTEM_CLOCK: WorldClock = { now: () => Date.now() };
  */
 export const FLUSH_INTERVAL_MS = 2000;
 
+/**
+ * How often the economy drifts.
+ *
+ * The interval only decides how smooth the drift is; how far it moves comes
+ * from the clock, so changing this does not change the economy.
+ */
+const ECONOMY_INTERVAL_MS = 30_000;
+
 /** How often a daily snapshot is considered. */
 const SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -46,9 +56,14 @@ export class World {
   readonly accounts: Accounts;
   readonly pilots: PilotStore;
   readonly ledger: Ledger;
+  readonly market: Market;
+  readonly freight: Freight;
   readonly chat = new ChatLog();
 
   private flushTimer: NodeJS.Timeout | undefined;
+  private economyTimer: NodeJS.Timeout | undefined;
+  /** When the economy was last drifted, so a gap is caught up rather than lost. */
+  private lastEconomyAt = 0;
   private snapshotTimer: NodeJS.Timeout | undefined;
   private lastSnapshotDay = '';
 
@@ -60,6 +75,9 @@ export class World {
     this.accounts = new Accounts(this.store);
     this.pilots = new PilotStore(this.store);
     this.ledger = new Ledger(this.store);
+    this.market = new Market(this.store, this.ledger);
+    this.freight = new Freight(this.market);
+    this.lastEconomyAt = this.clock.now();
   }
 
   /** Start the background work: flushing and snapshots. */
@@ -73,9 +91,38 @@ export class World {
       }
     }, FLUSH_INTERVAL_MS);
 
+    this.economyTimer ??= setInterval(() => this.tickEconomy(), ECONOMY_INTERVAL_MS);
+
     this.snapshotTimer ??= setInterval(() => this.maybeSnapshot(), SNAPSHOT_INTERVAL_MS);
     // Take one at startup so a fresh deployment has a restore point.
     this.maybeSnapshot();
+  }
+
+  /**
+   * Drift the economy by however long has actually passed.
+   *
+   * Measured from the clock rather than assumed from the interval, so a
+   * server that was asleep, throttled or stopped catches up instead of losing
+   * the time, and the soak's accelerated clock moves the world a month in
+   * seconds without changing anything here.
+   */
+  tickEconomy(): void {
+    const now = this.clock.now();
+    const hours = (now - this.lastEconomyAt) / 3_600_000;
+    if (hours <= 0) return;
+    this.lastEconomyAt = now;
+
+    try {
+      this.market.drift(hours, now);
+      // Then the Reach's own freighters even it out, which is what keeps a
+      // berth that only eats something from running out for good.
+      this.freight.run(hours, now);
+    } catch (error) {
+      // A failed drift must not stop the world; the next one covers the gap,
+      // because the elapsed time is measured and not assumed.
+      this.lastEconomyAt = now - hours * 3_600_000;
+      console.error('drifting the economy failed:', error);
+    }
   }
 
   /**
@@ -126,6 +173,7 @@ export class World {
   /** Write everything and close. Called on graceful shutdown. */
   shutdown(): void {
     if (this.flushTimer) clearInterval(this.flushTimer);
+    if (this.economyTimer) clearInterval(this.economyTimer);
     if (this.snapshotTimer) clearInterval(this.snapshotTimer);
     this.flushTimer = undefined;
     this.snapshotTimer = undefined;

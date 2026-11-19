@@ -299,6 +299,14 @@ export const Tuning = z.object({
     /** How much more than its target a berth can physically hold. */
     capacityMultiple: z.number().min(1),
   }),
+  freight: z.object({
+    /** Units the Reach's freighters move an hour, across every commodity. */
+    unitsPerHour: z.number().positive(),
+    /** How far from target a berth must be before freight bothers, 0..1. */
+    threshold: z.number().min(0).max(1),
+    /** How many lanes a load will travel. */
+    maxHops: z.int().positive(),
+  }),
   law: z.object({
     compositionPerDamage: z.number().nonnegative(),
     compositionPerWriteOff: z.int().nonnegative(),
