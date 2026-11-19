@@ -66,6 +66,16 @@ const WRECK_LINGER_MS = 6000;
 /** Ordnance a hull carries when it launches, until the Staple exists. */
 const STARTING_AMMO = 24;
 
+/**
+ * Per-connection message budget.
+ *
+ * Input rides its own channel and is buffered by the framework; this bounds
+ * the intent channel, which runs handlers. Generous enough that no honest
+ * client notices, tight enough that a flood costs the room nothing.
+ */
+const INTENT_BUDGET = 30;
+const INTENT_WINDOW_MS = 1000;
+
 export class SystemRoom extends Room<{
   state: SystemState;
   input: ShipInput;
@@ -97,6 +107,9 @@ export class SystemRoom extends Room<{
   private readonly tick = new TickMetrics();
   private unregisterMetrics: (() => void) | undefined;
 
+  /** Intent timestamps per connection, for the rate limit. */
+  private readonly intentLog = new Map<string, number[]>();
+
   /**
    * Intents that need a result.
    *
@@ -105,7 +118,24 @@ export class SystemRoom extends Room<{
    * client renders a designed state per reason rather than raw error text.
    */
   override messages = {
+    /**
+     * Anything with no handler of its own.
+     *
+     * Without this, a client that sends an unknown type is disconnected with
+     * close code 4002. That would turn a version skew, or a stray message
+     * from a future build, into a mysterious drop rather than a designed
+     * state. Unknown types are counted and ignored.
+     */
+    '*': (client: Client, type: string | number) => {
+      if (!this.allowIntent(client.sessionId)) return;
+      this.unhandled = (this.unhandled ?? 0) + 1;
+      if (this.unhandled <= 5) {
+        console.warn(`[${this.roomId}] ${client.sessionId} sent unhandled message "${String(type)}"`);
+      }
+    },
+
     target: validate(TargetIntent, (client: Client, message: TargetIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
       const ship = this.state.ships.get(client.sessionId);
       if (!ship) return ctx.reject('unknown-target');
 
@@ -126,6 +156,7 @@ export class SystemRoom extends Room<{
     }),
 
     scoop: validate(ScoopIntent, (client: Client, message: ScoopIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
       const ship = this.state.ships.get(client.sessionId);
       const runtime = this.runtimes.get(client.sessionId);
       if (!ship || !runtime || ship.destroyedAt > 0) return ctx.reject('not-owned');
@@ -175,6 +206,29 @@ export class SystemRoom extends Room<{
     });
   }
 
+  private unhandled: number | undefined;
+
+  /**
+   * A bug in a handler must not take the server down.
+   *
+   * Without this, an uncaught exception inside the room shuts the process
+   * down ungracefully and disconnects everyone. Logging and carrying on is
+   * the designed state.
+   */
+  override onUncaughtException(error: Error, methodName: string): void {
+    console.error(`[${this.roomId}] uncaught exception in ${methodName}:`, error);
+  }
+
+  /** True when this connection is inside its intent budget. */
+  private allowIntent(sessionId: string): boolean {
+    const now = this.clock.elapsedTime;
+    const log = this.intentLog.get(sessionId) ?? [];
+    const recent = log.filter((at) => now - at < INTENT_WINDOW_MS);
+    recent.push(now);
+    this.intentLog.set(sessionId, recent);
+    return recent.length <= INTENT_BUDGET;
+  }
+
   override onDispose(): void {
     this.unregisterMetrics?.();
     this.unregisterMetrics = undefined;
@@ -195,6 +249,7 @@ export class SystemRoom extends Room<{
     // M3 adds the grace window from the spec: a hull persists in space for a
     // short time after its captain drops.
     this.removeHull(client.sessionId);
+    this.intentLog.delete(client.sessionId);
   }
 
   // --- Spawning -----------------------------------------------------------

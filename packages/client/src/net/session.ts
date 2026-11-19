@@ -15,6 +15,9 @@ import { Predict, type InputHandle, type Room } from '@colyseus/sdk';
 import { classifyDrift, type DriftStatus } from '@colyseus/sdk/predict/drift';
 import {
   PATCH_RATE,
+  REJECTIONS,
+  rejectionText,
+  type RejectionReason,
   ShipInput,
   content,
   deriveStats,
@@ -222,7 +225,11 @@ export class Session {
    * packet, which carries flat primitives only.
    */
   selectTarget(id: string): void {
-    this.room.send('target', { id });
+    // A request, not a send: a refusal settles this promise as an error,
+    // whereas a refused send disconnects the client.
+    void this.room.request('target', { id }).catch((error: unknown) => {
+      this.lastRefusal = describeRefusal(error);
+    });
   }
 
   /** Hulls that can be marked, nearest first, excluding this one and wrecks. */
@@ -294,8 +301,13 @@ export class Session {
 
   /** Ask to scoop a canister. The server checks the range, not the client. */
   scoop(id: string): void {
-    this.room.send('scoop', { id });
+    void this.room.request('scoop', { id }).catch((error: unknown) => {
+      this.lastRefusal = describeRefusal(error);
+    });
   }
+
+  /** The most recent refusal, for the interface to show as a designed state. */
+  lastRefusal: string | undefined;
 
   /** Subscribe to a server broadcast. Returns an unsubscribe. */
   on(type: string, handler: (payload: unknown) => void): () => void {
@@ -363,4 +375,24 @@ function waitForOwnShip(room: FlightRoom, timeoutMs = 10_000): Promise<ShipState
       }
     }, 16);
   });
+}
+
+/**
+ * Turn a refused intent into something the interface can show.
+ *
+ * The server rejects with one of the protocol's closed set of reasons, so
+ * this resolves to written text rather than passing an error message through.
+ */
+function describeRefusal(error: unknown): string {
+  const raw =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : String(error);
+
+  for (const reason of Object.keys(REJECTIONS) as RejectionReason[]) {
+    if (raw.includes(reason)) return rejectionText(reason);
+  }
+  return 'The port declined that.';
 }
