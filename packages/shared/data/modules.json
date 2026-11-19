@@ -248,8 +248,8 @@
       "weapon": {
         "damage": 14,
         "roundsPerSecond": 3,
-        "projectileSpeed": 900,
-        "range": 1400,
+        "projectileSpeed": 520,
+        "range": 1300,
         "spread": 0.012
       },
       "description": "Fires where the hull points. Cheap, accurate and entirely the pilot's problem."
@@ -278,8 +278,8 @@
       "weapon": {
         "damage": 11,
         "roundsPerSecond": 2.5,
-        "projectileSpeed": 800,
-        "range": 1200,
+        "projectileSpeed": 480,
+        "range": 1100,
         "spread": 0.02,
         "arc": 3.14159,
         "tracking": 2.2

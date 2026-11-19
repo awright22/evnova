@@ -58,6 +58,20 @@ export interface ShipArt {
   readonly widthUnits: number;
   /** One per engine, so a two-engine hull shows two plumes. */
   readonly nozzles: readonly Nozzle[];
+  /**
+   * Each module's rectangle in world units from the centre of mass, so damage
+   * overlays can be drawn on the module that actually took the hit without
+   * re-rendering the hull.
+   */
+  readonly moduleRects: readonly ModuleRect[];
+}
+
+/** A module's footprint in world units, relative to the centre of mass. */
+export interface ModuleRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface ShipArtOptions {
@@ -134,8 +148,16 @@ export function renderShipArt(
       halfWidth: (module.height * CELL_METRES) / 2.6,
     }));
 
+  const moduleRects: ModuleRect[] = modules.map((module) => ({
+    x: (module.placement.x - com.x) * CELL_METRES,
+    y: (module.placement.y - com.y) * CELL_METRES,
+    width: module.width * CELL_METRES,
+    height: module.height * CELL_METRES,
+  }));
+
   return {
     texture,
+    moduleRects,
     anchorX: ((com.x - bounds.minX) * PX_PER_CELL + MARGIN) / width,
     anchorY: ((com.y - bounds.minY) * PX_PER_CELL + MARGIN) / height,
     lengthUnits: bounds.width * CELL_METRES,
@@ -312,7 +334,10 @@ function drawModuleDetail(
       const r = Math.min(w, h) / 2 - 6;
       for (let i = 0; i < 4; i++) {
         const a0 = (i * Math.PI) / 2 + 0.25;
-        g.arc(cx, cy, r, a0, a0 + Math.PI / 2 - 0.5);
+        const a1 = a0 + Math.PI / 2 - 0.5;
+        // Move to the arc's start: `arc` otherwise joins it to the previous
+        // sub-path with a chord.
+        g.moveTo(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r).arc(cx, cy, r, a0, a1);
       }
       g.stroke({ width: 2, color: p.shield, alpha: 0.75 });
       break;

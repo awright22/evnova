@@ -89,6 +89,25 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'combat',
+    description: 'A fight: rounds in flight, shield ripples, the mark bracketed and the lead indicator up.',
+    path: '/?callsign=Free%20Captain',
+    settle: '.hud',
+    settleMs: 2500,
+    bots: 2,
+    act: async (page) => {
+      // Mark the nearest hull, then hold the trigger while closing on it, so
+      // the capture catches rounds in flight rather than an empty sky.
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(300);
+      await page.keyboard.down('Space');
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(3500);
+      await page.keyboard.up('ArrowUp');
+      await page.waitForTimeout(900);
+    },
+  },
+  {
     name: 'boot-unreachable',
     description: 'The terminal when the server does not answer: a designed state, not an error dump.',
     setup: async (page) => {

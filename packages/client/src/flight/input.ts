@@ -16,18 +16,36 @@ export interface FlightIntent {
   readonly thrust: 0 | 1;
   /** Turn retrograde and burn to a stop. */
   readonly brake: boolean;
+  /** Fire fixed guns and turrets. */
+  readonly firePrimary: boolean;
+  /** Fire missile racks. */
+  readonly fireSecondary: boolean;
 }
 
 const TURN_LEFT = new Set(['ArrowLeft', 'KeyA']);
 const TURN_RIGHT = new Set(['ArrowRight', 'KeyD']);
 const THRUST = new Set(['ArrowUp', 'KeyW']);
 const BRAKE = new Set(['ArrowDown', 'KeyS']);
+const FIRE_PRIMARY = new Set(['Space']);
+const FIRE_SECONDARY = new Set(['ShiftLeft', 'ShiftRight']);
 
-/** Keys the game consumes, so the page does not also scroll on them. */
-const CONSUMED = new Set([...TURN_LEFT, ...TURN_RIGHT, ...THRUST, ...BRAKE, 'Space']);
+/** Pressed once rather than held: cycling the mark is an edge, not a state. */
+const CYCLE_TARGET = 'Tab';
+
+/** Keys the game consumes, so the page does not also scroll or tab away. */
+const CONSUMED = new Set([
+  ...TURN_LEFT,
+  ...TURN_RIGHT,
+  ...THRUST,
+  ...BRAKE,
+  ...FIRE_PRIMARY,
+  CYCLE_TARGET,
+]);
 
 export class KeyboardInput {
   private readonly pressed = new Set<string>();
+  /** Edge-triggered presses, drained by the frame loop. */
+  private cycleRequests = 0;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
   private readonly onKeyUp: (event: KeyboardEvent) => void;
   private readonly onBlur: () => void;
@@ -37,6 +55,9 @@ export class KeyboardInput {
       // Never swallow a key while the captain is typing somewhere.
       if (isTextEntry(event.target)) return;
       if (CONSUMED.has(event.code)) event.preventDefault();
+      // Cycling the mark is an edge: holding Tab should not spin through
+      // every hull in the system.
+      if (event.code === CYCLE_TARGET && !event.repeat) this.cycleRequests++;
       this.pressed.add(event.code);
     };
     this.onKeyUp = (event) => {
@@ -64,7 +85,16 @@ export class KeyboardInput {
       turn,
       thrust: anyPressed(this.pressed, THRUST) ? 1 : 0,
       brake: anyPressed(this.pressed, BRAKE),
+      firePrimary: anyPressed(this.pressed, FIRE_PRIMARY),
+      fireSecondary: anyPressed(this.pressed, FIRE_SECONDARY),
     };
+  }
+
+  /** How many times the captain asked for the next mark since the last call. */
+  takeCycleRequests(): number {
+    const count = this.cycleRequests;
+    this.cycleRequests = 0;
+    return count;
   }
 
   destroy(): void {

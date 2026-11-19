@@ -8,7 +8,14 @@
 
 import { Application } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
-import { content, speedOf, type SystemDef } from '@marque/shared';
+import {
+  content,
+  deriveStats,
+  leadPoint,
+  placeAll,
+  speedOf,
+  type SystemDef,
+} from '@marque/shared';
 
 import { AudioMix } from '../audio/mix.ts';
 import { EngineSound } from '../audio/engine.ts';
@@ -17,7 +24,8 @@ import { drawRadar, type RadarContact } from '../hud/radar.ts';
 import { Session } from '../net/session.ts';
 import { KeyboardInput } from './input.ts';
 import { palette } from './palette.ts';
-import { Scene, type ShipFrame } from './scene.ts';
+import { Effects } from './effects.ts';
+import { Scene, type CanisterFrame, type ProjectileFrame, type ShipFrame } from './scene.ts';
 import './flight.css';
 
 export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0] }): React.JSX.Element {
@@ -54,7 +62,9 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
       session = await Session.attach(room);
       if (disposed) return;
 
-      const { systems, blueprints, modules } = content();
+      const { systems, blueprints, modules, tuning } = content();
+      const shieldCapacities = new Map<string, number>();
+      const muzzleSpeeds = new Map<string, number>();
       const system: SystemDef =
         systems.get(room.state.systemId) ?? [...systems.values()][0]!;
 
@@ -107,6 +117,72 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
       const stepLog: number[] = [];
       let lastNow = performance.now();
 
+      // Effects live in world space, under the same camera transform as hulls.
+      const effects = new Effects(`fx:${session.sessionId}`);
+      scene.attachEffects(effects.view);
+
+      // Shield capacity for the bubble, and muzzle speed for the lead mark,
+      // both derived from the same data the server used.
+      const shieldCapacityOf = (blueprintId: string): number => {
+        const cached = shieldCapacities.get(blueprintId);
+        if (cached !== undefined) return cached;
+        const bp = blueprints.get(blueprintId);
+        const value = bp ? deriveStats(placeAll(bp.placements, modules), tuning).shieldCapacity : 0;
+        shieldCapacities.set(blueprintId, value);
+        return value;
+      };
+
+      const muzzleSpeedOf = (blueprintId: string): number => {
+        const cached = muzzleSpeeds.get(blueprintId);
+        if (cached !== undefined) return cached;
+        const bp = blueprints.get(blueprintId);
+        let best = 0;
+        for (const placement of bp?.placements ?? []) {
+          const weapon = modules.get(placement.moduleId)?.weapon;
+          if (weapon && weapon.homing === undefined) {
+            best = Math.max(best, weapon.projectileSpeed);
+          }
+        }
+        muzzleSpeeds.set(blueprintId, best);
+        return best;
+      };
+
+      // A fixed gun needs leading, so the interface shows where to aim.
+      scene.leadPointOf = (selfFrame, mark) => {
+        const speed = muzzleSpeedOf(selfFrame.blueprint);
+        if (speed <= 0) return undefined;
+        return leadPoint(
+          selfFrame.x,
+          selfFrame.y,
+          mark.x,
+          mark.y,
+          mark.vx - selfFrame.vx,
+          mark.vy - selfFrame.vy,
+          speed,
+        );
+      };
+
+      // Impacts and write-offs are presentation: the outcome already happened
+      // on the server, and these only decide what it looks like.
+      session.on('impact', (payload) => {
+        const event = payload as { x: number; y: number; shielded: boolean; targetId: string };
+        const victim = session!.shipViews().find((v) => v.id === event.targetId);
+        const normal = victim
+          ? Math.atan2(event.y - victim.y, event.x - victim.x)
+          : 0;
+        if (event.shielded) effects.shieldHit(event.x, event.y, normal);
+        else effects.hullHit(event.x, event.y, normal);
+      });
+
+      session.on('written-off', (payload) => {
+        const event = payload as { x: number; y: number; blueprint: string; id: string };
+        const art = blueprints.get(event.blueprint);
+        const size = art ? art.placements.length / 12 : 1;
+        effects.explosion(event.x, event.y, 0, 0, size);
+        // The hull is gone: a restrained shake, and never under reduced motion.
+        scene!.camera.impact(event.id === session!.sessionId ? 1 : 0.35);
+      });
+
       const loop = (): void => {
         if (disposed || !session || !scene || !app) return;
         const now = performance.now();
@@ -131,6 +207,7 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
         let self: ShipFrame | undefined;
         for (const view of views) {
           const isSelf = view.id === selfId;
+          const capacity = shieldCapacityOf(view.blueprint);
           const shipFrame: ShipFrame = {
             id: view.id,
             blueprint: view.blueprint,
@@ -142,14 +219,54 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
             vy: view.vy,
             throttle: isSelf ? session.currentThrottle : remoteThrottle(view.vx, view.vy),
             isSelf,
+            moduleHp: view.moduleHp,
+            shieldFraction: capacity > 0 ? view.shield / capacity : 0,
+            hostile: view.hostile,
+            isTarget: view.isTarget,
+            writtenOff: view.writtenOff,
           };
           frames.push(shipFrame);
           contacts.push({ x: view.x, y: view.y, kind: 'ship', isSelf });
           if (isSelf) self = shipFrame;
         }
 
+        // Cycling the mark is an edge, and the server decides whether it took.
+        const cycles = keyboard!.takeCycleRequests();
+        if (cycles > 0) {
+          const options = session.targetableIds();
+          if (options.length > 0) {
+            const current = options.indexOf(session.currentTarget);
+            const next = options[(current + cycles) % options.length]!;
+            session.selectTarget(next);
+          }
+        }
+
+        const rounds: ProjectileFrame[] = session.projectileViews().map((round) => ({
+          id: round.id,
+          x: round.x,
+          y: round.y,
+          angle: round.angle,
+          kind: round.kind,
+          isMine: round.isMine,
+        }));
+
+        const canisterViews = session.canisterViews();
+        const canisters: CanisterFrame[] = canisterViews.map((canister) => ({
+          id: canister.id,
+          x: canister.x,
+          y: canister.y,
+          inReach: canister.distance <= SCOOP_REACH,
+        }));
+
+        // Scoop anything within reach. The server checks the range again.
+        for (const canister of canisterViews) {
+          if (canister.distance <= SCOOP_REACH) session.scoop(canister.id);
+        }
+
+        effects.update(dtMs);
+
         scene.resize(app.screen.width, app.screen.height);
-        scene.update(frames, self, session.shipProfile.topSpeed, dtMs);
+        scene.update(frames, self, session.shipProfile.topSpeed, dtMs, rounds, canisters);
 
         engine?.setThrottle(session.currentThrottle);
 
@@ -186,6 +303,13 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           steps: () => stepLog.slice(),
           ships: () =>
             frames.map((f) => ({ id: f.id, x: f.x, y: f.y, isSelf: f.isSelf })),
+          combat: () => ({
+            rounds: session!.projectileViews().length,
+            canisters: session!.canisterViews().length,
+            target: session!.currentTarget,
+            shield: session!.predicted.shield,
+            fx: effects.activeCount,
+          }),
           // Authoritative schema values beside the predicted mirror, plus the
           // profile each side derived, for diagnosing divergence.
           compare: () => {
@@ -243,6 +367,9 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
     </div>
   );
 }
+
+/** How close the hull must be to scoop, matching the server's own check. */
+const SCOOP_REACH = 85;
 
 /**
  * A remote hull's throttle is not synchronised, so it is inferred from motion.

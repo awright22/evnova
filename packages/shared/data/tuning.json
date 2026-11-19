@@ -30,14 +30,14 @@
     "$comment": "Hull licences cap module count and grid extent. Named in spec section 7.",
     "open-ticket": {
       "name": "Open Ticket",
-      "maxModules": 14,
-      "maxExtent": 6,
+      "maxModules": 16,
+      "maxExtent": 8,
       "cost": 0
     },
     "frigate-warrant": {
       "name": "Frigate Warrant",
       "maxModules": 32,
-      "maxExtent": 9,
+      "maxExtent": 11,
       "cost": 120000
     },
     "cruiser-warrant": {

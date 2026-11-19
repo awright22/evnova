@@ -50,6 +50,30 @@ export interface ShipView {
   readonly vx: number;
   readonly vy: number;
   readonly isSelf: boolean;
+  readonly moduleHp: readonly number[];
+  readonly shield: number;
+  readonly hostile: boolean;
+  readonly writtenOff: boolean;
+  readonly isTarget: boolean;
+}
+
+/** A round in flight, reckoned from its spawn to the current server instant. */
+export interface ProjectileView {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly angle: number;
+  readonly kind: number;
+  readonly isMine: boolean;
+}
+
+export interface CanisterView {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly commodity: string;
+  readonly units: number;
+  readonly distance: number;
 }
 
 export interface SessionTelemetry {
@@ -144,6 +168,8 @@ export class Session {
       this.input.data.turn = intent.turn;
       this.input.data.thrust = intent.thrust;
       this.input.data.brake = intent.brake;
+      this.input.data.firePrimary = intent.firePrimary;
+      this.input.data.fireSecondary = intent.fireSecondary;
       this.input.send();
     }
 
@@ -161,6 +187,8 @@ export class Session {
     out.length = 0;
     const selfId = this.room.sessionId;
 
+    const marked = this.currentTarget;
+
     this.room.state.ships.forEach((ship, id) => {
       const isSelf = id === selfId;
       out.push({
@@ -175,10 +203,108 @@ export class Session {
         vx: this.predict.value(ship, 'vx'),
         vy: this.predict.value(ship, 'vy'),
         isSelf,
+        moduleHp: ship.moduleHp,
+        shield: ship.shield,
+        hostile: ship.hostile,
+        writtenOff: ship.destroyedAt > 0,
+        isTarget: id === marked,
       });
     });
 
     return out;
+  }
+
+  /**
+   * Ask the server to select a mark.
+   *
+   * Target selection is an intent, not per-step input: it is a string and it
+   * changes rarely, so it rides the message channel rather than the input
+   * packet, which carries flat primitives only.
+   */
+  selectTarget(id: string): void {
+    this.room.send('target', { id });
+  }
+
+  /** Hulls that can be marked, nearest first, excluding this one and wrecks. */
+  targetableIds(): string[] {
+    const selfId = this.room.sessionId;
+    const self = this.me.state;
+    const entries: { id: string; distance: number }[] = [];
+    this.room.state.ships.forEach((ship, id) => {
+      if (id === selfId || ship.destroyedAt > 0) return;
+      entries.push({ id, distance: Math.hypot(ship.x - self.x, ship.y - self.y) });
+    });
+    entries.sort((a, b) => a.distance - b.distance);
+    return entries.map((entry) => entry.id);
+  }
+
+  get currentTarget(): string {
+    return this.room.state.ships.get(this.room.sessionId)?.target ?? '';
+  }
+
+  /**
+   * Rounds in flight.
+   *
+   * The wire carries a round's birth, not its path, so each one is reckoned
+   * forward from where and when it was fired. A missile's entry is refreshed
+   * on a slow cadence, so the same reckoning covers it between refreshes.
+   */
+  projectileViews(out: ProjectileView[] = []): ProjectileView[] {
+    out.length = 0;
+    const now = this.room.clock.serverNow();
+    const selfId = this.room.sessionId;
+
+    this.room.state.projectiles.forEach((round, id) => {
+      const age = Math.max(0, now - round.bornAt) / 1000;
+      out.push({
+        id,
+        x: round.x + round.vx * age,
+        y: round.y + round.vy * age,
+        angle: Math.atan2(round.vy, round.vx),
+        kind: round.kind,
+        isMine: round.owner === selfId,
+      });
+    });
+
+    return out;
+  }
+
+  /** Spilled cargo, with how far it is from this hull. */
+  canisterViews(out: CanisterView[] = []): CanisterView[] {
+    out.length = 0;
+    const now = this.room.clock.serverNow();
+    const self = this.me.state;
+
+    this.room.state.canisters.forEach((canister, id) => {
+      const age = Math.max(0, now - canister.bornAt) / 1000;
+      const x = canister.x + canister.vx * age;
+      const y = canister.y + canister.vy * age;
+      out.push({
+        id,
+        x,
+        y,
+        commodity: canister.commodity,
+        units: canister.units,
+        distance: Math.hypot(x - self.x, y - self.y),
+      });
+    });
+
+    return out;
+  }
+
+  /** Ask to scoop a canister. The server checks the range, not the client. */
+  scoop(id: string): void {
+    this.room.send('scoop', { id });
+  }
+
+  /** Subscribe to a server broadcast. Returns an unsubscribe. */
+  on(type: string, handler: (payload: unknown) => void): () => void {
+    this.room.onMessage(type, handler);
+    return () => {
+      // The SDK removes handlers by type; replacing with a no-op is the
+      // supported way to stop listening without tearing down the room.
+      this.room.onMessage(type, () => undefined);
+    };
   }
 
   /** The exact predicted state, for game logic rather than rendering. */

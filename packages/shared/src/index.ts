@@ -19,4 +19,5 @@ export * from './ships/geometry.ts';
 export * from './ships/derive.ts';
 export * from './ships/validate.ts';
 export * from './net/input.ts';
+export * from './net/protocol.ts';
 export * from './net/state.ts';
