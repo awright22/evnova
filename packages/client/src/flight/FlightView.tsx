@@ -9,6 +9,8 @@
 import { Application } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import {
+  LANDING_RANGE,
+  LANDING_SPEED,
   content,
   deriveStats,
   leadPoint,
@@ -29,7 +31,38 @@ import { Effects } from './effects.ts';
 import { Scene, type CanisterFrame, type ProjectileFrame, type ShipFrame } from './scene.ts';
 import './flight.css';
 
-export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0] }): React.JSX.Element {
+export interface FlightViewProps {
+  readonly room: Parameters<typeof Session.attach>[0];
+  /** What the captain has, for the instruments. */
+  readonly purse: {
+    marks: number;
+    propellant: number;
+    propellantCapacity: number;
+    jumpCost: number;
+  };
+  readonly notice: string | undefined;
+  /** The system the captain has plotted for, if any. J spools for it. */
+  readonly course: string | undefined;
+  /** The plotted system's in-world name, for the instruments. */
+  readonly courseName: string | undefined;
+  onLand: (portId: string) => void;
+  onOpenChart: () => void;
+  /** Spool for the plotted course. False when nothing is plotted. */
+  onJump: () => boolean;
+  onCancelJump: () => void;
+}
+
+export function FlightView({
+  room,
+  purse,
+  notice,
+  course,
+  courseName,
+  onLand,
+  onOpenChart,
+  onJump,
+  onCancelJump,
+}: FlightViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const radarRef = useRef<HTMLCanvasElement | null>(null);
   const readoutRef = useRef<HudReadout>({
@@ -47,10 +80,41 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
     integrity: 1,
     target: undefined,
     refusal: undefined,
+    propellant: 0,
+    propellantCapacity: 0,
+    marks: 0,
+    spoolingTo: '',
+    course: '',
+    spoolProgress: 0,
+    landingProgress: 0,
+    berth: undefined,
   });
 
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const [writtenOff, setWrittenOff] = useState<WrittenOff | undefined>(undefined);
+
+  // The frame loop is started once; these keep it reading current values
+  // rather than the ones captured when it started.
+  const liveRef = useRef({
+    purse,
+    notice,
+    course,
+    courseName,
+    onLand,
+    onOpenChart,
+    onJump,
+    onCancelJump,
+  });
+  liveRef.current = {
+    purse,
+    notice,
+    course,
+    courseName,
+    onLand,
+    onOpenChart,
+    onJump,
+    onCancelJump,
+  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -305,6 +369,31 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           if (isSelf) self = shipFrame;
         }
 
+        // Travel is asked for in edges: the chart, and being taken alongside.
+        if (keyboard!.takeChartRequest()) liveRef.current.onOpenChart();
+
+        // The nearest berth within reach, which is what L lands at.
+        let nearestBerth: { id: string; name: string; distance: number } | undefined;
+        if (self) {
+          for (const port of system.ports) {
+            const distance = Math.hypot(port.x - self.x, port.y - self.y) - port.radius;
+            if (!nearestBerth || distance < nearestBerth.distance) {
+              nearestBerth = { id: port.id, name: port.name, distance };
+            }
+          }
+        }
+        if (keyboard!.takeLandRequest() && nearestBerth) {
+          liveRef.current.onLand(nearestBerth.id);
+        }
+
+        // J means three things, in the order the captain would expect: stop
+        // spooling, spool for the plotted course, or open the chart to plot one.
+        if (keyboard!.takeJumpRequest()) {
+          const own = room.state.ships.get(selfId);
+          if (own && own.jumpTo !== '') liveRef.current.onCancelJump();
+          else if (!liveRef.current.onJump()) liveRef.current.onOpenChart();
+        }
+
         // Cycling the mark is an edge, and the server decides whether it took.
         const cycles = keyboard!.takeCycleRequests();
         if (cycles > 0) {
@@ -396,7 +485,28 @@ export function FlightView({ room }: { room: Parameters<typeof Session.attach>[0
           readout.shield = predicted.shield;
           readout.shieldMax = shieldCapacityOf(self.blueprint);
           readout.integrity = integrityOf(self);
-          readout.refusal = session.lastRefusal;
+          readout.refusal = liveRef.current.notice ?? session.lastRefusal;
+          readout.propellant = liveRef.current.purse.propellant;
+          readout.propellantCapacity = liveRef.current.purse.propellantCapacity;
+          readout.marks = liveRef.current.purse.marks;
+
+          // The spool and the berth in reach are both read off the hull's own
+          // synchronised state, so they cannot disagree with the server.
+          const own = room.state.ships.get(selfId);
+          readout.spoolingTo = own?.jumpTo ?? '';
+          readout.course = liveRef.current.courseName ?? '';
+          readout.spoolProgress = own?.jumpProgress ?? 0;
+          readout.landingProgress = own?.landingProgress ?? 0;
+          readout.berth =
+            nearestBerth && nearestBerth.distance <= LANDING_RANGE
+              ? {
+                  name: nearestBerth.name,
+                  distance: nearestBerth.distance,
+                  // The server refuses a fast approach, so the prompt says so
+                  // rather than offering a landing that will be turned down.
+                  tooFast: Math.hypot(self.vx, self.vy) > LANDING_SPEED,
+                }
+              : undefined;
 
           // The mark's own state, which the spec asks the interface to show.
           const marked = frames.find((f) => f.isTarget);

@@ -14,8 +14,26 @@ import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 
 
 import { eq } from 'drizzle-orm';
 
+import { EMPTY_LOADOUT, content, deriveStats, placeAll } from '@marque/shared';
+
 import { config } from './config.ts';
 import { schema, type Store } from './db/index.ts';
+
+/**
+ * What a captain opens with: the draught from content, and tanks filled to
+ * what that draught holds rather than to a number written here.
+ */
+function openingKit(): { draught: string; ordnance: number; propellant: number } {
+  const { blueprints, modules, tuning } = content();
+  const blueprint = blueprints.get(tuning.start.draught);
+  if (!blueprint) throw new Error(`start draught "${tuning.start.draught}" is missing`);
+  const stats = deriveStats(placeAll(blueprint.placements, modules), tuning, EMPTY_LOADOUT);
+  return {
+    draught: blueprint.id,
+    ordnance: tuning.start.ordnance,
+    propellant: Math.floor(stats.propellantCapacity),
+  };
+}
 
 /** Words the recovery phrase is drawn from: plain, unambiguous, in voice. */
 const PHRASE_WORDS = [
@@ -84,6 +102,7 @@ export class Accounts {
       .get();
     if (existing) throw new AuthError('callsign-taken');
 
+    const opening = openingKit();
     const id = randomBytes(16).toString('hex');
     const deviceToken = randomBytes(32).toString('base64url');
     const recoveryPhrase = makeRecoveryPhrase();
@@ -116,9 +135,11 @@ export class Accounts {
             // minus sinks from the very first captain.
             marks: 0,
             systemId: config.startingSystem,
-            blueprintId: 'prudent-return',
-            ammo: 24,
-            propellant: 60,
+            blueprintId: opening.draught,
+            ammo: opening.ordnance,
+            // Full tanks, whatever the starting draught holds. A fixed number
+            // here would read as "60 of 30 aboard" the moment either changed.
+            propellant: opening.propellant,
             updatedAt: now,
           })
           .run();

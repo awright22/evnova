@@ -114,11 +114,21 @@ async function main(): Promise<void> {
       if (code !== 0) throw new Error(`client build failed:\n${build.output()}`);
     }
 
-    // 2. Game server, on its own port so a running dev server is untouched.
+    // 2. Game server, on its own port so a running dev server is untouched,
+    // and on a throwaway database so a capture never depends on what an
+    // earlier run left behind. Accounts opened here are gone when it exits.
     console.log('Starting game server...');
+    const scratchDb = resolve(options.outDir, 'capture.db');
+    await rm(scratchDb, { force: true });
+    await rm(`${scratchDb}-wal`, { force: true });
+    await rm(`${scratchDb}-shm`, { force: true });
     const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {
       cwd: resolve(REPO_ROOT, 'packages/server'),
-      env: { PORT: String(options.serverPort), NODE_ENV: 'development' },
+      env: {
+        PORT: String(options.serverPort),
+        NODE_ENV: 'development',
+        DATABASE_URL: scratchDb,
+      },
     });
     processes.push(server);
     await waitForHttp(server, `http://127.0.0.1:${options.serverPort}/matchmake/`);

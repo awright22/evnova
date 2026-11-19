@@ -75,11 +75,6 @@ export interface JoinOptions {
 }
 
 /** Arrivals scatter inside this radius around a berth. */
-const SPAWN_RADIUS = 900;
-
-/** How far off the berth arrivals sit, so nobody materialises inside it. */
-const SPAWN_STANDOFF = 1600;
-
 /** A wreck lingers this long before it is cleared. */
 const WRECK_LINGER_MS = 6000;
 
@@ -317,6 +312,7 @@ export class SystemRoom extends Room<{
             );
             pilot.moduleHp = [...intact];
             world().pilots.touch(pilot.accountId);
+            this.sendPurse(client.sessionId);
             return { marks: pilot.marks, repaired: missing, cost };
           }
 
@@ -338,6 +334,7 @@ export class SystemRoom extends Room<{
             );
             pilot.propellant += units;
             world().pilots.touch(pilot.accountId);
+            this.sendPurse(client.sessionId);
             return { marks: pilot.marks, units, cost };
           }
 
@@ -360,6 +357,7 @@ export class SystemRoom extends Room<{
             );
             pilot.ammo += units;
             world().pilots.touch(pilot.accountId);
+            this.sendPurse(client.sessionId);
             return { marks: pilot.marks, units, cost };
           }
         }
@@ -393,6 +391,7 @@ export class SystemRoom extends Room<{
       world().pilots.touch(pilot.accountId);
 
       this.spawnFromPilot(client.sessionId, pilot);
+      this.sendPurse(client.sessionId);
       return { launched: true };
     }),
 
@@ -421,7 +420,12 @@ export class SystemRoom extends Room<{
     const requested = options.systemId ?? 'parity';
     this.system = systems.get(requested) ?? [...systems.values()][0];
     this.state.systemId = this.system?.id ?? requested;
-    this.raiderTarget = options.raiders ?? 2;
+    // How many Unlettered hunt here follows how much law reaches the system:
+    // nothing in the Home Roads, more the further out you go. A tool can still
+    // ask for a set number, which is what the soak sim does.
+    const { raidersBySecurity } = content().tuning.world;
+    this.raiderTarget =
+      options.raiders ?? (this.system ? raidersBySecurity[this.system.security] : 0);
     this.rng = new Rng(`system:${this.roomId}`);
 
     this.combat = new CombatSystem(
@@ -503,10 +507,12 @@ export class SystemRoom extends Room<{
       // until they launch.
       if (pilot.landedPortId !== undefined) {
         client.send('at-port', { port: pilot.landedPortId, system: pilot.systemId });
+        this.sendPurse(client.sessionId);
         return;
       }
 
       this.spawnFromPilot(client.sessionId, pilot);
+      this.sendPurse(client.sessionId);
       return;
     }
 
@@ -571,6 +577,10 @@ export class SystemRoom extends Room<{
       runtime.hp[index] = Math.max(0, Math.min(max, hp));
     });
 
+    // Tanks cannot hold more than the hull they are in. A row written against
+    // a bigger draught is trimmed here rather than read back as "60 of 30".
+    pilot.propellant = Math.min(pilot.propellant, Math.floor(runtime.stats.propellantCapacity));
+
     const ship = new ShipState();
     ship.x = pilot.x;
     ship.y = pilot.y;
@@ -581,13 +591,15 @@ export class SystemRoom extends Room<{
     ship.shield = Math.min(pilot.shield, runtime.shieldCapacity);
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
 
-    // A captain who has never flown, or who was written off, starts off a berth.
+    // A captain who has never flown, or who was written off, starts off a
+    // berth, close enough to see it and to be offered the landing.
     if (ship.x === 0 && ship.y === 0) {
       const berth = this.system?.ports[0];
       const rng = new Rng(`${this.roomId}:${sessionId}`);
       const bearing = rng.range(-Math.PI, Math.PI);
-      ship.x = (berth?.x ?? 0) + Math.cos(bearing) * SPAWN_STANDOFF;
-      ship.y = (berth?.y ?? 0) + Math.sin(bearing) * SPAWN_STANDOFF;
+      const standoff = (berth?.radius ?? 0) + tuning.world.spawnStandoff;
+      ship.x = (berth?.x ?? 0) + Math.cos(bearing) * standoff;
+      ship.y = (berth?.y ?? 0) + Math.sin(bearing) * standoff;
       ship.angle = Math.atan2((berth?.y ?? 0) - ship.y, (berth?.x ?? 0) - ship.x);
     }
 
@@ -597,6 +609,43 @@ export class SystemRoom extends Room<{
 
     this.runtimes.set(sessionId, runtime);
     this.state.ships.set(sessionId, ship);
+  }
+
+  /**
+   * Tell a captain what they have.
+   *
+   * Marks, Propellant and Ordnance are not on the synchronised state, because
+   * they are nobody else's business. They go to the one client that owns
+   * them, whenever they change.
+   */
+  private sendPurse(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const { blueprints, modules, tuning } = content();
+    const blueprint = blueprints.get(pilot.blueprintId);
+    const placed = blueprint ? placeAll(blueprint.placements, modules) : [];
+    const stats = placed.length > 0 ? deriveStats(placed, tuning) : undefined;
+
+    const intact = placed.reduce((sum, m) => sum + m.def.hitPoints, 0);
+    const left = placed.reduce(
+      (sum, m, index) => sum + Math.min(m.def.hitPoints, pilot.moduleHp[index] ?? m.def.hitPoints),
+      0,
+    );
+
+    this.clients.get(sessionId)?.send('purse', {
+      marks: pilot.marks,
+      propellant: pilot.propellant,
+      propellantCapacity: stats?.propellantCapacity ?? 0,
+      ordnance: pilot.ammo,
+      structure: intact > 0 ? left / intact : 1,
+      draught: blueprint?.name ?? pilot.blueprintId,
+      licence: pilot.licence,
+      composition: pilot.composition,
+      jumpCost: stats ? jumpCost(stats.totalMass) : 1,
+      system: pilot.systemId,
+      landedPort: pilot.landedPortId ?? '',
+    });
   }
 
   /** Write a captain's hull state back to their row. */
@@ -637,11 +686,13 @@ export class SystemRoom extends Room<{
 
     const rng = new Rng(`${this.roomId}:${id}`);
     const bearing = rng.range(-Math.PI, Math.PI);
-    const distance = SPAWN_RADIUS * Math.sqrt(rng.next());
+    const { raiderStandoff, raiderScatter } = content().tuning.world;
+    const distance = raiderScatter * Math.sqrt(rng.next());
 
+    // The Unlettered hold off the berth, not on top of it.
     const berth = this.system?.ports[0];
-    const anchorX = berth ? berth.x + Math.cos(bearing) * SPAWN_STANDOFF : 0;
-    const anchorY = berth ? berth.y + Math.sin(bearing) * SPAWN_STANDOFF : 0;
+    const anchorX = berth ? berth.x + Math.cos(bearing) * raiderStandoff : 0;
+    const anchorY = berth ? berth.y + Math.sin(bearing) * raiderStandoff : 0;
 
     const ship = new ShipState();
     ship.x = anchorX + Math.cos(bearing) * distance;
@@ -863,6 +914,7 @@ export class SystemRoom extends Room<{
       world().pilots.touch(pilot.accountId);
     }
 
+    this.sendPurse(sessionId);
     this.clients.get(sessionId)?.send('landed', { port: portId });
 
     // A landed hull leaves the simulation and cannot be attacked.

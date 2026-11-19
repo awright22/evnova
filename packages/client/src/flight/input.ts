@@ -29,8 +29,11 @@ const BRAKE = new Set(['ArrowDown', 'KeyS']);
 const FIRE_PRIMARY = new Set(['Space']);
 const FIRE_SECONDARY = new Set(['ShiftLeft', 'ShiftRight']);
 
-/** Pressed once rather than held: cycling the mark is an edge, not a state. */
+/** Pressed once rather than held: these are edges, not states. */
 const CYCLE_TARGET = 'Tab';
+const LAND = 'KeyL';
+const CHART = 'KeyM';
+const JUMP = 'KeyJ';
 
 /** Keys the game consumes, so the page does not also scroll or tab away. */
 const CONSUMED = new Set([
@@ -40,12 +43,18 @@ const CONSUMED = new Set([
   ...BRAKE,
   ...FIRE_PRIMARY,
   CYCLE_TARGET,
+  LAND,
+  CHART,
+  JUMP,
 ]);
 
 export class KeyboardInput {
   private readonly pressed = new Set<string>();
   /** Edge-triggered presses, drained by the frame loop. */
   private cycleRequests = 0;
+  private landRequests = 0;
+  private chartRequests = 0;
+  private jumpRequests = 0;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
   private readonly onKeyUp: (event: KeyboardEvent) => void;
   private readonly onBlur: () => void;
@@ -58,6 +67,9 @@ export class KeyboardInput {
       // Cycling the mark is an edge: holding Tab should not spin through
       // every hull in the system.
       if (event.code === CYCLE_TARGET && !event.repeat) this.cycleRequests++;
+      if (event.code === LAND && !event.repeat) this.landRequests++;
+      if (event.code === CHART && !event.repeat) this.chartRequests++;
+      if (event.code === JUMP && !event.repeat) this.jumpRequests++;
       this.pressed.add(event.code);
     };
     this.onKeyUp = (event) => {
@@ -95,6 +107,27 @@ export class KeyboardInput {
     const count = this.cycleRequests;
     this.cycleRequests = 0;
     return count;
+  }
+
+  /** True when the captain asked to be taken alongside since the last call. */
+  takeLandRequest(): boolean {
+    const asked = this.landRequests > 0;
+    this.landRequests = 0;
+    return asked;
+  }
+
+  /** True when the captain asked for the chart. */
+  takeChartRequest(): boolean {
+    const asked = this.chartRequests > 0;
+    this.chartRequests = 0;
+    return asked;
+  }
+
+  /** True when the captain asked to jump since the last call. */
+  takeJumpRequest(): boolean {
+    const asked = this.jumpRequests > 0;
+    this.jumpRequests = 0;
+    return asked;
   }
 
   destroy(): void {

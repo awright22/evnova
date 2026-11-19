@@ -49,6 +49,8 @@ export interface RunningServer {
 export async function startServer(options: {
   port: number;
   latencyMs: number;
+  /** A throwaway database, so a soak never writes into the real world. */
+  databaseUrl?: string;
 }): Promise<RunningServer> {
   const child: ChildProcess = spawn('pnpm', ['exec', 'tsx', 'src/main.ts'], {
     cwd: resolve(REPO_ROOT, 'packages/server'),
@@ -56,6 +58,7 @@ export async function startServer(options: {
       ...process.env,
       PORT: String(options.port),
       NODE_ENV: 'development',
+      ...(options.databaseUrl !== undefined ? { DATABASE_URL: options.databaseUrl } : {}),
       ...(options.latencyMs > 0 ? { COLYSEUS_LATENCY: String(options.latencyMs) } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],

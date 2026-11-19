@@ -93,7 +93,12 @@ async function main(): Promise<void> {
     `Soak: ${options.bots} bots, ${options.minutes} min, ${options.latency}ms simulated latency`,
   );
 
-  const server = await startServer({ port: options.port, latencyMs: options.latency });
+  const server = await startServer({
+    port: options.port,
+    latencyMs: options.latency,
+    // A soak runs the world hard; it does so in its own database.
+    databaseUrl: resolve(options.outDir, 'soak.db'),
+  });
   const bots: Bot[] = [];
   const samples: Sample[] = [];
 

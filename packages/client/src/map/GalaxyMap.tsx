@@ -22,7 +22,11 @@ export interface GalaxyMapProps {
   readonly jumpCost: number;
   /** Why the last jump was refused, if it was. */
   readonly refusal: string | undefined;
+  /** The course already plotted, so the chart opens on it. */
+  readonly course: string | undefined;
   onJump: (systemId: string) => void;
+  /** Note the destination without spooling, so J can spool for it later. */
+  onPlot: (systemId: string) => void;
   onClose: () => void;
 }
 
@@ -33,13 +37,17 @@ export function GalaxyMap({
   propellant,
   jumpCost,
   refusal,
+  course,
   onJump,
+  onPlot,
   onClose,
 }: GalaxyMapProps): React.JSX.Element {
   const here = chart.byId.get(currentSystem);
   const reachableSet = useMemo(() => new Set(reachable), [reachable]);
 
-  const [selected, setSelected] = useState<string>(() => reachable[0] ?? currentSystem);
+  const [selected, setSelected] = useState<string>(
+    () => course ?? reachable[0] ?? currentSystem,
+  );
   const frameRef = useRef<HTMLDivElement | null>(null);
 
   // Keep the selection on something the hull can actually reach.
@@ -104,6 +112,11 @@ export function GalaxyMap({
           event.preventDefault();
           if (reachableSet.has(selected)) onJump(selected);
           break;
+        case 'j':
+        case 'J':
+          event.preventDefault();
+          if (reachableSet.has(selected)) onPlot(selected);
+          break;
         case 'ArrowLeft':
           event.preventDefault();
           step(-1, 0);
@@ -131,7 +144,7 @@ export function GalaxyMap({
           break;
       }
     },
-    [onClose, onJump, reachable, reachableSet, selected, step],
+    [onClose, onJump, onPlot, reachable, reachableSet, selected, step],
   );
 
   const chosen = chart.byId.get(selected);
@@ -149,7 +162,9 @@ export function GalaxyMap({
       <div className="chart__panel panel">
         <header className="panel-header">
           <h2>The Reach</h2>
-          <span className="micro">Arrows to choose &middot; Enter to spool &middot; Esc to close</span>
+          <span className="micro">
+            Arrows to choose &middot; Enter to spool &middot; J to plot &middot; Esc to close
+          </span>
         </header>
 
         <div className="chart__body">
@@ -241,6 +256,33 @@ export function GalaxyMap({
                     </ul>
                   </>
                 )}
+
+                {/* Where you can go on from there: a route is planned a lane
+                    at a time, so the next lanes belong on the same panel. */}
+                {chosen.links.length > 0 && (
+                  <>
+                    <span className="label">Lanes out</span>
+                    <ul className="chart__lanes-out">
+                      {chosen.links.map((link) => {
+                        const other = chart.byId.get(link);
+                        if (!other) return null;
+                        return (
+                          <li key={link}>
+                            <button
+                              type="button"
+                              className="chart__lane-link"
+                              onClick={() => setSelected(link)}
+                            >
+                              {other.name}
+                            </button>
+                            <span className={`chart__pip chart__pip--${other.region}`} />
+                            <span className="micro">{SECURITY_NAMES[other.security]}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
               </>
             ) : (
               <p className="chart__description">Nowhere selected.</p>
@@ -259,6 +301,14 @@ export function GalaxyMap({
           <div className="chart__actions">
             <button type="button" className="button" onClick={onClose}>
               Close
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={!reachableSet.has(selected)}
+              onClick={() => onPlot(selected)}
+            >
+              Plot the course
             </button>
             <button
               type="button"

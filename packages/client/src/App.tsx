@@ -1,61 +1,160 @@
 /**
  * The application shell.
  *
- * Connects to the server, then hands the room to the flight view. Every
- * failure has a designed state: the interface never shows a white screen or
- * raw error text.
+ * Owns nothing itself: it subscribes to the game client and renders whichever
+ * screen the captain is on. A hyperjump changes rooms, so the room cannot be
+ * owned by a component — it lives in the game client and the flight view is
+ * keyed on it.
+ *
+ * Every failure has a designed state. The interface never shows a white
+ * screen or raw error text.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { FlightView } from './flight/FlightView.tsx';
-import {
-  BUILD_VERSION,
-  SERVER_URL,
-  connect,
-  explainFailure,
-  type ConnectionStatus,
-} from './net/connection.ts';
+import { GameClient, type GameSnapshot } from './game/GameClient.ts';
+import { Register } from './game/Register.tsx';
+import { GalaxyMap } from './map/GalaxyMap.tsx';
+import { PortHub } from './port/PortHub.tsx';
+import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
 export function App(): React.JSX.Element {
-  const [status, setStatus] = useState<ConnectionStatus>({ kind: 'connecting' });
-  const [attempt, setAttempt] = useState(0);
-  const current = useRef<ConnectionStatus | undefined>(undefined);
+  const client = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return new GameClient(
+      SERVER_URL,
+      params.get('draught') ?? undefined,
+      params.get('callsign') ?? undefined,
+    );
+  }, []);
+
+  const [snapshot, setSnapshot] = useState<GameSnapshot>(() => client.snapshot());
+  const [chartOpen, setChartOpen] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    setStatus({ kind: 'connecting' });
-
-    // A draught can be named in the URL, so the contrasting designs can be
-    // flown and compared without a shipyard, which arrives in M5.
-    const params = new URLSearchParams(window.location.search);
-    const blueprint = params.get('draught') ?? undefined;
-    const callsign = params.get('callsign') ?? 'Free Captain';
-
-    void connect({ callsign, ...(blueprint ? { blueprint } : {}) }).then((result) => {
-      if (cancelled) {
-        if (result.kind === 'connected') void result.room.leave();
-        return;
-      }
-      current.current = result;
-      setStatus(result);
-    });
-
+    const unsubscribe = client.subscribe(setSnapshot);
+    void client.start();
     return () => {
-      cancelled = true;
-      const open = current.current;
-      if (open?.kind === 'connected') void open.room.leave();
-      current.current = undefined;
+      unsubscribe();
+      client.dispose();
     };
-  }, [attempt]);
+  }, [client]);
 
-  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const { mode, purse, chart } = snapshot;
 
-  if (status.kind === 'connected') {
-    return <FlightView room={status.room} />;
+  const onJump = useCallback(
+    (systemId: string) => {
+      client.jump(systemId);
+      setChartOpen(false);
+    },
+    [client],
+  );
+
+  // The chart is available from flight and from a berth.
+  const chartOverlay =
+    chartOpen && chart ? (
+      <GalaxyMap
+        chart={chart}
+        currentSystem={snapshot.systemId || purse.system}
+        reachable={chart.byId.get(snapshot.systemId || purse.system)?.links ?? []}
+        propellant={purse.propellant}
+        jumpCost={purse.jumpCost}
+        refusal={snapshot.notice}
+        course={snapshot.course}
+        onJump={onJump}
+        onPlot={(systemId) => {
+          client.plot(systemId);
+          setChartOpen(false);
+        }}
+        onClose={() => setChartOpen(false)}
+      />
+    ) : null;
+
+  switch (mode.kind) {
+    case 'register':
+      return (
+        <Register
+          httpBase={client.httpBase}
+          onSignedIn={(account) => void client.signedIn(account)}
+        />
+      );
+
+    case 'connecting':
+      return <Waiting heading="Opening the link." detail={SERVER_URL} />;
+
+    case 'jumping':
+      return <Waiting heading="In the lane." detail={`Arriving at ${mode.to}`} />;
+
+    case 'port': {
+      const system = chart?.byId.get(snapshot.systemId || purse.system);
+      const port = system?.ports.find((candidate) => candidate.id === mode.portId);
+      if (!system || !port) {
+        return <Waiting heading="Alongside." detail="Reading the berth's register." />;
+      }
+      return (
+        <>
+          <PortHub
+            state={{
+              system,
+              port,
+              marks: purse.marks,
+              propellant: purse.propellant,
+              propellantCapacity: purse.propellantCapacity,
+              ordnance: purse.ordnance,
+              structure: purse.structure,
+              draught: purse.draught,
+              busy: false,
+              notice: snapshot.notice,
+            }}
+            onBuy={(service) => client.buy(service)}
+            onLaunch={() => client.launch()}
+            onOpenChart={() => setChartOpen(true)}
+          />
+          {chartOverlay}
+        </>
+      );
+    }
+
+    case 'flight':
+      return (
+        <>
+          {snapshot.room && (
+            <FlightView
+              key={snapshot.epoch}
+              room={snapshot.room}
+              purse={purse}
+              notice={snapshot.notice}
+              course={snapshot.course}
+              courseName={
+                snapshot.course === undefined
+                  ? undefined
+                  : chart?.byId.get(snapshot.course)?.name
+              }
+              onLand={(portId) => client.land(portId)}
+              onOpenChart={() => setChartOpen(true)}
+              onJump={() => client.jumpPlotted()}
+              onCancelJump={() => client.cancelJump()}
+            />
+          )}
+          {chartOverlay}
+        </>
+      );
+
+    case 'failed':
+      return (
+        <Failure
+          heading={mode.heading}
+          body={mode.body}
+          detail={mode.detail}
+          onRetry={mode.canRetry ? () => client.retry() : undefined}
+        />
+      );
   }
+}
 
+function Waiting({ heading, detail }: { heading: string; detail: string }): React.JSX.Element {
   return (
     <main className="boot">
       <div className="boot__frame panel">
@@ -64,15 +163,62 @@ export function App(): React.JSX.Element {
             <h1 className="boot__title">Marque</h1>
             <span className="micro">Ship&apos;s terminal</span>
           </div>
-          <StatusBadge status={status} />
+          <span className="boot__badge boot__badge--wait">
+            <span className="dot" />
+            <span className="micro">Working</span>
+          </span>
+        </header>
+        <div className="boot__body">
+          <p className="boot__message">{heading}</p>
+        </div>
+        <footer className="boot__footer">
+          <Field label="Terminal" value={detail} />
+          <Field label="Build" value={BUILD_VERSION} />
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function Failure({
+  heading,
+  body,
+  detail,
+  onRetry,
+}: {
+  heading: string;
+  body: string;
+  detail: string;
+  onRetry: (() => void) | undefined;
+}): React.JSX.Element {
+  return (
+    <main className="boot">
+      <div className="boot__frame panel">
+        <header className="panel-header">
+          <div className="boot__brand">
+            <h1 className="boot__title">Marque</h1>
+            <span className="micro">Ship&apos;s terminal</span>
+          </div>
+          <span className="boot__badge boot__badge--bad">
+            <span className="dot" />
+            <span className="micro">No link</span>
+          </span>
         </header>
 
         <div className="boot__body">
-          {status.kind === 'connecting' ? (
-            <p className="boot__message">Opening the link.</p>
-          ) : (
-            <Failure status={status} onRetry={retry} />
-          )}
+          <div className="boot__failure">
+            <h2>{heading}</h2>
+            <p className="boot__message">{body}</p>
+            <p className="boot__detail">
+              <span className="micro boot__detail-label">Detail</span>
+              <span className="boot__detail-text">{detail}</span>
+            </p>
+            {onRetry && (
+              <button type="button" className="button button--primary" onClick={onRetry}>
+                Try again
+              </button>
+            )}
+          </div>
         </div>
 
         <footer className="boot__footer">
@@ -81,42 +227,6 @@ export function App(): React.JSX.Element {
         </footer>
       </div>
     </main>
-  );
-}
-
-function StatusBadge({ status }: { status: ConnectionStatus }): React.JSX.Element {
-  const tone = status.kind === 'connecting' ? 'wait' : 'bad';
-  const text = status.kind === 'connecting' ? 'Linking' : 'No link';
-  return (
-    <span className={`boot__badge boot__badge--${tone}`}>
-      <span className="dot" />
-      <span className="micro">{text}</span>
-    </span>
-  );
-}
-
-function Failure({
-  status,
-  onRetry,
-}: {
-  status: Extract<ConnectionStatus, { kind: 'failed' }>;
-  onRetry: () => void;
-}): React.JSX.Element {
-  const { heading, body, retry } = explainFailure(status.reason);
-  return (
-    <div className="boot__failure">
-      <h2>{heading}</h2>
-      <p className="boot__message">{body}</p>
-      <p className="boot__detail">
-        <span className="micro boot__detail-label">Detail</span>
-        <span className="boot__detail-text">{status.detail}</span>
-      </p>
-      {retry && (
-        <button type="button" className="button button--primary" onClick={onRetry}>
-          Try again
-        </button>
-      )}
-    </div>
   );
 }
 

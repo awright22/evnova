@@ -59,5 +59,22 @@
     "propellantPrice": 8,
     "repairPricePerPoint": 1.4,
     "ordnancePrice": 22
+  },
+  "start": {
+    "$comment": "What a captain is given when they are first entered in the Register. Marks can be overridden per server; the draught and the opening Ordnance are the game's own. Propellant is not listed because it is filled to whatever the draught's tanks hold: a new captain never reads a figure their hull cannot carry.",
+    "draught": "prudent-return",
+    "ordnance": 24
+  },
+  "world": {
+    "$comment": "spawnStandoff is how far off a berth a captain who has never flown, or who has just been written off, is set down: short enough that the berth is on screen and the landing prompt is already up, so the first thing a new captain sees is where they are. The Unlettered hold further out, in open space between the berths, and scatter about their anchor. Where a hull arrives from a lane comes from the system's own radius, not from here.",
+    "spawnStandoff": 300,
+    "raiderStandoff": 2600,
+    "raiderScatter": 900,
+    "raidersBySecurity": {
+      "$comment": "How many Unlettered hunt a system, by how much law reaches it. The Home Roads are patrolled, so nothing hunts there; the Marque is nobody's.",
+      "secured": 0,
+      "contested": 2,
+      "lawless": 4
+    }
   }
 }

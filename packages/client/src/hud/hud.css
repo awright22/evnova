@@ -46,7 +46,7 @@
   justify-self: end;
   display: grid;
   justify-items: center;
-  gap: var(--space-half);
+  gap: var(--space-0-5);
   padding: 0;
   background: none;
   border: none;
@@ -142,7 +142,7 @@
 .hud__radar {
   width: 148px;
   height: 148px;
-  padding: var(--space-half);
+  padding: var(--space-0-5);
   background: color-mix(in srgb, var(--panel) 82%, transparent);
 }
 
@@ -192,7 +192,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
-  padding-bottom: var(--space-half);
+  padding-bottom: var(--space-0-5);
   border-bottom: var(--border-width) solid var(--rule);
 }
 
@@ -209,7 +209,7 @@
 .hud__bars {
   display: grid;
   gap: 3px;
-  padding-top: var(--space-half);
+  padding-top: var(--space-0-5);
   border-top: var(--border-width) solid var(--rule);
 }
 
@@ -278,4 +278,111 @@
     opacity: 1;
     transform: none;
   }
+}
+
+/**
+ * The purse, read beside the system name because both answer "where do I
+ * stand": one in space, one on account.
+ */
+.hud__purse {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  justify-items: end;
+  align-items: baseline;
+  column-gap: var(--space-0-5);
+}
+
+.hud__purse .label {
+  grid-column: 1 / -1;
+}
+
+.hud__purse-value {
+  font-size: var(--size-data-lg);
+  line-height: var(--leading-h3);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/**
+ * Travel. Bottom centre, above the refusal line, because it is the one piece
+ * of state the captain is waiting on rather than monitoring.
+ */
+.hud__travel {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: end;
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-0-5);
+  min-width: 232px;
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-6);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  animation: travel-in var(--motion-base) var(--ease-emphasis);
+}
+
+.hud__travel--spooling {
+  border-color: var(--amber-dim);
+}
+
+.hud__travel-name {
+  font-family: var(--font-condensed);
+  font-size: var(--size-h3);
+  line-height: var(--leading-h3);
+  font-weight: 600;
+  letter-spacing: var(--track-h3);
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+@keyframes travel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** A wait with a known end: one bar, filling left to right. */
+.hud__progress {
+  width: 100%;
+  height: 3px;
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-faint);
+}
+
+.hud__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  /* Matched to the state flush interval so the bar reads as continuous. */
+  transition: width var(--motion-slow) linear;
+}
+
+.hud__travel--landing .hud__progress-fill {
+  background: var(--shield);
+}
+
+/** A key cap, for the one prompt that names a key. */
+.hud__key {
+  display: inline-block;
+  min-width: 15px;
+  padding: 0 3px;
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  background: var(--raised);
+  border: var(--border-width) solid var(--rule-strong);
+  border-radius: 2px;
+}
+
+.hud__travel-hint {
+  color: var(--caution);
 }

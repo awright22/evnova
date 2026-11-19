@@ -83,6 +83,12 @@ export function loadContent(): Content {
     systems.set(system.id, system);
   }
 
+  // The draught a new captain is given has to exist, or sign-up fails at the
+  // one moment a player cannot route around.
+  if (!blueprints.has(tuning.start.draught)) {
+    throw new Error(`start draught "${tuning.start.draught}" is not a known draught`);
+  }
+
   // Hyperlanes run both ways. A one-sided link would strand a captain, so it
   // fails the boot rather than the jump.
   for (const system of systems.values()) {

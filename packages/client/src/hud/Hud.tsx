@@ -41,6 +41,19 @@ export interface HudReadout {
   target: TargetReadout | undefined;
   /** The most recent refused intent, shown briefly as a designed state. */
   refusal: string | undefined;
+  /** What the captain has aboard and on account. */
+  propellant: number;
+  propellantCapacity: number;
+  marks: number;
+  /** The system a jump is spooling toward, empty when not spooling. */
+  spoolingTo: string;
+  /** The plotted course, empty when none. */
+  course: string;
+  /** Spool and approach, each 0..1. */
+  spoolProgress: number;
+  landingProgress: number;
+  /** The nearest berth within reach, which is what L lands at. */
+  berth: { name: string; distance: number; tooFast: boolean } | undefined;
 }
 
 export function Hud({
@@ -68,6 +81,11 @@ export function Hud({
         <div className="hud__system">
           <span className="label">System</span>
           <span className="hud__system-name">{shown.system}</span>
+        </div>
+        <div className="hud__purse">
+          <span className="label">Purse</span>
+          <span className="hud__purse-value data">{formatMarks(shown.marks)}</span>
+          <span className="micro">M</span>
         </div>
       </header>
 
@@ -108,8 +126,22 @@ export function Hud({
             tone={shown.integrity < 0.35 ? 'danger' : 'hull'}
             readout={`${Math.round(shown.integrity * 100)}%`}
           />
+          <Gauge
+            label="Propellant"
+            value={
+              shown.propellantCapacity > 0 ? shown.propellant / shown.propellantCapacity : 0
+            }
+            tone={
+              shown.propellantCapacity > 0 && shown.propellant / shown.propellantCapacity < 0.2
+                ? 'danger'
+                : 'hull'
+            }
+            readout={`${shown.propellant}`}
+          />
         </div>
       </div>
+
+      <TravelBanner readout={shown} />
 
       <div className="hud__corner hud__corner--br">
         <div className="hud__radar panel">
@@ -117,6 +149,79 @@ export function Hud({
         </div>
         <span className="micro hud__radar-label">Scope</span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What travel is available or under way, in the one place the eye already goes
+ * for state it did not ask for. Only one of the three can be true at a time:
+ * spooling outranks an approach, and an approach outranks an offer to land.
+ */
+function TravelBanner({ readout }: { readout: HudReadout }): React.JSX.Element | null {
+  if (readout.spoolingTo !== '') {
+    return (
+      <div className="hud__travel panel hud__travel--spooling" role="status">
+        <span className="micro">Spooling</span>
+        <span className="hud__travel-name">{readout.spoolingTo}</span>
+        <Progress value={readout.spoolProgress} />
+        <span className="micro">Hold course clear of traffic</span>
+      </div>
+    );
+  }
+
+  if (readout.landingProgress > 0) {
+    return (
+      <div className="hud__travel panel hud__travel--landing" role="status">
+        <span className="micro">Coming alongside</span>
+        <Progress value={readout.landingProgress} />
+      </div>
+    );
+  }
+
+  if (readout.berth) {
+    return (
+      <div className="hud__travel panel" role="status">
+        <span className="micro">In reach</span>
+        <span className="hud__travel-name">{readout.berth.name}</span>
+        {readout.berth.tooFast ? (
+          <span className="micro hud__travel-hint">Too fast to come alongside</span>
+        ) : (
+          <span className="micro">
+            <kbd className="hud__key">L</kbd> to come alongside
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (readout.course !== '') {
+    return (
+      <div className="hud__travel panel" role="status">
+        <span className="micro">Course</span>
+        <span className="hud__travel-name">{readout.course}</span>
+        <span className="micro">
+          <kbd className="hud__key">J</kbd> to spool
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/** A continuous bar, for a wait with an end the captain is watching. */
+function Progress({ value }: { value: number }): React.JSX.Element {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return (
+    <div
+      className="hud__progress"
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <span className="hud__progress-fill" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -214,6 +319,11 @@ function Throttle({ value }: { value: number }): React.JSX.Element {
       </div>
     </div>
   );
+}
+
+/** Marks are counted in thousands, written with a thin space, never a comma. */
+function formatMarks(marks: number): string {
+  return String(Math.round(marks)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
 }
 
 function formatHeading(radians: number): string {

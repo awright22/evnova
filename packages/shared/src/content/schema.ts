@@ -229,6 +229,21 @@ export const Tuning = z.object({
     ordnancePrice: z.int().positive(),
   }),
   licences: z.record(LicenceId, LicenceDef),
+  start: z.object({
+    draught: z.string().min(1),
+    ordnance: z.int().nonnegative(),
+  }),
+  world: z.object({
+    spawnStandoff: z.number().positive(),
+    raiderStandoff: z.number().positive(),
+    raiderScatter: z.number().positive(),
+    /** How many Unlettered hunt a system, by how much law reaches it. */
+    raidersBySecurity: z.object({
+      secured: z.int().nonnegative(),
+      contested: z.int().nonnegative(),
+      lawless: z.int().nonnegative(),
+    }),
+  }),
 });
 export type Tuning = z.infer<typeof Tuning>;
 
