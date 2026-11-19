@@ -23,6 +23,21 @@ const schema = z.object({
 
   /** SQLite file, or any connection string the database layer understands. */
   DATABASE_URL: z.string().default('./data/marque.db'),
+
+  /** Comma-separated callsigns granted admin rights. */
+  ADMIN_CALLSIGNS: z.string().default(''),
+
+  /** Marks a new captain starts with. */
+  STARTING_MARKS: z.coerce.number().int().nonnegative().default(2500),
+
+  /** System a new captain wakes in. */
+  STARTING_SYSTEM: z.string().default('parity'),
+
+  /** Where daily snapshots are written. */
+  SNAPSHOT_DIR: z.string().default('./data/snapshots'),
+
+  /** Daily snapshots to keep. */
+  SNAPSHOT_KEEP: z.coerce.number().int().positive().default(7),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -43,6 +58,13 @@ export const config = {
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0),
   databaseUrl: env.DATABASE_URL,
+  adminCallsigns: env.ADMIN_CALLSIGNS.split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter((name) => name.length > 0),
+  startingMarks: env.STARTING_MARKS,
+  startingSystem: env.STARTING_SYSTEM,
+  snapshotDir: env.SNAPSHOT_DIR,
+  snapshotKeep: env.SNAPSHOT_KEEP,
 } as const;
 
 export type Config = typeof config;

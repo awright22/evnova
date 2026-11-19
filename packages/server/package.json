@@ -14,10 +14,14 @@
     "@colyseus/schema": "^5.0.50",
     "@colyseus/tools": "^0.18.11",
     "@marque/shared": "workspace:*",
+    "better-sqlite3": "^12.0.0",
     "colyseus": "^0.18.12",
+    "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.0",
     "esbuild": "^0.28.2"
   }
 }
