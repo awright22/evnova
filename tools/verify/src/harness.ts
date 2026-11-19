@@ -11,7 +11,9 @@
 import type * as Playwright from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { dirname, resolve } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { spawnGroup, stopGroup } from '@marque/harness';
@@ -32,8 +34,15 @@ export async function startStack(options: {
   serverPort: number;
   previewPort: number;
   latencyMs?: number;
+  /**
+   * Where the world lives for this run. Defaults to a throwaway file: a
+   * verification that reads or writes the repository's own database depends
+   * on whatever earlier runs left behind, and leaves its own captains in it.
+   */
+  databaseUrl?: string;
 }): Promise<Stack> {
   const procs: ChildProcess[] = [];
+  const scratch = options.databaseUrl ?? join(mkdtempSync(join(tmpdir(), 'marque-verify-')), 'world.db');
 
   const stop = async (): Promise<void> => {
     for (const proc of procs) await stopGroup(proc, { timeoutMs: 4000 });
@@ -47,6 +56,10 @@ export async function startStack(options: {
     procs.push(
       quiet('pnpm', ['exec', 'tsx', 'src/main.ts'], resolve(REPO_ROOT, 'packages/server'), {
         PORT: String(options.serverPort),
+        DATABASE_URL: scratch,
+        SNAPSHOT_DIR: join(dirname(scratch), 'snapshots'),
+        NODE_ENV: 'development',
+        INVITE_CODE: '',
         ...(options.latencyMs ? { COLYSEUS_LATENCY: String(options.latencyMs) } : {}),
       }),
     );

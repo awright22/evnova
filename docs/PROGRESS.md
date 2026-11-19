@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M3 — World**
+**Current milestone: M4 — Economy**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -54,19 +54,19 @@ Done when:
 
 ## M3. World
 
-- [ ] Galaxy data and map
-- [ ] Hyperjump
-- [ ] Landing and launch, the port hub
-- [ ] Accounts, invite code, recovery
-- [ ] Persistence, reconnect, disconnect rules
-- [ ] Chat
-- [ ] Security levels, patrols and posted status
-- [ ] Deployment: the Pages workflow, Dockerfile and host config, with owner steps in `docs/HUMAN_TODO.md`
+- [x] Galaxy data and map
+- [x] Hyperjump
+- [x] Landing and launch, the port hub
+- [x] Accounts, invite code, recovery
+- [x] Persistence, reconnect, disconnect rules
+- [x] Chat
+- [x] Security levels, patrols and posted status
+- [x] Deployment: the Pages workflow, Dockerfile and host config, with owner steps in `docs/HUMAN_TODO.md`
 
 Done when:
-- [ ] Killing the server process mid-session and restarting it loses at most a few seconds of position and no marks or cargo
-- [ ] A jump between rooms shows no state pop
-- [ ] A new account goes from the title screen to flying in under a minute
+- [x] Killing the server process mid-session and restarting it loses at most a few seconds of position and no marks or cargo
+- [x] A jump between rooms shows no state pop
+- [x] A new account goes from the title screen to flying in under a minute
 
 ## M4. Economy
 
@@ -431,3 +431,103 @@ as requests, so a refusal settles with one of the protocol's typed reasons; a
 fallback handler absorbs unknown types; `onUncaughtException` keeps a handler
 bug from taking the process down with everyone on it; and the intent channel is
 rate limited per connection.
+
+---
+
+## M3. World — 2026-11-19
+
+### What is now playable
+
+There is a world, and you keep a place in it.
+
+A captain is entered on the Register with a callsign and a six-word recovery
+phrase shown once. The phrase moves the account to another device; the device
+token never leaves the machine it was issued to. An invite code gates sign-up
+when the server sets one. From the title screen to flying takes under two
+seconds on this machine, against the spec's minute.
+
+Twenty systems in three regions, joined by hyperlanes. **M** opens the chart:
+lanes, who holds which berth, how much law reaches each system, and the lanes
+out of whatever you have selected, so a route can be read in one place.
+Plotting a course from the chart gives **J** somewhere to spool for; spooling
+takes four seconds of holding course, and the lane costs Propellant by hull
+mass. **L** comes alongside the nearest berth when you are close enough and
+slow enough — the interface says which, and says when you are too fast rather
+than offering a landing the server will refuse.
+
+A berth sells what it has: repairs priced by the structure missing, Propellant
+to the tank's capacity, Ordnance for the magazine. Houses that are not trading
+yet say the floor is shut. Every mark moves through the ledger with a faucet
+or sink category, in one transaction, and a captain's purse, position, hull
+damage and standing survive the process being killed.
+
+Security now has consequences. The Home Roads are patrolled by the Prize
+Court and nothing hunts there; the Concessions keep a thinner watch; the
+Marque has none. Firing on lawful traffic strikes a composition weighted by
+how much law reaches the system — shields included, because the offence is the
+attack and not whether it got through — and writing a hull off is a heavier
+charge again. A posted captain is refused at Home Roads berths and settles
+anywhere that will still have them. Patrols answer for the Unlettered and for
+posted captains, and return to station over the berth when there is nobody
+left to answer for.
+
+Chat has a global channel and the system you are in. It is quiet by default:
+the last few lines fade above the instruments, **Enter** opens the composer,
+**Tab** moves between channels, **Esc** closes. A captain arriving is given
+the recent lines so the overlay is not blank.
+
+### How to run it
+
+```bash
+pnpm dev
+```
+
+The client is on `http://localhost:5173` and the server on `:2567`. Open it,
+enter a callsign, and fly. A second browser gives you someone to talk to.
+
+The acceptance checks for this milestone:
+
+```bash
+pnpm verify:travel
+```
+
+```bash
+pnpm verify:persistence
+```
+
+The first opens an account in a real browser, times the walk from the title
+screen to flight, takes a lane, and watches the arriving hull for a second to
+confirm it agrees with the server. The second flies a captain, kills the
+server process without warning, restarts it, and checks what came back.
+
+To deploy, see section 4 of `docs/HUMAN_TODO.md`. The Dockerfile, `fly.toml`
+and the Pages workflow are written; what is left needs the owner's accounts.
+
+### Known issues
+
+- **The container image has never been built.** This machine has no usable
+  Docker daemon. The production server bundle has been built and run outside a
+  container — it boots, migrates and serves `/health` — so what is untested is
+  the image build: the base image, the native build of `better-sqlite3`, and
+  the volume mount.
+- **Hulls pass through each other.** There is no hull-to-hull collision; the
+  spec does not ask for one. Parked in `docs/IDEAS.md` with a note on what
+  building it would involve.
+- **The captures run under software rasterisation**, so the link in them reads
+  around a second and the combat capture is a long-range exchange rather than a
+  close pass. Frame rate on real hardware is still the one quality-bar item
+  this machine cannot check; see section 3 of `docs/HUMAN_TODO.md`.
+- **Chat keeps no history across a restart.** It is memory only and bounded,
+  which is deliberate: nothing in the world reads it.
+
+### What this milestone cost in bugs
+
+Eleven real faults, most found by running the verification suite and looking
+at captures rather than by reading code. Three are worth naming because they
+had been silently true for a while: the production server bundle had never
+been run and could not boot, having externalised the workspace package it
+needed to inline; `onAuth` returned `undefined` for a client with no device
+token, which Colyseus reads as a refusal, so every anonymous join had been
+failing; and every harness signalled the `pnpm exec` wrapper rather than the
+server it started, leaking a process that the next run then tested against.
+The decision log in `docs/DESIGN.md` has the rest.

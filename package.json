@@ -23,7 +23,8 @@
     "build": "pnpm --filter @marque/server --filter @marque/client run build",
     "verify": "tsx tools/verify/src/twoClients.ts",
     "verify:authority": "tsx tools/verify/src/authority.ts",
-    "verify:persistence": "tsx tools/verify/src/persistence.ts"
+    "verify:persistence": "tsx tools/verify/src/persistence.ts",
+    "verify:travel": "tsx tools/verify/src/travel.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

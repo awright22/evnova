@@ -113,6 +113,11 @@ jobs:
       - name: Fly two browser clients
         run: pnpm verify -- --latency 150 --seconds 12
 
+      # M3's own acceptance: the Register to flight inside a minute, and a
+      # jump that lands without the view disagreeing with the server.
+      - name: Open an account and take a lane
+        run: pnpm verify:travel
+
   authority:
     name: Server authority and a six-ship fight
     runs-on: ubuntu-latest
@@ -134,6 +139,11 @@ jobs:
       # A client that forges positions, hits or stats must change nothing.
       - name: Verify the server's authority
         run: pnpm verify:authority
+
+      # A hard kill must cost at most a flush interval of position and nothing
+      # else: no marks, no cargo, no identity.
+      - name: Verify persistence across a hard kill
+        run: pnpm verify:persistence
 
       # A fight is the heaviest thing a room does. The soak fails if the tick
       # leaves its budget or any client's prediction diverges.

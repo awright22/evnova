@@ -373,3 +373,71 @@ tell them apart and anything true of a captain's hull is true of theirs.
 three thousand particles; a container with three thousand children costs more in
 transform maths than the drawing does. A fixed pool also bounds a long fight:
 when it is exhausted the effect is dropped rather than the pool grown.
+
+**2026-11-19 — Rooms are matched on `systemId`, and the client asks where it
+is.** `joinOrCreate` matches by room name alone, so a captain bound for Parity
+could be put into whichever room happened to be open, and persisting a captain
+writes the room's system back to their row: the mismatch did not stay a
+mismatch, it moved them. The matchmaker filters on the system, the client
+looks up the captain's own row over HTTP before joining because only the
+server can read it, and the room refuses a captain whose row names a different
+system so no client can cause the move by leaving an option out.
+
+**2026-11-19 — `onAuth` returns `true` for a client with no account.**
+Colyseus reads `undefined`, `null` and `false` alike as a refusal, so
+returning `undefined` for an anonymous tool silently failed every such join.
+`true` is the "allowed, carrying nothing" answer, and `onJoin` reads that
+marker rather than a cast.
+
+**2026-11-19 — Reconciliation covers the six fields the shared step owns.**
+The reconciler mirrors every scalar field of the schema by default, which
+pulled in shield: the server regenerates it from the time since the last hit
+and the hull's power state, neither of which the client simulates, so every
+fight produced corrections the client could not have predicted. Shield,
+module damage and the rest arrive as plain state.
+
+**2026-11-19 — The global chat channel goes through Colyseus presence.** It
+reaches every room in the process today and every process behind Redis
+presence without a code change, which is the one thing a bespoke in-process
+fan-out would have cost later. The system channel is a room broadcast.
+
+**2026-11-19 — The opening kit is derived, not written down.** A new captain's
+Propellant and shields come from the starting draught's own capacity rather
+than from constants, because the two had already drifted: the grant was 60
+into tanks that hold 30, and shields opened at nothing. Content load fails if
+the starting draught or system is not real.
+
+**2026-11-19 — Raider and patrol counts come from the system's security
+level.** They were a literal 2 per room, so the Unlettered hunted the Home
+Roads, where the lore says patrols answer. A tool can still ask for a set
+number.
+
+**2026-11-19 — The esbuild bundle externalises only third-party
+dependencies.** `packages: 'external'` externalised the workspace package too,
+so the production bundle imported `@marque/shared` as TypeScript from
+`node_modules` and died on boot — it had never been run. The external list is
+read from the manifest, so a new dependency cannot silently break it.
+
+**2026-11-19 — The daily snapshot writes to a temporary name and renames.**
+`VACUUM INTO` refuses to write over an existing file and the day already taken
+was only held in memory, so a server restarted later the same day failed every
+time and left that day's backup frozen at whatever the first boot held.
+
+**2026-11-19 — Harnesses start a process group and signal the group.** Every
+one started the server through `pnpm exec`, which makes the server a
+grandchild: signalling the child left it listening, the next run's health
+check found the orphan with its old database, and every assertion then ran
+against the wrong process. The handling lives in `tools/harness`, used by all
+four, and the persistence check refuses to start when something is already on
+its port.
+
+**2026-11-19 — The flush interval is 2 seconds and is reported on
+`/health`.** It is exactly how much of a captain's position a hard kill can
+cost, so the persistence check computes its bound from the running server's
+own figure and the draught's top speed rather than from a number written out
+separately, which had drifted past what the server actually guaranteed.
+
+**2026-11-19 — `?harness=1` publishes the room on `window`.** A capture that
+cannot read bearings cannot fly, and a screenshot of a staged state is not
+evidence of anything. The flag is inert without it and grants nothing the
+server would honour, since the server is authoritative.
