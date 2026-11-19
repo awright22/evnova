@@ -1,0 +1,192 @@
+/**
+ * Schemas for the content data in `packages/shared/data/`.
+ *
+ * Every data file is validated at server start, so a bad number fails loudly at
+ * boot rather than quietly in the simulation. The inferred types are the ones
+ * the rest of the codebase uses: there is no second hand-written interface to
+ * drift out of sync.
+ */
+
+import { z } from 'zod';
+
+/** The ten commodities, by their plain data keys. */
+export const CommodityId = z.enum([
+  'ore',
+  'ice',
+  'grain',
+  'alloy',
+  'propellant',
+  'provisions',
+  'machinery',
+  'circuitry',
+  'ordnance',
+  'leaf',
+]);
+export type CommodityId = z.infer<typeof CommodityId>;
+
+/** Tickers of the listed companies that manufacture modules. */
+export const ManufacturerId = z.enum(['HRC', 'SLP', 'RPO']);
+export type ManufacturerId = z.infer<typeof ManufacturerId>;
+
+export const ModuleType = z.enum([
+  'bridge',
+  'hull',
+  'armour',
+  'engine',
+  'thruster',
+  'reactor',
+  'shield',
+  'weapon',
+  'turret',
+  'rack',
+  'cargo',
+  'tank',
+]);
+export type ModuleType = z.infer<typeof ModuleType>;
+
+const Footprint = z.object({
+  width: z.int().min(1).max(8),
+  height: z.int().min(1).max(8),
+});
+
+/**
+ * A module definition.
+ *
+ * Type-specific stats are optional here and checked against the type by
+ * `refine` below, so a module that claims to be an engine must carry thrust and
+ * a module that is not an engine must not.
+ */
+export const ModuleDef = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    type: ModuleType,
+    manufacturer: ManufacturerId,
+    tier: z.int().min(1).max(3),
+    footprint: Footprint,
+    mass: z.number().positive(),
+    hitPoints: z.number().positive(),
+    cost: z.int().nonnegative(),
+    bom: z.partialRecord(CommodityId, z.int().positive()),
+    power: z.object({
+      draw: z.number().nonnegative().optional(),
+      output: z.number().nonnegative().optional(),
+    }),
+    description: z.string().min(1),
+
+    // Type-specific.
+    thrust: z.number().positive().optional(),
+    torque: z.number().positive().optional(),
+    cargoCapacity: z.int().positive().optional(),
+    propellantCapacity: z.int().positive().optional(),
+    shieldCapacity: z.number().positive().optional(),
+    shieldRegen: z.number().positive().optional(),
+    shieldDelay: z.number().positive().optional(),
+  })
+  .refine((m) => (m.type === 'engine') === (m.thrust !== undefined), {
+    message: 'engines must declare thrust, and only engines may',
+    path: ['thrust'],
+  })
+  .refine((m) => (m.type === 'thruster') === (m.torque !== undefined), {
+    message: 'thrusters must declare torque, and only thrusters may',
+    path: ['torque'],
+  })
+  .refine((m) => (m.type === 'cargo') === (m.cargoCapacity !== undefined), {
+    message: 'cargo bays must declare cargoCapacity, and only cargo bays may',
+    path: ['cargoCapacity'],
+  })
+  .refine((m) => (m.type === 'tank') === (m.propellantCapacity !== undefined), {
+    message: 'tanks must declare propellantCapacity, and only tanks may',
+    path: ['propellantCapacity'],
+  })
+  .refine((m) => (m.type === 'shield') === (m.shieldCapacity !== undefined), {
+    message: 'shield generators must declare shieldCapacity, and only they may',
+    path: ['shieldCapacity'],
+  })
+  .refine((m) => (m.type === 'reactor') === (m.power.output !== undefined), {
+    message: 'reactors must declare power output, and only reactors may',
+    path: ['power', 'output'],
+  });
+export type ModuleDef = z.infer<typeof ModuleDef>;
+
+export const ModuleCatalogue = z.object({
+  modules: z.array(ModuleDef).min(1),
+});
+export type ModuleCatalogue = z.infer<typeof ModuleCatalogue>;
+
+/** A quarter-turn, in degrees. */
+export const Rotation = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]);
+export type Rotation = z.infer<typeof Rotation>;
+
+/**
+ * One module placed on the grid. `x` grows forward toward the nose and `y`
+ * grows to starboard, so a module's lane astern is simply the cells at lower
+ * `x` in its own rows.
+ */
+export const Placement = z.object({
+  moduleId: z.string().min(1),
+  x: z.int().min(-64).max(64),
+  y: z.int().min(-64).max(64),
+  rotation: Rotation.default(0),
+});
+export type Placement = z.infer<typeof Placement>;
+
+export const LicenceId = z.enum([
+  'open-ticket',
+  'frigate-warrant',
+  'cruiser-warrant',
+  'capital-charter',
+]);
+export type LicenceId = z.infer<typeof LicenceId>;
+
+/** A ship design. Player ships, the starter ship and NPC ships share this. */
+export const Blueprint = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  licence: LicenceId,
+  placements: z.array(Placement).min(1),
+  /** Two paint colours, as hex. The renderer derives a third for panel lines. */
+  paint: z.tuple([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.string().regex(/^#[0-9a-fA-F]{6}$/)]),
+  description: z.string().min(1).optional(),
+});
+export type Blueprint = z.infer<typeof Blueprint>;
+
+export const BlueprintLibrary = z.object({
+  blueprints: z.array(Blueprint).min(1),
+});
+export type BlueprintLibrary = z.infer<typeof BlueprintLibrary>;
+
+export const LicenceDef = z.object({
+  name: z.string().min(1),
+  maxModules: z.int().positive(),
+  maxExtent: z.int().positive(),
+  cost: z.int().nonnegative(),
+});
+export type LicenceDef = z.infer<typeof LicenceDef>;
+
+export const Tuning = z.object({
+  flight: z.object({
+    topSpeedCoefficient: z.number().positive(),
+    topSpeedExponent: z.number().positive(),
+    turnRateCoefficient: z.number().positive(),
+    turnRateExponent: z.number().positive(),
+    turnDampingBase: z.number().positive(),
+    minTopSpeed: z.number().positive(),
+    maxTopSpeed: z.number().positive(),
+    minTurnRate: z.number().positive(),
+    maxTurnRate: z.number().positive(),
+  }),
+  thrusters: z.object({
+    referenceArm: z.number().positive(),
+    maxLeverageMultiplier: z.number().min(1),
+  }),
+  mass: z.object({
+    tonnesPerCargoUnit: z.number().positive(),
+    tonnesPerPropellantUnit: z.number().positive(),
+  }),
+  hull: z.object({
+    structureWriteOffFraction: z.number().min(0).max(1),
+  }),
+  licences: z.record(LicenceId, LicenceDef),
+});
+export type Tuning = z.infer<typeof Tuning>;

@@ -1,0 +1,56 @@
+{
+  "$comment": "Gameplay numbers. No tunable constant lives in a logic file; everything here is validated by schema at server start and can be hot reloaded from the admin page.",
+  "flight": {
+    "$comment": "Top speed and max turn rate follow from thrust-to-mass and torque-to-inertia on these curves, so a design's handling falls out of its layout rather than a per-hull table.",
+    "topSpeedCoefficient": 21.6,
+    "topSpeedExponent": 0.5,
+    "turnRateCoefficient": 0.54,
+    "turnRateExponent": 0.6,
+    "turnDampingBase": 9,
+    "minTopSpeed": 60,
+    "maxTopSpeed": 700,
+    "minTurnRate": 0.4,
+    "maxTurnRate": 5.0
+  },
+  "thrusters": {
+    "$comment": "A maneuvering thruster further from the centre of mass has more leverage. The reference arm sets how much layout matters: torque is strength * (1 + arm / referenceArm).",
+    "referenceArm": 3.0,
+    "maxLeverageMultiplier": 3.0
+  },
+  "mass": {
+    "$comment": "Cargo and Propellant are carried mass, so a full hold flies worse than an empty one.",
+    "tonnesPerCargoUnit": 1.0,
+    "tonnesPerPropellantUnit": 0.8
+  },
+  "hull": {
+    "$comment": "A ship is written off when its bridge is destroyed or total structure falls below this share of its intact structure.",
+    "structureWriteOffFraction": 0.25
+  },
+  "licences": {
+    "$comment": "Hull licences cap module count and grid extent. Named in spec section 7.",
+    "open-ticket": {
+      "name": "Open Ticket",
+      "maxModules": 14,
+      "maxExtent": 6,
+      "cost": 0
+    },
+    "frigate-warrant": {
+      "name": "Frigate Warrant",
+      "maxModules": 32,
+      "maxExtent": 9,
+      "cost": 120000
+    },
+    "cruiser-warrant": {
+      "name": "Cruiser Warrant",
+      "maxModules": 64,
+      "maxExtent": 13,
+      "cost": 900000
+    },
+    "capital-charter": {
+      "name": "Capital Charter",
+      "maxModules": 120,
+      "maxExtent": 18,
+      "cost": 6000000
+    }
+  }
+}

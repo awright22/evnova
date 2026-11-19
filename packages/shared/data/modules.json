@@ -1,0 +1,229 @@
+{
+  "$comment": "Module catalogue. Named maker-plus-plain-function, per the naming rules. Manufacturers are the listed companies that make that class of part: HRC fits out hulls, SLP builds propulsion and armour, RPO makes weapons and shields. Tier 1 only; tiers 2 and 3 land with the Yard.",
+  "modules": [
+    {
+      "id": "hrc-bridge-1",
+      "name": "Home Roads Chandlery Pattern 1 Bridge",
+      "type": "bridge",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 6,
+      "hitPoints": 140,
+      "cost": 4500,
+      "bom": {
+        "circuitry": 6,
+        "alloy": 4
+      },
+      "power": {
+        "draw": 8
+      },
+      "description": "Two seats, a plotting table and enough redundancy to satisfy an inspector."
+    },
+    {
+      "id": "hrc-hull-1",
+      "name": "Home Roads Chandlery Standard Hull Section",
+      "type": "hull",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 2,
+      "hitPoints": 90,
+      "cost": 300,
+      "bom": {
+        "alloy": 3
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Pressed frame and skin. The cheapest way to make a ship bigger."
+    },
+    {
+      "id": "hrc-cargo-1",
+      "name": "Home Roads Chandlery Pattern 3 Cargo Bay",
+      "type": "cargo",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 3,
+      "hitPoints": 70,
+      "cost": 900,
+      "bom": {
+        "alloy": 6
+      },
+      "power": {
+        "draw": 0
+      },
+      "cargoCapacity": 20,
+      "description": "Bonded, sealed and sized to the Staple's standard unit."
+    },
+    {
+      "id": "hrc-tank-1",
+      "name": "Home Roads Chandlery Pattern 2 Propellant Tank",
+      "type": "tank",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 2,
+      "hitPoints": 55,
+      "cost": 600,
+      "bom": {
+        "alloy": 4
+      },
+      "power": {
+        "draw": 0
+      },
+      "propellantCapacity": 30,
+      "description": "Baffled against slosh. Assessors like to see two of them."
+    },
+    {
+      "id": "slp-engine-1",
+      "name": "Slipway Thirty Mk I Engine",
+      "type": "engine",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 4,
+      "hitPoints": 80,
+      "cost": 2800,
+      "bom": {
+        "machinery": 6,
+        "alloy": 4
+      },
+      "power": {
+        "draw": 10
+      },
+      "thrust": 3600,
+      "description": "Reliable, loud, and serviceable with the tools every port keeps."
+    },
+    {
+      "id": "slp-engine-3",
+      "name": "Slipway Thirty Mk III Engine",
+      "type": "engine",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 11,
+      "hitPoints": 170,
+      "cost": 9500,
+      "bom": {
+        "machinery": 18,
+        "alloy": 14
+      },
+      "power": {
+        "draw": 22
+      },
+      "thrust": 7200,
+      "description": "Built for tonnage. It moves a full hold and it is heard doing it."
+    },
+    {
+      "id": "slp-thruster-1",
+      "name": "Slipway Thirty Mk I Maneuvering Thruster",
+      "type": "thruster",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 1,
+      "hitPoints": 40,
+      "cost": 700,
+      "bom": {
+        "machinery": 2,
+        "alloy": 1
+      },
+      "power": {
+        "draw": 2
+      },
+      "torque": 400,
+      "description": "Mount them outboard. Leverage is most of what makes a ship turn."
+    },
+    {
+      "id": "slp-reactor-1",
+      "name": "Slipway Thirty Mk I Reactor",
+      "type": "reactor",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 7,
+      "hitPoints": 110,
+      "cost": 5200,
+      "bom": {
+        "machinery": 10,
+        "circuitry": 3
+      },
+      "power": {
+        "output": 40
+      },
+      "description": "Covers a working hull with margin for one more fitting."
+    },
+    {
+      "id": "slp-armour-1",
+      "name": "Slipway Thirty Pattern 4 Armour Plate",
+      "type": "armour",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 4,
+      "hitPoints": 260,
+      "cost": 450,
+      "bom": {
+        "alloy": 5
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Heavy, cheap and exactly as useful as where you put it."
+    },
+    {
+      "id": "rpo-shield-1",
+      "name": "Reprisal Ordnance Mk I Shield Generator",
+      "type": "shield",
+      "manufacturer": "RPO",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 5,
+      "hitPoints": 75,
+      "cost": 6400,
+      "bom": {
+        "circuitry": 8,
+        "alloy": 3
+      },
+      "power": {
+        "draw": 12
+      },
+      "shieldCapacity": 420,
+      "shieldRegen": 26,
+      "shieldDelay": 4.5,
+      "description": "Reprisal sells it as recovery of losses. It is a bubble."
+    }
+  ]
+}

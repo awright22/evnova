@@ -1,0 +1,75 @@
+{
+  "$comment": "Ship designs. The starter draught and two contrasting ones, built from the same catalogue so the difference is layout, not special-cased hulls. Names follow the rule for ship names: legal, insurance and accounting phrases.",
+
+  "blueprints": [
+    {
+      "id": "prudent-return",
+      "name": "Prudent Return",
+      "licence": "open-ticket",
+      "paint": ["#8D98A9", "#5C6777"],
+      "description": "The draught every Open Ticket starts with. It carries a little, turns adequately, and is cheap to replace.",
+      "placements": [
+        { "moduleId": "slp-engine-1", "x": 0, "y": 0 },
+        { "moduleId": "slp-thruster-1", "x": 0, "y": -1 },
+        { "moduleId": "slp-thruster-1", "x": 0, "y": 2 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 0 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 1 },
+        { "moduleId": "hrc-tank-1", "x": 1, "y": 2 },
+        { "moduleId": "slp-reactor-1", "x": 2, "y": 0 },
+        { "moduleId": "hrc-cargo-1", "x": 2, "y": 2 },
+        { "moduleId": "hrc-bridge-1", "x": 4, "y": 0 }
+      ]
+    },
+
+    {
+      "id": "force-majeure",
+      "name": "Force Majeure",
+      "licence": "open-ticket",
+      "paint": ["#2FA596", "#1C6B61"],
+      "description": "Two engines, four thrusters on the corners and almost nowhere to put cargo. It exists to be somewhere else quickly.",
+      "placements": [
+        { "moduleId": "slp-engine-1", "x": 0, "y": 0 },
+        { "moduleId": "slp-engine-1", "x": 0, "y": 2 },
+        { "moduleId": "slp-thruster-1", "x": 0, "y": -1 },
+        { "moduleId": "slp-thruster-1", "x": 0, "y": 4 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 0 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 1 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 2 },
+        { "moduleId": "hrc-hull-1", "x": 1, "y": 3 },
+        { "moduleId": "slp-reactor-1", "x": 2, "y": 1 },
+        { "moduleId": "hrc-bridge-1", "x": 4, "y": 1 },
+        { "moduleId": "slp-thruster-1", "x": 4, "y": 0 },
+        { "moduleId": "slp-thruster-1", "x": 4, "y": 3 }
+      ]
+    },
+
+    {
+      "id": "fair-wear-and-tear",
+      "name": "Fair Wear and Tear",
+      "licence": "frigate-warrant",
+      "paint": ["#B8912E", "#7C8B3F"],
+      "description": "Five bays, one large engine and enough plate to survive the Concessions. Empty it is slow. Full it is slower.",
+      "placements": [
+        { "moduleId": "slp-engine-3", "x": 0, "y": 0 },
+        { "moduleId": "hrc-hull-1", "x": 2, "y": 0 },
+        { "moduleId": "hrc-hull-1", "x": 2, "y": 1 },
+        { "moduleId": "hrc-hull-1", "x": 2, "y": 2 },
+        { "moduleId": "slp-thruster-1", "x": 2, "y": -2 },
+        { "moduleId": "slp-thruster-1", "x": 2, "y": 3 },
+        { "moduleId": "slp-reactor-1", "x": 3, "y": 0 },
+        { "moduleId": "hrc-cargo-1", "x": 3, "y": 2 },
+        { "moduleId": "hrc-cargo-1", "x": 3, "y": -2 },
+        { "moduleId": "hrc-cargo-1", "x": 5, "y": 0 },
+        { "moduleId": "hrc-cargo-1", "x": 5, "y": 2 },
+        { "moduleId": "hrc-cargo-1", "x": 5, "y": -2 },
+        { "moduleId": "hrc-bridge-1", "x": 7, "y": 0 },
+        { "moduleId": "hrc-tank-1", "x": 7, "y": 2 },
+        { "moduleId": "hrc-tank-1", "x": 7, "y": -2 },
+        { "moduleId": "slp-armour-1", "x": 8, "y": 2 },
+        { "moduleId": "slp-armour-1", "x": 8, "y": 3 },
+        { "moduleId": "slp-armour-1", "x": 8, "y": -1 },
+        { "moduleId": "slp-armour-1", "x": 8, "y": -2 }
+      ]
+    }
+  ]
+}
