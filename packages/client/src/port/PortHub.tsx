@@ -37,6 +37,8 @@ export interface PortHubState {
   readonly propellant: number;
   readonly propellantCapacity: number;
   readonly ordnance: number;
+  /** Marks the Prize Court has against this captain, 0 when not posted. */
+  readonly composition: number;
   readonly structure: number;
   readonly draught: string;
   readonly busy: boolean;
@@ -45,7 +47,7 @@ export interface PortHubState {
 
 export interface PortHubProps {
   readonly state: PortHubState;
-  onBuy: (service: 'repair' | 'propellant' | 'ordnance') => void;
+  onBuy: (service: 'repair' | 'propellant' | 'ordnance' | 'composition') => void;
   onLaunch: () => void;
   onOpenChart: () => void;
 }
@@ -137,6 +139,16 @@ export function PortHub({ state, onBuy, onLaunch, onOpenChart }: PortHubProps): 
               disabled={!tanksShort || state.busy}
               onAction={() => onBuy('propellant')}
             />
+
+            {state.composition > 0 && (
+              <ServiceRow
+                name="Composition"
+                detail={`The Prize Court has ${state.composition.toLocaleString()} marks against you`}
+                action="Settle it"
+                disabled={state.busy || state.marks < state.composition}
+                onAction={() => onBuy('composition')}
+              />
+            )}
 
             <ServiceRow
               name="Ordnance"

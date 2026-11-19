@@ -53,6 +53,10 @@ export interface ShipFrame {
   /** Current shields as a fraction of capacity, for the bubble. */
   readonly shieldFraction: number;
   readonly hostile: boolean;
+  /** A patrol of the Prize Court. */
+  readonly patrol: boolean;
+  /** Posted by the Prize Court. */
+  readonly posted: boolean;
   readonly isTarget: boolean;
   readonly writtenOff: boolean;
 }

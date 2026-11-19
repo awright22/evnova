@@ -37,7 +37,7 @@ const HOLD: NpcCommand = {
   target: '',
 };
 
-export type NpcRole = 'unlettered';
+export type NpcRole = 'unlettered' | 'patrol';
 
 export interface NpcPilot {
   readonly id: string;
@@ -46,8 +46,14 @@ export interface NpcPilot {
 }
 
 export interface NpcWorld {
-  /** Hulls this pilot might engage, excluding wrecks and itself. */
+  /**
+   * Hulls this pilot might engage, excluding wrecks and itself. The room
+   * decides what counts: an Unlettered raider sees traffic, a patrol sees
+   * only the Unlettered and captains the Prize Court has posted.
+   */
   candidates(selfId: string): { id: string; ship: ShipState }[];
+  /** Where this pilot holds station when it has nobody to engage. */
+  stationOf(selfId: string): { x: number; y: number };
   /** Structure remaining on a hull, 0..1. */
   integrityOf(id: string): number;
   now(): number;
@@ -63,13 +69,19 @@ const BREAK_OFF_RANGE = 260;
 const RETREAT_INTEGRITY = 0.35;
 
 /**
- * An Unlettered raider.
+ * A hunter: closes on the nearest candidate, keeps its nose on the mark while
+ * it shoots, and breaks off when it is badly hurt.
  *
- * Picks the nearest hull, closes to weapons range, keeps its nose on the mark
- * while it shoots, and runs once it is badly hurt. They have no letter of
- * marque, which is the only thing that makes them pirates.
+ * Both roles fly this. They differ only in what the room offers them as
+ * candidates and in what they do with an empty sky: a raider drifts, a patrol
+ * returns to its station.
  */
-export function unletteredPilot(id: string, seed: string): NpcPilot {
+function hunter(
+  id: string,
+  seed: string,
+  role: NpcRole,
+  options: { readonly holdsStation: boolean },
+): NpcPilot {
   const rng = new Rng(`npc:${seed}`);
   // A little variation so a wing does not fly as one body.
   const preferredRange = ENGAGE_RANGE * rng.range(0.75, 1.15);
@@ -80,7 +92,7 @@ export function unletteredPilot(id: string, seed: string): NpcPilot {
 
   return {
     id,
-    role: 'unlettered',
+    role,
 
     decide(self: ShipState, profile: ShipProfile, world: NpcWorld): NpcCommand {
       const now = world.now();
@@ -101,7 +113,11 @@ export function unletteredPilot(id: string, seed: string): NpcPilot {
       }
 
       const mark = candidates.find((c) => c.id === markId);
-      if (!mark) return HOLD;
+      if (!mark) {
+        // Nothing to answer for. A patrol goes back to its station rather than
+        // drifting out of the system it is meant to be standing over.
+        return options.holdsStation ? returnToStation(id, self, profile, world) : HOLD;
+      }
 
       const dx = mark.ship.x - self.x;
       const dy = mark.ship.y - self.y;
@@ -138,4 +154,51 @@ export function unletteredPilot(id: string, seed: string): NpcPilot {
       };
     },
   };
+}
+
+/** How close to its station a patrol considers itself on station. */
+const ON_STATION_RANGE = 700;
+
+/** Fly back to where this hull is supposed to be, and hold there. */
+function returnToStation(
+  id: string,
+  self: ShipState,
+  profile: ShipProfile,
+  world: NpcWorld,
+): NpcCommand {
+  const station = world.stationOf(id);
+  const dx = station.x - self.x;
+  const dy = station.y - self.y;
+  const range = Math.hypot(dx, dy);
+
+  if (range <= ON_STATION_RANGE) {
+    return { turn: 0, thrust: 0, brake: true, firePrimary: false, fireSecondary: false, target: '' };
+  }
+
+  const bearing = Math.atan2(dy, dx);
+  return {
+    turn: turnToward(self, bearing, profile),
+    thrust: isAimedAt(self, bearing, 0.5) ? 1 : 0,
+    brake: false,
+    firePrimary: false,
+    fireSecondary: false,
+    target: '',
+  };
+}
+
+/**
+ * An Unlettered raider. They have no letter of marque, which is the only
+ * thing that makes them pirates.
+ */
+export function unletteredPilot(id: string, seed: string): NpcPilot {
+  return hunter(id, seed, 'unlettered', { holdsStation: false });
+}
+
+/**
+ * A patrol of the Prize Court. It stands over a berth, answers for the
+ * Unlettered and for captains the Court has posted, and goes back on station
+ * when there is nobody left to answer for.
+ */
+export function patrolPilot(id: string, seed: string): NpcPilot {
+  return hunter(id, seed, 'patrol', { holdsStation: true });
 }

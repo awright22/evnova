@@ -21,6 +21,16 @@ export interface TargetReadout {
   /** 0..1. */
   integrity: number;
   hostile: boolean;
+  patrol: boolean;
+  posted: boolean;
+}
+
+/** What a contact is, in the words the interface uses for it. */
+function describeContact(target: TargetReadout): string {
+  if (target.hostile) return 'Unlettered';
+  if (target.patrol) return 'Prize Court';
+  if (target.posted) return 'Posted';
+  return 'Free captain';
 }
 
 /** What the flight loop publishes for the HUD to read. */
@@ -54,6 +64,8 @@ export interface HudReadout {
   landingProgress: number;
   /** The nearest berth within reach, which is what L lands at. */
   berth: { name: string; distance: number; tooFast: boolean } | undefined;
+  /** Marks the Prize Court has against this captain, 0 when not posted. */
+  composition: number;
 }
 
 export function Hud({
@@ -87,6 +99,13 @@ export function Hud({
           <span className="hud__purse-value data">{formatMarks(shown.marks)}</span>
           <span className="micro">M</span>
         </div>
+        {shown.composition > 0 && (
+          <div className="hud__posted" role="status">
+            <span className="label">Posted</span>
+            <span className="hud__posted-value data">{formatMarks(shown.composition)}</span>
+            <span className="micro">M owing</span>
+          </div>
+        )}
       </header>
 
       <div className="hud__corner hud__corner--tr panel">
@@ -232,7 +251,7 @@ function TargetPanel({ target }: { target: TargetReadout }): React.JSX.Element {
     <div className={`hud__target panel${target.hostile ? ' hud__target--hostile' : ''}`}>
       <div className="hud__target-head">
         <span className="hud__target-name">{target.callsign}</span>
-        <span className="micro">{target.hostile ? 'Unlettered' : 'Free captain'}</span>
+        <span className="micro">{describeContact(target)}</span>
       </div>
       <div className="hud__target-row">
         <span className="label">Range</span>

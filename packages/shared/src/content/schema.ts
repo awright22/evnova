@@ -199,6 +199,17 @@ export const LicenceDef = z.object({
 });
 export type LicenceDef = z.infer<typeof LicenceDef>;
 
+/**
+ * How much law reaches a system.
+ *
+ * `secured` is the Home Roads: attacking lawful traffic gets you posted,
+ * patrols respond, and ports close to you until you pay the composition.
+ * `contested` is the Concessions, where patrols are thin and on a schedule
+ * everyone knows. `lawless` is the Marque.
+ */
+export const SecurityLevel = z.enum(['secured', 'contested', 'lawless']);
+export type SecurityLevel = z.infer<typeof SecurityLevel>;
+
 export const Tuning = z.object({
   flight: z.object({
     topSpeedCoefficient: z.number().positive(),
@@ -227,11 +238,23 @@ export const Tuning = z.object({
     propellantPrice: z.int().positive(),
     repairPricePerPoint: z.number().positive(),
     ordnancePrice: z.int().positive(),
+    magazineCapacity: z.int().positive(),
   }),
   licences: z.record(LicenceId, LicenceDef),
   start: z.object({
     draught: z.string().min(1),
     ordnance: z.int().nonnegative(),
+  }),
+  law: z.object({
+    compositionPerStructure: z.number().nonnegative(),
+    compositionPerWriteOff: z.int().nonnegative(),
+    /** Security levels whose berths turn a posted captain away. */
+    postedRefusedIn: z.array(SecurityLevel),
+    weightBySecurity: z.object({
+      secured: z.number().min(0),
+      contested: z.number().min(0),
+      lawless: z.number().min(0),
+    }),
   }),
   world: z.object({
     spawnStandoff: z.number().positive(),
@@ -239,6 +262,12 @@ export const Tuning = z.object({
     raiderScatter: z.number().positive(),
     /** How many Unlettered hunt a system, by how much law reaches it. */
     raidersBySecurity: z.object({
+      secured: z.int().nonnegative(),
+      contested: z.int().nonnegative(),
+      lawless: z.int().nonnegative(),
+    }),
+    /** And how many of the Prize Court's patrols answer for it. */
+    patrolsBySecurity: z.object({
       secured: z.int().nonnegative(),
       contested: z.int().nonnegative(),
       lawless: z.int().nonnegative(),
@@ -289,17 +318,6 @@ export const StarDef = z.object({
   lightTint: HexColour,
 });
 export type StarDef = z.infer<typeof StarDef>;
-
-/**
- * How much law reaches a system.
- *
- * `secured` is the Home Roads: attacking lawful traffic gets you posted,
- * patrols respond, and ports close to you until you pay the composition.
- * `contested` is the Concessions, where patrols are thin and on a schedule
- * everyone knows. `lawless` is the Marque.
- */
-export const SecurityLevel = z.enum(['secured', 'contested', 'lawless']);
-export type SecurityLevel = z.infer<typeof SecurityLevel>;
 
 export const SystemDef = z.object({
   id: z.string().min(1),

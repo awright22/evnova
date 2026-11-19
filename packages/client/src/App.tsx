@@ -103,6 +103,7 @@ export function App(): React.JSX.Element {
               propellant: purse.propellant,
               propellantCapacity: purse.propellantCapacity,
               ordnance: purse.ordnance,
+              composition: purse.composition,
               structure: purse.structure,
               draught: purse.draught,
               busy: false,

@@ -241,6 +241,15 @@ export class GameClient {
       this.emit();
     });
 
+    room.onMessage('posted', (payload) => {
+      const event = payload as { composition: number };
+      // The Court's own words, from spec section 19.
+      this.notice =
+        `The Prize Court has posted you. Composition is set at ` +
+        `${event.composition.toLocaleString()} marks, payable at any berth that will still have you.`;
+      this.emit();
+    });
+
     // Presentation broadcasts the flight view handles; registering them here
     // keeps the SDK from warning when no flight view is mounted.
     for (const type of ['impact', 'written-off', 'respawned']) {
@@ -328,7 +337,7 @@ export class GameClient {
     void this.request('launch', {});
   }
 
-  buy(service: 'repair' | 'propellant' | 'ordnance', units = 0): void {
+  buy(service: 'repair' | 'propellant' | 'ordnance' | 'composition', units = 0): void {
     void this.request('port', { service, units });
   }
 

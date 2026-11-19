@@ -36,6 +36,9 @@ import {
   TICK_RATE,
   Rng,
   clamp,
+  berthRefusesPosted,
+  compositionForDamage,
+  compositionForWriteOff,
   content,
   deriveStats,
   placeAll,
@@ -52,19 +55,24 @@ import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
-import { unletteredPilot, type NpcPilot } from './npc.ts';
+import { patrolPilot, unletteredPilot, type NpcPilot, type NpcRole } from './npc.ts';
 
 /** The draught every Open Ticket starts with. */
 const STARTER_BLUEPRINT = 'prudent-return';
 
-/** Draughts the Unlettered fly. */
+/** Draughts the Unlettered fly: whatever they could get. */
 const RAIDER_BLUEPRINTS = ['short-measure', 'force-majeure'] as const;
+
+/** What the Prize Court puts on patrol. It is faster than what it chases. */
+const PATROL_BLUEPRINTS = ['force-majeure'] as const;
 
 export interface SystemRoomOptions {
   /** Content id of the system to simulate. */
   systemId?: string;
   /** Raiders to keep in the system while captains are present. */
   raiders?: number;
+  /** How many patrols stand here; defaults to what the security level says. */
+  patrols?: number;
 }
 
 export interface JoinOptions {
@@ -126,10 +134,13 @@ export class SystemRoom extends Room<{
 
   /** NPC pilots, keyed by the same id as their hull. */
   private readonly pilots = new Map<string, NpcPilot>();
+  /** Where each NPC holds when it has nothing to answer for. */
+  private readonly stations = new Map<string, { x: number; y: number }>();
 
   private system: SystemDef | undefined;
   private combat!: CombatSystem;
   private raiderTarget = 0;
+  private patrolTarget = 0;
   private nextNpcId = 1;
   private rng = new Rng('system');
 
@@ -251,8 +262,15 @@ export class SystemRoom extends Room<{
       if (speed > LANDING_SPEED) return ctx.reject('too-fast-to-land');
 
       const pilot = this.pilotsBySession.get(client.sessionId);
-      // A posted captain is refused at every port until the composition is paid.
-      if (pilot && pilot.composition > 0 && port.owner !== 'unlettered') {
+      // The Home Roads close to a posted captain. Further out the berths take
+      // their money and ask nothing, which is where the composition is paid.
+      const security = this.system?.security;
+      if (
+        pilot &&
+        pilot.composition > 0 &&
+        security !== undefined &&
+        berthRefusesPosted(security, content().tuning.law)
+      ) {
         return ctx.reject('posted-here');
       }
 
@@ -316,6 +334,31 @@ export class SystemRoom extends Room<{
             return { marks: pilot.marks, repaired: missing, cost };
           }
 
+          case 'composition': {
+            // Settling with the Prize Court. Paid in full or not at all, so a
+            // captain is never left part-posted with no way to read it.
+            if (pilot.composition <= 0) return ctx.reject('nothing-owed');
+
+            const owed = pilot.composition;
+            world().ledger.post(
+              {
+                accountId: pilot.accountId,
+                delta: -owed,
+                category: 'composition',
+                reason: `Composition settled at ${port.name}`,
+              },
+              pilot,
+            );
+            pilot.composition = 0;
+            world().pilots.touch(pilot.accountId);
+
+            const own = this.state.ships.get(client.sessionId);
+            if (own) own.posted = false;
+
+            this.sendPurse(client.sessionId);
+            return { marks: pilot.marks, settled: owed };
+          }
+
           case 'propellant': {
             const capacity = stats.propellantCapacity;
             const room = Math.max(0, capacity - pilot.propellant);
@@ -340,7 +383,7 @@ export class SystemRoom extends Room<{
 
           case 'ordnance': {
             // A rack with an empty magazine is ballast.
-            const capacity = 60;
+            const capacity = prices.magazineCapacity;
             const room = Math.max(0, capacity - pilot.ammo);
             if (room <= 0) return ctx.reject('no-room');
 
@@ -423,9 +466,10 @@ export class SystemRoom extends Room<{
     // How many Unlettered hunt here follows how much law reaches the system:
     // nothing in the Home Roads, more the further out you go. A tool can still
     // ask for a set number, which is what the soak sim does.
-    const { raidersBySecurity } = content().tuning.world;
-    this.raiderTarget =
-      options.raiders ?? (this.system ? raidersBySecurity[this.system.security] : 0);
+    const { raidersBySecurity, patrolsBySecurity } = content().tuning.world;
+    const security = this.system?.security;
+    this.raiderTarget = options.raiders ?? (security ? raidersBySecurity[security] : 0);
+    this.patrolTarget = options.patrols ?? (security ? patrolsBySecurity[security] : 0);
     this.rng = new Rng(`system:${this.roomId}`);
 
     this.combat = new CombatSystem(
@@ -588,6 +632,8 @@ export class SystemRoom extends Room<{
     ship.callsign = pilot.callsign;
     ship.blueprint = blueprint.id;
     ship.hostile = false;
+    // Being posted follows the captain between systems and across sessions.
+    ship.posted = pilot.composition > 0;
     ship.shield = Math.min(pilot.shield, runtime.shieldCapacity);
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
 
@@ -677,7 +723,13 @@ export class SystemRoom extends Room<{
 
   // --- Spawning -----------------------------------------------------------
 
-  private spawnHull(id: string, blueprintId: string, callsign: string, hostile: boolean): void {
+  private spawnHull(
+    id: string,
+    blueprintId: string,
+    callsign: string,
+    hostile: boolean,
+    role: NpcRole = 'unlettered',
+  ): void {
     const { blueprints, modules, tuning } = content();
     const blueprint: Blueprint | undefined = blueprints.get(blueprintId);
     if (!blueprint) throw new Error(`draught "${blueprintId}" is missing`);
@@ -686,13 +738,16 @@ export class SystemRoom extends Room<{
 
     const rng = new Rng(`${this.roomId}:${id}`);
     const bearing = rng.range(-Math.PI, Math.PI);
-    const { raiderStandoff, raiderScatter } = content().tuning.world;
+    const { raiderStandoff, raiderScatter, spawnStandoff } = tuning.world;
     const distance = raiderScatter * Math.sqrt(rng.next());
 
-    // The Unlettered hold off the berth, not on top of it.
+    // The Unlettered hold off the berth. A patrol stands over it.
     const berth = this.system?.ports[0];
-    const anchorX = berth ? berth.x + Math.cos(bearing) * raiderStandoff : 0;
-    const anchorY = berth ? berth.y + Math.sin(bearing) * raiderStandoff : 0;
+    const standoff =
+      role === 'patrol' ? (berth?.radius ?? 0) + spawnStandoff * 2 : raiderStandoff;
+    const anchorX = berth ? berth.x + Math.cos(bearing) * standoff : 0;
+    const anchorY = berth ? berth.y + Math.sin(bearing) * standoff : 0;
+    this.stations.set(id, { x: anchorX, y: anchorY });
 
     const ship = new ShipState();
     ship.x = anchorX + Math.cos(bearing) * distance;
@@ -703,6 +758,7 @@ export class SystemRoom extends Room<{
     ship.callsign = callsign;
     ship.blueprint = blueprintId;
     ship.hostile = hostile;
+    ship.patrol = role === 'patrol';
     ship.shield = runtime.shieldCapacity;
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
 
@@ -714,6 +770,7 @@ export class SystemRoom extends Room<{
     this.state.ships.delete(id);
     this.runtimes.delete(id);
     this.pilots.delete(id);
+    this.stations.delete(id);
     this.combat.retireRoundsOf(id);
   }
 
@@ -723,7 +780,7 @@ export class SystemRoom extends Room<{
     const startedAt = performance.now();
     const now = this.clock.elapsedTime;
 
-    this.maintainRaiders();
+    this.maintainNpcs();
 
     for (const [id, ship] of this.state.ships) {
       const runtime = this.runtimes.get(id);
@@ -774,12 +831,19 @@ export class SystemRoom extends Room<{
     const pilot = this.pilots.get(id);
     if (pilot) {
       const decision = pilot.decide(ship, runtime.profile, {
+        // What each role is willing to engage. The Unlettered rob traffic and
+        // leave each other alone; a patrol answers for the Unlettered and for
+        // captains the Prize Court has posted, and for nobody else.
         candidates: (selfId) =>
           [...this.state.ships]
             .filter(([otherId, other]) => otherId !== selfId && other.destroyedAt === 0)
-            // Raiders do not fight each other.
-            .filter(([otherId]) => !this.pilots.has(otherId))
+            .filter(([otherId, other]) =>
+              pilot.role === 'patrol'
+                ? other.hostile || other.posted
+                : !this.pilots.has(otherId),
+            )
             .map(([otherId, other]) => ({ id: otherId, ship: other })),
+        stationOf: (selfId) => this.stations.get(selfId) ?? { x: 0, y: 0 },
         integrityOf: (hullId) => this.runtimes.get(hullId)?.integrity ?? 0,
         now: () => this.clock.elapsedTime,
       });
@@ -942,22 +1006,34 @@ export class SystemRoom extends Room<{
 
   // --- Raiders ------------------------------------------------------------
 
-  /** Keep a few Unlettered about while there are captains to rob. */
-  private maintainRaiders(): void {
+  /**
+   * Keep the system's complement up: a few Unlettered to rob the traffic, and
+   * the patrols the Prize Court answers for it with. Both only while there is
+   * a captain present to see them.
+   */
+  private maintainNpcs(): void {
     const captains = [...this.state.ships].filter(
       ([id, ship]) => !this.pilots.has(id) && ship.destroyedAt === 0,
     ).length;
 
-    const wanted = captains > 0 ? this.raiderTarget : 0;
-    const current = this.pilots.size;
+    this.maintainRole('unlettered', captains > 0 ? this.raiderTarget : 0);
+    this.maintainRole('patrol', captains > 0 ? this.patrolTarget : 0);
+  }
 
-    if (current < wanted) {
+  private maintainRole(role: NpcRole, wanted: number): void {
+    const held = [...this.pilots].filter(([, pilot]) => pilot.role === role).map(([id]) => id);
+
+    if (held.length < wanted) {
       const id = `npc-${this.nextNpcId++}`;
-      const blueprint = this.rng.pick(RAIDER_BLUEPRINTS);
-      this.spawnHull(id, blueprint, raiderName(this.rng), true);
-      this.pilots.set(id, unletteredPilot(id, `${this.roomId}:${id}`));
-    } else if (current > wanted) {
-      const [id] = [...this.pilots.keys()];
+      if (role === 'patrol') {
+        this.spawnHull(id, this.rng.pick(PATROL_BLUEPRINTS), patrolName(this.rng), false, role);
+        this.pilots.set(id, patrolPilot(id, `${this.roomId}:${id}`));
+      } else {
+        this.spawnHull(id, this.rng.pick(RAIDER_BLUEPRINTS), raiderName(this.rng), true, role);
+        this.pilots.set(id, unletteredPilot(id, `${this.roomId}:${id}`));
+      }
+    } else if (held.length > wanted) {
+      const id = held.at(-1);
       if (id !== undefined) this.removeHull(id);
     }
   }
@@ -980,6 +1056,19 @@ export class SystemRoom extends Room<{
     }
 
     this.combat.retireRoundsOf(id);
+
+    // Writing off lawful traffic is a separate matter from damaging it.
+    if (!ship.hostile) {
+      const killer = this.pilotsBySession.get(killedBy);
+      const security = this.system?.security;
+      if (killer && security) {
+        this.addComposition(
+          killer,
+          killedBy,
+          compositionForWriteOff(security, content().tuning.law),
+        );
+      }
+    }
 
     this.broadcast('written-off', {
       id,
@@ -1014,7 +1103,56 @@ export class SystemRoom extends Room<{
     client.send('respawned', { id });
   }
 
+  /**
+   * Firing on lawful traffic where law reaches.
+   *
+   * The Prize Court strikes a composition per point of structure taken off,
+   * weighted by the system's security: the Home Roads at full, the Concessions
+   * lightly, the Marque not at all. A posted captain is refused at every berth
+   * but the Unlettered's, and patrols answer for them.
+   *
+   * It does not apply to the Unlettered, who are nobody's lawful traffic, and
+   * it cannot be run up by shooting a wreck.
+   */
+  private postIfUnlawful(shooterId: string, targetId: string, structureLost: number): void {
+    if (structureLost <= 0) return;
+
+    const security = this.system?.security;
+    if (!security) return;
+    const { law } = content().tuning;
+    const struck = compositionForDamage(structureLost, security, law);
+    if (struck <= 0) return;
+
+    // Only a captain can be posted, and only for a hull that was lawful.
+    const pilot = this.pilotsBySession.get(shooterId);
+    if (!pilot) return;
+    const target = this.state.ships.get(targetId);
+    if (!target || target.hostile || target.destroyedAt > 0) return;
+
+    this.addComposition(pilot, shooterId, struck);
+  }
+
+  /** Raise a captain's composition and tell them why, once per change. */
+  private addComposition(pilot: Pilot, sessionId: string, amount: number): void {
+    const added = Math.round(amount);
+    if (added <= 0) return;
+
+    const wasPosted = pilot.composition > 0;
+    pilot.composition += added;
+    world().pilots.touch(pilot.accountId);
+
+    const ship = this.state.ships.get(sessionId);
+    if (ship) ship.posted = true;
+
+    if (!wasPosted) {
+      this.clients.get(sessionId)?.send('posted', { composition: pilot.composition });
+    }
+    this.sendPurse(sessionId);
+  }
+
   private broadcastImpact(event: ImpactEvent): void {
+    this.postIfUnlawful(event.shooterId, event.targetId, event.structureLost);
+
     // Presentation only: clients draw a ripple or sparks. Nothing about the
     // outcome depends on a client receiving it.
     this.broadcast('impact', event);
@@ -1035,4 +1173,23 @@ const RAIDER_NAMES = [
 
 function raiderName(rng: Rng): string {
   return rng.pick(RAIDER_NAMES);
+}
+
+/**
+ * What the Prize Court calls its hulls: the same legal register as any other
+ * ship's name, read flatter.
+ */
+const PATROL_NAMES = [
+  'Due Process',
+  'Strict Liability',
+  'Burden of Proof',
+  'Letter and Spirit',
+  'Without Notice',
+  'On the Record',
+  'Lawful Order',
+  'Good Faith',
+] as const;
+
+function patrolName(rng: Rng): string {
+  return rng.pick(PATROL_NAMES);
 }

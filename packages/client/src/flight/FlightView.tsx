@@ -39,6 +39,8 @@ export interface FlightViewProps {
     propellant: number;
     propellantCapacity: number;
     jumpCost: number;
+    /** Marks the Prize Court has against this captain. */
+    composition: number;
   };
   readonly notice: string | undefined;
   /** The system the captain has plotted for, if any. J spools for it. */
@@ -83,6 +85,7 @@ export function FlightView({
     propellant: 0,
     propellantCapacity: 0,
     marks: 0,
+    composition: 0,
     spoolingTo: '',
     course: '',
     spoolProgress: 0,
@@ -361,6 +364,8 @@ export function FlightView({
             moduleHp: view.moduleHp,
             shieldFraction: capacity > 0 ? view.shield / capacity : 0,
             hostile: view.hostile,
+            patrol: view.patrol,
+            posted: view.posted,
             isTarget: view.isTarget,
             writtenOff: view.writtenOff,
           };
@@ -489,6 +494,7 @@ export function FlightView({
           readout.propellant = liveRef.current.purse.propellant;
           readout.propellantCapacity = liveRef.current.purse.propellantCapacity;
           readout.marks = liveRef.current.purse.marks;
+          readout.composition = liveRef.current.purse.composition;
 
           // The spool and the berth in reach are both read off the hull's own
           // synchronised state, so they cannot disagree with the server.
@@ -517,6 +523,8 @@ export function FlightView({
               shield: marked.shieldFraction,
               integrity: integrityOf(marked),
               hostile: marked.hostile,
+              patrol: marked.patrol,
+              posted: marked.posted,
             };
           } else {
             readout.target = undefined;

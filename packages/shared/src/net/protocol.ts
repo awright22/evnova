@@ -34,6 +34,7 @@ export const REJECTIONS = {
   'posted-here': 'The port will not have you while you are posted.',
   'no-such-service': 'This berth does not offer that.',
   'nothing-to-do': 'Nothing to do: the hull is already sound.',
+  'nothing-owed': 'The Prize Court has nothing against you.',
   'no-room': 'The hull will not take any more.',
 } as const;
 
@@ -69,7 +70,7 @@ export type LaunchIntent = z.infer<typeof LaunchIntent>;
 
 /** What a captain asks a berth for. Quantities are integers, always. */
 export const PortServiceIntent = z.object({
-  service: z.enum(['repair', 'propellant', 'ordnance']),
+  service: z.enum(['repair', 'propellant', 'ordnance', 'composition']),
   /** Units wanted. Ignored by repair, which is all or nothing. */
   units: z.int().min(0).max(100_000).default(0),
 });

@@ -56,6 +56,10 @@ export interface ShipView {
   readonly moduleHp: readonly number[];
   readonly shield: number;
   readonly hostile: boolean;
+  /** A patrol of the Prize Court. */
+  readonly patrol: boolean;
+  /** Posted by the Prize Court: patrols will answer for this hull. */
+  readonly posted: boolean;
   readonly writtenOff: boolean;
   readonly isTarget: boolean;
 }
@@ -209,6 +213,8 @@ export class Session {
         moduleHp: ship.moduleHp,
         shield: ship.shield,
         hostile: ship.hostile,
+        patrol: ship.patrol,
+        posted: ship.posted,
         writtenOff: ship.destroyedAt > 0,
         isTarget: id === marked,
       });

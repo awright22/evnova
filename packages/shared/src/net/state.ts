@@ -37,6 +37,10 @@ export const ShipState = schema(
     target: t.string().default(''),
     /** Role, so the client can colour hostiles without trusting them to say so. */
     hostile: t.boolean().default(false),
+    /** A patrol of the Prize Court, so a contact can be named for what it is. */
+    patrol: t.boolean().default(false),
+    /** Posted by the Prize Court: patrols answer for this hull. */
+    posted: t.boolean().default(false),
     /** Server time the hull was written off, for the wreck to linger. */
     destroyedAt: t.uint32().default(0),
 

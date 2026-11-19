@@ -58,18 +58,36 @@
     "landingFee": 60,
     "propellantPrice": 8,
     "repairPricePerPoint": 1.4,
-    "ordnancePrice": 22
+    "ordnancePrice": 22,
+    "magazineCapacity": 60
   },
   "start": {
     "$comment": "What a captain is given when they are first entered in the Register. Marks can be overridden per server; the draught and the opening Ordnance are the game's own. Propellant is not listed because it is filled to whatever the draught's tanks hold: a new captain never reads a figure their hull cannot carry.",
     "draught": "prudent-return",
     "ordnance": 24
   },
+  "law": {
+    "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of structure taken off, plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at every berth but the Unlettered's until it is paid.",
+    "compositionPerStructure": 9,
+    "compositionPerWriteOff": 6000,
+    "postedRefusedIn": ["secured"],
+    "weightBySecurity": {
+      "secured": 1.0,
+      "contested": 0.35,
+      "lawless": 0
+    }
+  },
   "world": {
     "$comment": "spawnStandoff is how far off a berth a captain who has never flown, or who has just been written off, is set down: short enough that the berth is on screen and the landing prompt is already up, so the first thing a new captain sees is where they are. The Unlettered hold further out, in open space between the berths, and scatter about their anchor. Where a hull arrives from a lane comes from the system's own radius, not from here.",
     "spawnStandoff": 300,
     "raiderStandoff": 2600,
     "raiderScatter": 900,
+    "patrolsBySecurity": {
+      "$comment": "How many of the Prize Court's patrols stand in a system. They answer for the Home Roads and keep a thinner watch over the Concessions; the Marque has none.",
+      "secured": 2,
+      "contested": 1,
+      "lawless": 0
+    },
     "raidersBySecurity": {
       "$comment": "How many Unlettered hunt a system, by how much law reaches it. The Home Roads are patrolled, so nothing hunts there; the Marque is nobody's.",
       "secured": 0,

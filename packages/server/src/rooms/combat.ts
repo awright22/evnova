@@ -73,9 +73,13 @@ export interface ImpactEvent {
   /** True when the shields took it, false when it reached the hull. */
   readonly shielded: boolean;
   readonly targetId: string;
+  /** Who fired the round, so the Prize Court knows whom to post. */
+  readonly shooterId: string;
   readonly kind: number;
   /** True when this hit took a module to zero. */
   readonly disabled: boolean;
+  /** Structure the hit actually took off, for scaling a composition. */
+  readonly structureLost: number;
 }
 
 export class CombatSystem {
@@ -284,8 +288,10 @@ export class CombatSystem {
       y: worldY,
       shielded: outcome.toModule === 0,
       targetId,
+      shooterId: round.owner,
       kind: round.kind,
       disabled,
+      structureLost: outcome.toModule,
     });
 
     if (runtime.writtenOff && ship.destroyedAt === 0) {
