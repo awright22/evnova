@@ -89,13 +89,42 @@ export const pilots = sqliteTable(
   (table) => [index('pilots_system').on(table.systemId)],
 );
 
+/**
+ * The ledger.
+ *
+ * Append-only. Every mark created or destroyed is a row here with a category,
+ * so the change in total marks always equals faucets minus sinks and the admin
+ * page can show where the money went.
+ */
+export const ledger = sqliteTable(
+  'ledger',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** Positive for a faucet, negative for a sink. Always an integer. */
+    delta: integer('delta').notNull(),
+    category: text('category').notNull(),
+    /** What it was for, in the voice the captain reads. */
+    reason: text('reason').notNull(),
+    /** The balance after this row, so the history reconciles without a scan. */
+    balance: integer('balance').notNull(),
+    at: integer('at').notNull(),
+  },
+  (table) => [
+    index('ledger_account').on(table.accountId, table.at),
+    index('ledger_category').on(table.category),
+  ],
+);
+
 /** Schema version, so a migration knows what it is upgrading. */
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Migrations, applied in order.
@@ -151,6 +180,23 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
     version: 2,
     up: `
       ALTER TABLE pilots ADD COLUMN propellant INTEGER NOT NULL DEFAULT 60;
+    `,
+  },
+  {
+    // Every mark created or destroyed gets a row with a category.
+    version: 3,
+    up: `
+      CREATE TABLE IF NOT EXISTS ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        delta INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        balance INTEGER NOT NULL,
+        at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ledger_account ON ledger (account_id, at);
+      CREATE INDEX IF NOT EXISTS ledger_category ON ledger (category);
     `,
   },
 ];

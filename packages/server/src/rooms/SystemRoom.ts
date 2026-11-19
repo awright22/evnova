@@ -23,6 +23,7 @@ import {
   LANDING_SPEED,
   LandIntent,
   LaunchIntent,
+  PortServiceIntent,
   SCOOP_RANGE,
   SHIP_INPUT_SANITIZE,
   ScoopIntent,
@@ -36,6 +37,8 @@ import {
   Rng,
   clamp,
   content,
+  deriveStats,
+  placeAll,
   stepFlight,
   type Blueprint,
   type FlightCommand,
@@ -44,6 +47,7 @@ import {
 
 import { registerRoom, TickMetrics } from '../metrics.ts';
 import { AuthError, type Account } from '../accounts.ts';
+import { InsufficientMarks } from '../world/Ledger.ts';
 import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
@@ -262,6 +266,109 @@ export class SystemRoom extends Room<{
       ship.jumpTo = '';
       ship.jumpProgress = 0;
       return { landing: port.id };
+    }),
+
+    /**
+     * Buy something at the berth.
+     *
+     * Every one of these moves marks, so every one goes through the ledger in
+     * a single transaction: the row and the balance land together or neither
+     * does. A captain who cannot afford it is refused, not clamped.
+     */
+    port: validate(PortServiceIntent, (client: Client, message: PortServiceIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((p) => p.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+
+      const { tuning, blueprints, modules } = content();
+      const prices = tuning.ports;
+      const blueprint = blueprints.get(pilot.blueprintId);
+      if (!blueprint) return ctx.reject('not-owned');
+
+      const placed = placeAll(blueprint.placements, modules);
+      const stats = deriveStats(placed, tuning);
+
+      try {
+        switch (message.service) {
+          case 'repair': {
+            if (!port.services.includes('repair')) return ctx.reject('no-such-service');
+
+            const intact = placed.map((m) => m.def.hitPoints);
+            const missing = intact.reduce(
+              (sum, max, index) => sum + Math.max(0, max - (pilot.moduleHp[index] ?? max)),
+              0,
+            );
+            if (missing <= 0) return ctx.reject('nothing-to-do');
+
+            const cost = Math.ceil(missing * prices.repairPricePerPoint);
+            world().ledger.post(
+              {
+                accountId: pilot.accountId,
+                delta: -cost,
+                category: 'repair',
+                reason: `Repairs at ${port.name}`,
+              },
+              pilot,
+            );
+            pilot.moduleHp = [...intact];
+            world().pilots.touch(pilot.accountId);
+            return { marks: pilot.marks, repaired: missing, cost };
+          }
+
+          case 'propellant': {
+            const capacity = stats.propellantCapacity;
+            const room = Math.max(0, capacity - pilot.propellant);
+            if (room <= 0) return ctx.reject('no-room');
+
+            const units = message.units > 0 ? Math.min(message.units, room) : room;
+            const cost = units * prices.propellantPrice;
+            world().ledger.post(
+              {
+                accountId: pilot.accountId,
+                delta: -cost,
+                category: 'propellant',
+                reason: `${units} units of Propellant at ${port.name}`,
+              },
+              pilot,
+            );
+            pilot.propellant += units;
+            world().pilots.touch(pilot.accountId);
+            return { marks: pilot.marks, units, cost };
+          }
+
+          case 'ordnance': {
+            // A rack with an empty magazine is ballast.
+            const capacity = 60;
+            const room = Math.max(0, capacity - pilot.ammo);
+            if (room <= 0) return ctx.reject('no-room');
+
+            const units = message.units > 0 ? Math.min(message.units, room) : room;
+            const cost = units * prices.ordnancePrice;
+            world().ledger.post(
+              {
+                accountId: pilot.accountId,
+                delta: -cost,
+                category: 'cargo-purchase',
+                reason: `${units} units of Ordnance at ${port.name}`,
+              },
+              pilot,
+            );
+            pilot.ammo += units;
+            world().pilots.touch(pilot.accountId);
+            return { marks: pilot.marks, units, cost };
+          }
+        }
+      } catch (error) {
+        if (error instanceof InsufficientMarks) return ctx.reject('cannot-afford');
+        throw error;
+      }
+
+      return ctx.reject('no-such-service');
     }),
 
     /** Leave the berth and rejoin the simulation. */
@@ -724,6 +831,26 @@ export class SystemRoom extends Room<{
     const port = this.system?.ports.find((candidate) => candidate.id === portId);
 
     if (pilot && port) {
+      // A landing fee applies per visit. It is small, and it is the first
+      // thing in the game that takes marks off a captain.
+      const fee = content().tuning.ports.landingFee;
+      if (fee > 0) {
+        try {
+          world().ledger.post(
+            {
+              accountId: pilot.accountId,
+              delta: -fee,
+              category: 'landing-fee',
+              reason: `Landing fee at ${port.name}`,
+            },
+            pilot,
+          );
+        } catch {
+          // A captain too poor for the fee still lands: being stranded in
+          // space with no marks is not a state worth creating.
+        }
+      }
+
       pilot.landedPortId = portId;
       pilot.x = port.x;
       pilot.y = port.y;

@@ -1,0 +1,191 @@
+/** The chart. A dense instrument, not a decorative star map. */
+
+.chart {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  animation: chart-in var(--motion-base) var(--ease-emphasis);
+}
+
+.chart:focus {
+  outline: none;
+}
+
+@keyframes chart-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.chart__panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: min(1100px, 100%);
+  height: min(720px, 100%);
+}
+
+.chart__body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  min-height: 0;
+}
+
+.chart__svg {
+  width: 100%;
+  height: 100%;
+  background: var(--inset);
+}
+
+/* --- Lanes ------------------------------------------------------------- */
+
+.chart__lane {
+  stroke: var(--rule);
+  stroke-width: 1.2;
+}
+
+.chart__lane--live {
+  stroke: var(--amber-dim);
+  stroke-width: 2;
+}
+
+/* --- Systems ----------------------------------------------------------- */
+
+.chart__system {
+  cursor: default;
+}
+
+.chart__system.is-reachable {
+  cursor: pointer;
+}
+
+.chart__dot {
+  fill: var(--text-disabled);
+  stroke: var(--panel);
+  stroke-width: 1.5;
+  transition: fill var(--motion-instant) var(--ease-standard);
+}
+
+.chart__system--home-roads .chart__dot {
+  fill: var(--nebula-home-roads);
+}
+
+.chart__system--concessions .chart__dot {
+  fill: var(--nebula-concessions);
+}
+
+.chart__system--marque .chart__dot {
+  fill: var(--nebula-marque);
+}
+
+.chart__system.is-reachable .chart__dot {
+  fill: var(--amber);
+}
+
+.chart__here {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 1.5;
+}
+
+.chart__halo {
+  fill: none;
+  stroke: var(--amber-bright);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.chart__label {
+  fill: var(--text-muted);
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.chart__system.is-reachable .chart__label,
+.chart__system.is-here .chart__label {
+  fill: var(--text-primary);
+}
+
+/* --- Detail ------------------------------------------------------------ */
+
+.chart__detail {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: var(--border-width) solid var(--rule);
+  overflow-y: auto;
+}
+
+.chart__region {
+  color: var(--amber);
+  font-size: var(--size-body-sm);
+}
+
+.chart__description {
+  color: var(--text-secondary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+.chart__ports {
+  display: grid;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.chart__ports li {
+  display: grid;
+  gap: 1px;
+  padding: var(--space-1) 0;
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+.chart__port-name {
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: var(--size-h3);
+  font-weight: 600;
+}
+
+/* --- Footer ------------------------------------------------------------ */
+
+.chart__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1-5) var(--space-2);
+  background: var(--raised);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.chart__cost {
+  display: grid;
+  gap: 1px;
+}
+
+.chart__short {
+  color: var(--danger);
+}
+
+.chart__refusal {
+  color: var(--danger);
+  font-size: var(--size-body-sm);
+}
+
+.chart__actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}

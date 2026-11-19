@@ -222,6 +222,12 @@ export const Tuning = z.object({
   hull: z.object({
     structureWriteOffFraction: z.number().min(0).max(1),
   }),
+  ports: z.object({
+    landingFee: z.int().nonnegative(),
+    propellantPrice: z.int().positive(),
+    repairPricePerPoint: z.number().positive(),
+    ordnancePrice: z.int().positive(),
+  }),
   licences: z.record(LicenceId, LicenceDef),
 });
 export type Tuning = z.infer<typeof Tuning>;

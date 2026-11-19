@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { Accounts } from '../accounts.ts';
 import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
+import { Ledger } from './Ledger.ts';
 import { PilotStore } from './PilotStore.ts';
 
 /** Time, injected. Real time in production; accelerated in the soak. */
@@ -34,6 +35,7 @@ export class World {
   readonly store: Store;
   readonly accounts: Accounts;
   readonly pilots: PilotStore;
+  readonly ledger: Ledger;
 
   private flushTimer: NodeJS.Timeout | undefined;
   private snapshotTimer: NodeJS.Timeout | undefined;
@@ -46,6 +48,7 @@ export class World {
     this.store = openStore(databaseUrl);
     this.accounts = new Accounts(this.store);
     this.pilots = new PilotStore(this.store);
+    this.ledger = new Ledger(this.store);
   }
 
   /** Start the background work: flushing and snapshots. */

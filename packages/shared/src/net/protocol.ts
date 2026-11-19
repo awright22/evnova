@@ -32,6 +32,9 @@ export const REJECTIONS = {
   'too-fast-to-land': 'Too fast to be taken alongside.',
   'not-in-reach': 'Not close enough to the berth.',
   'posted-here': 'The port will not have you while you are posted.',
+  'no-such-service': 'This berth does not offer that.',
+  'nothing-to-do': 'Nothing to do: the hull is already sound.',
+  'no-room': 'The hull will not take any more.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -63,6 +66,14 @@ export type LandIntent = z.infer<typeof LandIntent>;
 /** Leave the berth. Carries nothing, but goes through the same validation. */
 export const LaunchIntent = z.object({});
 export type LaunchIntent = z.infer<typeof LaunchIntent>;
+
+/** What a captain asks a berth for. Quantities are integers, always. */
+export const PortServiceIntent = z.object({
+  service: z.enum(['repair', 'propellant', 'ordnance']),
+  /** Units wanted. Ignored by repair, which is all or nothing. */
+  units: z.int().min(0).max(100_000).default(0),
+});
+export type PortServiceIntent = z.infer<typeof PortServiceIntent>;
 
 /** Scoop a canister the hull is close enough to reach. */
 export const ScoopIntent = z.object({

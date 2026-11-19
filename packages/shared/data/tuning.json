@@ -52,5 +52,12 @@
       "maxExtent": 18,
       "cost": 6000000
     }
+  },
+  "ports": {
+    "$comment": "What a berth charges. The Staple prices Propellant properly in M4; until then these are the port's own rates.",
+    "landingFee": 60,
+    "propellantPrice": 8,
+    "repairPricePerPoint": 1.4,
+    "ordnancePrice": 22
   }
 }

@@ -111,7 +111,10 @@ export class Accounts {
           .insert(schema.pilots)
           .values({
             accountId: id,
-            marks: config.startingMarks,
+            // Starts at nothing: the opening balance is a ledger row like any
+            // other, so the total marks in the world always equal faucets
+            // minus sinks from the very first captain.
+            marks: 0,
             systemId: config.startingSystem,
             blueprintId: 'prudent-return',
             ammo: 24,
@@ -119,6 +122,26 @@ export class Accounts {
             updatedAt: now,
           })
           .run();
+
+        if (config.startingMarks > 0) {
+          this.store.db
+            .update(schema.pilots)
+            .set({ marks: config.startingMarks })
+            .where(eq(schema.pilots.accountId, id))
+            .run();
+
+          this.store.db
+            .insert(schema.ledger)
+            .values({
+              accountId: id,
+              delta: config.startingMarks,
+              category: 'starting-balance',
+              reason: 'Opening balance on the Register',
+              balance: config.startingMarks,
+              at: now,
+            })
+            .run();
+        }
       });
     } catch (error) {
       // A unique-index violation means someone took the callsign between the
