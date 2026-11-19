@@ -1,3 +1,12 @@
+:root {
+  /**
+   * How far up the bottom-left instruments reach, including the view's own
+   * padding. Anything else anchored to that corner clears this, so nothing
+   * ever sits over a reading the captain is flying on.
+   */
+  --hud-instruments-clear: 272px;
+}
+
 /** Cockpit overlay. Anchored to the edges; the middle of the view stays clear. */
 
 .hud {

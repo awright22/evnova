@@ -499,7 +499,6 @@ export function FlightView({
           readout.contacts = Math.max(0, frames.length - 1);
           readout.rtt = telemetry.rtt;
           readout.linkOk = telemetry.status !== 'diverging';
-          readout.shield = predicted.shield;
           readout.shieldMax = shieldCapacityOf(self.blueprint);
           readout.integrity = integrityOf(self);
           readout.refusal = liveRef.current.notice ?? session.lastRefusal;
@@ -508,9 +507,13 @@ export function FlightView({
           readout.marks = liveRef.current.purse.marks;
           readout.composition = liveRef.current.purse.composition;
 
-          // The spool and the berth in reach are both read off the hull's own
-          // synchronised state, so they cannot disagree with the server.
+          // The hull's own synchronised state. The spool, the approach and the
+          // shield all come from here rather than from the predicted mirror:
+          // the client does not simulate any of them, and shield in particular
+          // is not one of the fields the reconciler carries, so reading it off
+          // the prediction gave NaN.
           const own = room.state.ships.get(selfId);
+          readout.shield = own?.shield ?? 0;
           readout.spoolingTo = own?.jumpTo ?? '';
           readout.course = liveRef.current.courseName ?? '';
           readout.spoolProgress = own?.jumpProgress ?? 0;
@@ -564,7 +567,7 @@ export function FlightView({
             rounds: session!.projectileViews().length,
             canisters: session!.canisterViews().length,
             target: session!.currentTarget,
-            shield: session!.predicted.shield,
+            shield: room.state.ships.get(session!.sessionId)?.shield ?? 0,
             fx: effects.activeCount,
           }),
           // Authoritative schema values beside the predicted mirror, plus the

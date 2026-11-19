@@ -5,7 +5,9 @@
 
 .chat {
   position: absolute;
-  bottom: 212px;
+  /* Clear of the instruments, open or shut: chat is conversation and the
+     gauges are flight, and conversation must never cover a reading. */
+  bottom: var(--hud-instruments-clear);
   left: var(--space-2);
   z-index: 3;
   display: grid;
@@ -15,7 +17,6 @@
 }
 
 .chat--open {
-  bottom: var(--space-2);
   width: min(620px, 54vw);
   pointer-events: auto;
 }

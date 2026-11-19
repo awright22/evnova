@@ -445,4 +445,16 @@ whenever an unintended look appears, then fix it.
   instrument. Density is a feature: panels size to their content. *(Being fixed
   as real screens replace the scaffold.)*
 
+- *Conversation over the instruments* — the chat overlay was anchored a fixed
+  212px from the bottom and dropped to the view's padding when the composer
+  opened, which put two lines of chat across the heading and structure
+  readings. A captain flying must never have a gauge covered by something
+  someone else typed. Anything anchored to that corner now clears
+  `--hud-instruments-clear`, open or shut. *(Seen in the first chat capture.
+  Fixed.)*
+- *An empty detail panel* — the chart's right-hand column showed a system's
+  name, a sentence and its berths, and then four-fifths of nothing. Density is
+  a feature here too: it now carries the lanes out of the selected system, so
+  a route can be read in one place. *(Seen in the first chart capture. Fixed.)*
+
 *(Reviewed and extended after each screen is first captured.)*

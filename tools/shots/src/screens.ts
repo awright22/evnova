@@ -37,7 +37,7 @@ interface HarnessWindow {
       state: {
         ships: Map<
           string,
-          { x: number; y: number; angle: number; destroyedAt: number }
+          { x: number; y: number; angle: number; shield: number; destroyedAt: number }
         >;
       };
     };
@@ -62,11 +62,15 @@ async function hold(page: Page, key: string, ms: number): Promise<void> {
  *
  * Returns false when there is nothing to shoot at.
  */
-async function engageNearest(page: Page, seconds: number): Promise<boolean> {
+async function engageNearest(
+  page: Page,
+  seconds: number,
+  options: { readonly untilHit?: boolean } = {},
+): Promise<boolean> {
   const deadline = Date.now() + seconds * 1000;
 
-  /** Where the nearest hull is, relative to the nose. */
-  const read = (): Promise<{ delta: number; range: number } | null> =>
+  /** Where the nearest hull is, relative to the nose, and how it is holding up. */
+  const read = (): Promise<{ delta: number; range: number; markShield: number } | null> =>
     page.evaluate(() => {
       // This runs in the page, not in Node, so the browser globals are named
       // through globalThis rather than typed from the DOM lib.
@@ -76,12 +80,16 @@ async function engageNearest(page: Page, seconds: number): Promise<boolean> {
       const self = room.state.ships.get(room.sessionId);
       if (!self) return null;
 
-      let nearest: { range: number; bearing: number } | undefined;
+      let nearest: { range: number; bearing: number; shield: number } | undefined;
       for (const [id, ship] of room.state.ships) {
         if (id === room.sessionId || ship.destroyedAt > 0) continue;
         const range = Math.hypot(ship.x - self.x, ship.y - self.y);
         if (!nearest || range < nearest.range) {
-          nearest = { range, bearing: Math.atan2(ship.y - self.y, ship.x - self.x) };
+          nearest = {
+            range,
+            bearing: Math.atan2(ship.y - self.y, ship.x - self.x),
+            shield: ship.shield,
+          };
         }
       }
       if (!nearest) return null;
@@ -89,11 +97,12 @@ async function engageNearest(page: Page, seconds: number): Promise<boolean> {
       let delta = nearest.bearing - self.angle;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      return { delta, range: nearest.range };
+      return { delta, range: nearest.range, markShield: nearest.shield };
     });
 
   const first = await read();
   if (!first) return false;
+  const shieldAtStart = first.markShield;
 
   // The trigger stays down for the whole engagement, so every pass through
   // the bearing puts rounds on the mark. Holding a key and watching the world
@@ -146,9 +155,15 @@ async function engageNearest(page: Page, seconds: number): Promise<boolean> {
 
       // On the mark and in range: let the guns work.
       await page.waitForTimeout(400);
+
+      // Stop once rounds are actually landing, leaving the trigger down and
+      // the hull on the mark. A capture taken here shows a fight in progress
+      // rather than its aftermath from across the system.
+      const now = await read();
+      if (options.untilHit && now && now.markShield < shieldAtStart - 1) return true;
     }
   } finally {
-    await page.keyboard.up('Space');
+    if (!options.untilHit) await page.keyboard.up('Space');
   }
 
   return true;
@@ -238,7 +253,11 @@ export const SCREENS: readonly Screen[] = [
   },
   {
     name: 'combat',
-    description: 'A fight: rounds in flight, shield ripples, the mark bracketed and the lead indicator up.',
+    description:
+      'A fight: rounds in flight, the mark bracketed and its panel up. The capture ' +
+      'stops the moment a round lands, so this is the exchange rather than its ' +
+      'aftermath. Under software rasterisation the link runs about a second, which ' +
+      'is why it reads as a long-range exchange rather than a close pass.',
     path: '/?callsign=Free%20Captain&harness=1',
     settle: '.hud',
     settleMs: 2500,
@@ -248,9 +267,9 @@ export const SCREENS: readonly Screen[] = [
       // rounds in flight and shields rippling rather than an empty sky.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
-      await engageNearest(page, 14);
-      await page.keyboard.down('Space');
-      await page.waitForTimeout(400);
+      // Leaves the trigger down on the mark, so the capture is mid-fight.
+      await engageNearest(page, 45, { untilHit: true });
+      await page.waitForTimeout(350);
     },
   },
   {
