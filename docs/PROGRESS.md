@@ -522,7 +522,7 @@ and the Pages workflow are written; what is left needs the owner's accounts.
 
 ### What this milestone cost in bugs
 
-Eleven real faults, most found by running the verification suite and looking
+Twelve real faults, most found by running the verification suite and looking
 at captures rather than by reading code. Three are worth naming because they
 had been silently true for a while: the production server bundle had never
 been run and could not boot, having externalised the workspace package it
@@ -530,4 +530,8 @@ needed to inline; `onAuth` returned `undefined` for a client with no device
 token, which Colyseus reads as a refusal, so every anonymous join had been
 failing; and every harness signalled the `pnpm exec` wrapper rather than the
 server it started, leaking a process that the next run then tested against.
-The decision log in `docs/DESIGN.md` has the rest.
+A fourth is worth naming for how it was found: the soak reported one tick of
+54.8 ms against a p99 of 0.65 ms, which looked like machine noise and was not
+— every NPC was building and filtering an array of candidates on every tick,
+and the collection that followed was the spike. The decision log in
+`docs/DESIGN.md` has the rest.

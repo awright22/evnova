@@ -601,6 +601,40 @@ export class SystemRoom extends Room<{
     this.unsubscribeChat = undefined;
   }
 
+  /** Whether a pilot of this role would engage that hull. */
+  private engages(selfId: string, otherId: string, other: ShipState, role: NpcRole): boolean {
+    if (otherId === selfId || other.destroyedAt > 0) return false;
+    return role === 'patrol' ? other.hostile || other.posted : !this.pilots.has(otherId);
+  }
+
+  /**
+   * The nearest hull a pilot of this role would engage.
+   *
+   * Walks the ships once and keeps the best, allocating nothing: this runs
+   * for every NPC on every tick, and the array-building version it replaced
+   * was the server's largest source of short-lived garbage.
+   */
+  private nearestCandidate(selfId: string, role: NpcRole): string | undefined {
+    const self = this.state.ships.get(selfId);
+    if (!self) return undefined;
+
+    let bestId: string | undefined;
+    let bestDistanceSq = Infinity;
+
+    for (const [otherId, other] of this.state.ships) {
+      if (!this.engages(selfId, otherId, other, role)) continue;
+      const dx = other.x - self.x;
+      const dy = other.y - self.y;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        bestId = otherId;
+      }
+    }
+
+    return bestId;
+  }
+
   /**
    * Who is this.
    *
@@ -951,15 +985,11 @@ export class SystemRoom extends Room<{
         // What each role is willing to engage. The Unlettered rob traffic and
         // leave each other alone; a patrol answers for the Unlettered and for
         // captains the Prize Court has posted, and for nobody else.
-        candidates: (selfId) =>
-          [...this.state.ships]
-            .filter(([otherId, other]) => otherId !== selfId && other.destroyedAt === 0)
-            .filter(([otherId, other]) =>
-              pilot.role === 'patrol'
-                ? other.hostile || other.posted
-                : !this.pilots.has(otherId),
-            )
-            .map(([otherId, other]) => ({ id: otherId, ship: other })),
+        nearestCandidate: (selfId) => this.nearestCandidate(selfId, pilot.role),
+        candidate: (selfId, id) => {
+          const other = this.state.ships.get(id);
+          return other && this.engages(selfId, id, other, pilot.role) ? other : undefined;
+        },
         stationOf: (selfId) => this.stations.get(selfId) ?? { x: 0, y: 0 },
         integrityOf: (hullId) => this.runtimes.get(hullId)?.integrity ?? 0,
         now: () => this.clock.elapsedTime,

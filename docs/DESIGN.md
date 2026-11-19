@@ -441,3 +441,12 @@ separately, which had drifted past what the server actually guaranteed.
 cannot read bearings cannot fly, and a screenshot of a staged state is not
 evidence of anything. The flag is inert without it and grants nothing the
 server would honour, since the server is authoritative.
+
+**2026-11-19 — NPCs ask for the nearest candidate, not a list of them.**
+Building and filtering an array of candidates for every NPC on every tick was
+the server's largest source of short-lived garbage, and the collection that
+eventually followed showed up as a single 54.8 ms tick against a 0.65 ms p99
+— which the spec counts as a bug. The room now walks the ships once and keeps
+the best, allocating nothing. Worst tick fell to 5.1 ms and the mean tick by
+about a quarter.
+

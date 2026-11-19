@@ -47,11 +47,19 @@ export interface NpcPilot {
 
 export interface NpcWorld {
   /**
-   * Hulls this pilot might engage, excluding wrecks and itself. The room
-   * decides what counts: an Unlettered raider sees traffic, a patrol sees
-   * only the Unlettered and captains the Prize Court has posted.
+   * The nearest hull this pilot would engage, or undefined for an empty sky.
+   *
+   * Asked for one at a time rather than as a list, because this runs for every
+   * NPC on every tick: building and filtering an array there allocated several
+   * hundred short-lived objects a second, and the collection that eventually
+   * followed showed up as a 55 ms tick against a 0.65 ms p99. The room decides
+   * what counts — an Unlettered raider sees traffic, a patrol sees only the
+   * Unlettered and captains the Prize Court has posted.
    */
-  candidates(selfId: string): { id: string; ship: ShipState }[];
+  nearestCandidate(selfId: string): string | undefined;
+
+  /** That hull, if it is still one this pilot would engage. */
+  candidate(selfId: string, id: string): ShipState | undefined;
   /** Where this pilot holds station when it has nobody to engage. */
   stationOf(selfId: string): { x: number; y: number };
   /** Structure remaining on a hull, 0..1. */
@@ -98,29 +106,20 @@ function hunter(
       const now = world.now();
 
       // Re-pick a mark periodically, or when the current one is gone.
-      const candidates = world.candidates(id);
-      const current = candidates.find((c) => c.id === markId);
-      if (!current || now >= reconsiderAt) {
-        const nearest = candidates.reduce<{ id: string; ship: ShipState; d: number } | undefined>(
-          (best, c) => {
-            const d = Math.hypot(c.ship.x - self.x, c.ship.y - self.y);
-            return !best || d < best.d ? { ...c, d } : best;
-          },
-          undefined,
-        );
-        markId = nearest?.id ?? '';
+      let mark = markId === '' ? undefined : world.candidate(id, markId);
+      if (!mark || now >= reconsiderAt) {
+        markId = world.nearestCandidate(id) ?? '';
+        mark = markId === '' ? undefined : world.candidate(id, markId);
         reconsiderAt = now + rng.range(2500, 5000);
       }
-
-      const mark = candidates.find((c) => c.id === markId);
       if (!mark) {
         // Nothing to answer for. A patrol goes back to its station rather than
         // drifting out of the system it is meant to be standing over.
         return options.holdsStation ? returnToStation(id, self, profile, world) : HOLD;
       }
 
-      const dx = mark.ship.x - self.x;
-      const dy = mark.ship.y - self.y;
+      const dx = mark.x - self.x;
+      const dy = mark.y - self.y;
       const range = Math.hypot(dx, dy);
       const bearing = Math.atan2(dy, dx);
 
