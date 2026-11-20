@@ -26,6 +26,7 @@ import {
 import type { AudioMix } from '../audio/mix.ts';
 import { sharedMix } from '../audio/shared.ts';
 import { playNotice } from '../audio/notices.ts';
+import { Hint } from '../shell/Hint.tsx';
 import {
   motionIsReduced,
   type Action,
@@ -88,6 +89,14 @@ export interface FlightViewProps {
    * renderer, so the hull keeps its position and the backdrop keeps its stars.
    */
   readonly bindings: Record<Action, Binding>;
+  /**
+   * Called once the hull is genuinely moving.
+   *
+   * The ticket's first endorsement. Reported from here because this is the
+   * only place that knows what the hull is doing: the server's patch rate
+   * is low enough that a captain can burn and stop between two of them.
+   */
+  onUnderWay?: () => void;
 }
 
 export function FlightView({
@@ -103,6 +112,7 @@ export function FlightView({
   composing,
   convoy,
   bindings,
+  onUnderWay,
 }: FlightViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const radarRef = useRef<HTMLCanvasElement | null>(null);
@@ -135,6 +145,16 @@ export function FlightView({
   });
 
   const [failure, setFailure] = useState<string | undefined>(undefined);
+
+  /**
+   * Whether anything adrift has ever been alongside this session.
+   *
+   * Boarding is the one system a captain cannot go and look at: it only
+   * exists when a hull with its engines gone happens to be within reach. So
+   * its note waits for that to actually happen, once, and then never again.
+   */
+  const [prizeAlongside, setPrizeAlongside] = useState(false);
+  const sawPrize = useRef(false);
   const [writtenOff, setWrittenOff] = useState<WrittenOff | undefined>(undefined);
 
   // The frame loop is started once; these keep it reading current values
@@ -169,6 +189,7 @@ export function FlightView({
     onOpenChart,
     onJump,
     onCancelJump,
+    onUnderWay,
   });
   liveRef.current = {
     purse,
@@ -179,6 +200,7 @@ export function FlightView({
     onOpenChart,
     onJump,
     onCancelJump,
+    onUnderWay,
   };
 
   useEffect(() => {
@@ -674,6 +696,9 @@ export function FlightView({
           const telemetry = session.telemetry;
           const readout = readoutRef.current;
           readout.speed = speedOf(predicted);
+          // Under way, which is the first thing the clerk wants to see. A
+          // hull drifting off a berth at walking pace does not count.
+          if (readout.speed > 60) liveRef.current.onUnderWay?.();
           readout.heading = self.angle;
           readout.throttle = session.currentThrottle;
           readout.callsign = self.callsign;
@@ -714,6 +739,11 @@ export function FlightView({
                   tooFast: Math.hypot(self.vx, self.vy) > LANDING_SPEED,
                 }
               : undefined;
+
+          if (nearestPrize && !sawPrize.current) {
+            sawPrize.current = true;
+            setPrizeAlongside(true);
+          }
 
           readout.prize = nearestPrize
             ? {
@@ -816,6 +846,7 @@ export function FlightView({
     <div className="flight">
       <div ref={hostRef} className="flight__canvas" />
       {writtenOff && <WrittenOffPanel event={writtenOff} />}
+      <Hint which="boarding" ready={prizeAlongside && writtenOff === undefined} />
       {failure === undefined ? (
         <Hud readout={readoutRef} radarRef={radarRef} />
       ) : (

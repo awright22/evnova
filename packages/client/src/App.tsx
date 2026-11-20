@@ -10,7 +10,7 @@
  * screen or raw error text.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatLine } from '@marque/shared';
 
@@ -30,6 +30,14 @@ import { Offers } from './offers/Offers.tsx';
 import { Admin } from './admin/Admin.tsx';
 import { httpBaseFrom, loadAccount } from './game/account.ts';
 import { Title } from './shell/Title.tsx';
+import { Hint, useHint } from './shell/Hint.tsx';
+import { Pilotage } from './shell/Pilotage.tsx';
+import {
+  endorse,
+  loadPilotage,
+  savePilotage,
+  type Endorsement,
+} from './shell/pilotage.ts';
 import { Settings } from './shell/Settings.tsx';
 import { Credits } from './shell/Credits.tsx';
 import {
@@ -137,6 +145,28 @@ function Game({
   const [convoyOpen, setConvoyOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
+  // Whether the Bourse's own note has been settled, which is what the
+  // Register's note waits for.
+  const bourseHinted = !useHint('bourse').show;
+
+  // The provisional ticket: seven endorsements the Register's clerk adds as
+  // the captain does each thing once. Device-local, like the settings.
+  const [ticket, setTicket] = useState(() => loadPilotage());
+  const endorsed = useCallback((id: Endorsement) => {
+    setTicket((before) => {
+      const after = endorse(before, id);
+      if (after !== before) savePilotage(after);
+      return after;
+    });
+  }, []);
+  const waive = useCallback(() => {
+    setTicket((before) => {
+      const after = { ...before, confirmed: true };
+      savePilotage(after);
+      return after;
+    });
+  }, []);
+
   useEffect(() => {
     const unsubscribe = client.subscribe(setSnapshot);
     const unsubscribeChat = client.subscribeChat(setChat);
@@ -187,6 +217,21 @@ function Game({
     }
     return out;
   }, [snapshot.convoy]);
+
+  // Alongside is the second endorsement, and arriving somewhere else is the
+  // fourth. Both are read off the mode rather than off the intent, because
+  // an intent the server refused is not a thing the captain did.
+  useEffect(() => {
+    if (mode.kind === 'port') endorsed('land');
+  }, [mode.kind, endorsed]);
+
+  const arrivedIn = snapshot.systemId;
+  const firstSystem = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (arrivedIn === '') return;
+    firstSystem.current ??= arrivedIn;
+    if (arrivedIn !== firstSystem.current) endorsed('jump');
+  }, [arrivedIn, endorsed]);
 
   // Leaving the berth closes its floor: a market is a thing you stand in, and
   // one left open over the flight view would be reading stale prices.
@@ -312,9 +357,15 @@ function Game({
             onOpenChart={() => setChartOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenStaple={() => setStapleOpen(true)}
-            onOpenYard={() => setYardOpen(true)}
+            onOpenYard={() => {
+              setYardOpen(true);
+              endorsed('yard');
+            }}
             onOpenMoorings={() => setMooringsOpen(true)}
-            onOpenBourse={() => setBourseOpen(true)}
+            onOpenBourse={() => {
+              setBourseOpen(true);
+              endorsed('bourse');
+            }}
             onOpenBoard={() => setBoardOpen(true)}
             onOpenOffers={() => setOffersOpen(true)}
             onOpenConvoy={() => setConvoyOpen(true)}
@@ -468,10 +519,29 @@ function Game({
               marks={purse.marks}
               notice={snapshot.notice}
               busy={false}
-              onTrade={(side, commodity, units) => client.trade(side, commodity, units)}
+              onTrade={(side, commodity, units) => {
+                void client.trade(side, commodity, units).then((took) => {
+                  if (took) endorsed(side === 'buy' ? 'buy' : 'sell');
+                });
+              }}
               onClose={() => setStapleOpen(false)}
             />
           )}
+          <Hint which="staple" ready={stapleOpen && snapshot.staple !== undefined} />
+          <Hint which="yard" ready={yardOpen} />
+          <Hint which="moorings" ready={mooringsOpen} />
+          <Hint which="bourse" ready={bourseOpen} />
+          {/*
+            The Register is a section of the Bourse rather than a screen of
+            its own, so its note waits until the Bourse's has been settled:
+            two notes stacked on one screen is worse than no note at all.
+          */}
+          <Hint which="register" ready={bourseOpen && bourseHinted} />
+          <Hint which="factor" ready={boardOpen} />
+          <Hint which="offers" ready={offersOpen} />
+          <Hint which="convoy" ready={convoyOpen} />
+          <Hint which="chart" ready={chartOpen} />
+          <Pilotage ticket={ticket} onWaive={waive} />
           {chatOverlay}
           {chartOverlay}
         </>
@@ -513,6 +583,14 @@ function Game({
               onLeave={() => void client.leaveRange()}
             />
           )}
+          {/*
+            The ticket sits bottom left, where the instruments are not, and
+            only while something is still owed. Not on the range: nothing
+            there is the captain's, so nothing there is endorsed.
+          */}
+          {!snapshot.range && <Pilotage ticket={ticket} onWaive={waive} />}
+          <Hint which="chart" ready={chartOpen} />
+          <Hint which="range" ready={snapshot.range !== undefined} />
           {chatOverlay}
           {chartOverlay}
         </>

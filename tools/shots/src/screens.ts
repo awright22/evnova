@@ -53,6 +53,14 @@ export interface Screen {
    */
   readonly gunner?: { readonly hunt: string; readonly system: string; readonly draught: string };
   /**
+   * Leave the provisional ticket and the hints alone.
+   *
+   * Every other capture is taken as an experienced captain: the ticket is
+   * confirmed and every hint settled, so a screen is photographed without a
+   * note sitting over it. The two screens that are about the notes set this.
+   */
+  readonly teaching?: boolean;
+  /**
    * Capture a run of frames instead of one still.
    *
    * For motion a still cannot judge — the stamp is 260ms end to end, and a
@@ -550,6 +558,36 @@ export const SCREENS: readonly Screen[] = [
     act: async (page) => {
       await page.click('.title__doors button:text("Credits")');
       await page.waitForSelector('.credits__sheet', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+    },
+  },
+  {
+    name: 'ticket',
+    description:
+      'The provisional ticket, which is what a guided first session looks like here: '
+      + "seven endorsements the Register's clerk adds as the captain does each thing "
+      + 'once, one line at a time, bottom left and out of the instruments. Waivable.',
+    path: '/?callsign=Open%20Ticket',
+    settle: '.pilotage',
+    settleMs: 600,
+    teaching: true,
+    bots: 2,
+  },
+  {
+    name: 'hint',
+    description:
+      'A contextual hint, shown the first time a system is opened and never again: what '
+      + 'the counter is for, and the one thing looking at it will not tell you.',
+    path: '/?callsign=Noted%20Captain',
+    settle: '.hud',
+    settleMs: 900,
+    teaching: true,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+      await page.click('.port__service-list button:text("Open the floor")');
+      await page.waitForSelector('.hint', { timeout: 20_000 });
       await page.waitForTimeout(400);
     },
   },

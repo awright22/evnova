@@ -1003,10 +1003,15 @@ export class GameClient {
     return this.requestOk('cancel-order', { id });
   }
 
-  /** Trade at the berth's Staple. The server answers with fresh prices. */
-  trade(side: 'buy' | 'sell', commodity: string, units: number): void {
-    if (units < 1) return;
-    void this.request('staple', { side, commodity, units: Math.trunc(units) });
+  /**
+   * Trade at the berth's Staple. The server answers with fresh prices.
+   *
+   * Says whether the server took it, because a berth that declines is not a
+   * cargo bought: the ticket's endorsements are for things that happened.
+   */
+  async trade(side: 'buy' | 'sell', commodity: string, units: number): Promise<boolean> {
+    if (units < 1) return false;
+    return this.requestOk('staple', { side, commodity, units: Math.trunc(units) });
   }
 
   buy(service: 'repair' | 'propellant' | 'ordnance' | 'composition', units = 0): void {

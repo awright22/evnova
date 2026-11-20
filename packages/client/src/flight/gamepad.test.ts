@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ACTIONS, type Action } from '../shell/settings.ts';
+import { ACTIONS } from '../shell/settings.ts';
 import { PAD_CONTROLS, asked, mergeIntents } from './gamepad.ts';
 import type { FlightIntent } from './input.ts';
 
@@ -15,7 +15,7 @@ const REST: FlightIntent = {
 describe('the pad layout', () => {
   it('names a control for every action a captain can be asked to press', () => {
     for (const action of ACTIONS) {
-      expect(PAD_CONTROLS[action as Action], action).toBeTruthy();
+      expect(PAD_CONTROLS[action], action).toBeTruthy();
     }
   });
 });

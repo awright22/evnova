@@ -277,18 +277,31 @@ async function main(): Promise<void> {
 
         // Bring any companions online first and leave them there: a screen
         // about two captains cannot be photographed from one page.
+        //
+        // Inside the same reporting as the capture itself: a companion that
+        // cannot be brought up is one screen lost, not the run.
         const held: Playwright.BrowserContext[] = [];
-        for (const companion of screen.companions ?? []) {
-          const theirToken = tokens.get(companion.seed.callsign);
-          if (theirToken === undefined) {
-            throw new Error(`no device token was seeded for "${companion.seed.callsign}"`);
+        let companionsUp = true;
+        try {
+          for (const companion of screen.companions ?? []) {
+            const theirToken = tokens.get(companion.seed.callsign);
+            if (theirToken === undefined) {
+              throw new Error(`no device token was seeded for "${companion.seed.callsign}"`);
+            }
+            // Only the ones with something to do need a browser at all.
+            if (!companion.act) continue;
+            held.push(
+              await openCompanion(browser, baseUrl, companion.seed.callsign, theirToken, companion.act, options),
+            );
           }
-          // Only the ones with something to do need a browser at all.
-          if (!companion.act) continue;
-          held.push(
-            await openCompanion(browser, baseUrl, companion.seed.callsign, theirToken, companion.act, options),
-          );
+        } catch (error) {
+          companionsUp = false;
+          const why = error instanceof Error ? error.message.split('\n')[0]! : String(error);
+          missed.push({ name: screen.name, why: `a companion did not come up: ${why}` });
+          console.warn(`  ! ${screen.name} was not captured: ${missed.at(-1)?.why ?? ''}`);
+          for (const context of held) await context.close();
         }
+        if (!companionsUp) continue;
 
         // A gunner for this screen alone, if it asked for one. Spawned here
         // rather than with the traffic so nothing else in the run is being
@@ -396,10 +409,27 @@ async function openCompanion(
     [callsign, deviceToken] as [string, string],
   );
 
-  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  // Straight in as them. A bare URL lands on the title screen, which is
+  // right for a person and wrong for a companion: it waited at a door it
+  // was never going to press and took the whole run down with it.
+  await page.goto(`${baseUrl}/?callsign=${encodeURIComponent(callsign)}`, {
+    waitUntil: 'networkidle',
+  });
   await act(page);
   return context;
 }
+
+/**
+ * Everything a captain can have been told, for the storage a capture starts
+ * with. Listed rather than imported because this file is typechecked for
+ * Node and the client's own list is a browser module; the test beside the
+ * client keeps the two honest.
+ */
+const EXPERIENCED = [
+  'fly', 'land', 'buy', 'jump', 'sell', 'yard', 'bourse',
+  'staple', 'moorings', 'factor', 'chart', 'offers', 'convoy',
+  'register', 'range', 'boarding',
+] as const;
 
 async function capture(
   browser: Playwright.Browser,
@@ -439,6 +469,24 @@ async function capture(
           }
         },
         [callsign, deviceToken] as [string, string],
+      );
+    }
+
+    // Every capture but the two about the notes is taken as a captain who
+    // has already been told: ticket confirmed, every hint settled. A fresh
+    // browser context has empty storage, so without this a first-time note
+    // would sit over every screen in the run.
+    if (screen.teaching !== true) {
+      await page.addInitScript(
+        ([hints]: [readonly string[]]) => {
+          try {
+            localStorage.setItem('marque.pilotage', JSON.stringify({ done: hints, confirmed: true }));
+            localStorage.setItem('marque.hints', JSON.stringify(hints));
+          } catch {
+            // Storage disabled: the notes show, which the capture will say.
+          }
+        },
+        [EXPERIENCED] as [readonly string[]],
       );
     }
 
