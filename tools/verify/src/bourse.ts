@@ -16,24 +16,18 @@
  *   pnpm verify:bourse
  */
 
-import { ColyseusSDK, Predict, type Room } from '@colyseus/sdk';
+import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
   JUMP_CLEARANCE,
   JUMP_SPOOL_SECONDS,
   SERVER_MESSAGES,
   SystemState,
   content,
-  decodeShareCode,
-  deriveStats,
   isAimedAt,
-  placeAll,
-  stepFlight,
   turnToward,
-  ShipInput,
   type Headline,
   type Listing,
   type PortDef,
-  type ShipProfile,
 } from '@marque/shared';
 import { requirePortFree, spawnGroup, stopGroup } from '@marque/harness';
 
@@ -41,6 +35,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { fly, profileOf } from './control.ts';
 import { REPO_ROOT, sleep } from './harness.ts';
 
 const PORT = 2592;
@@ -277,71 +272,6 @@ async function travelTo(
 
   await sleep(1800);
   return { room: next, inbox };
-}
-
-/**
- * Take the controls.
- *
- * An input handle on its own sends nothing the server will act on: the
- * sequence numbers the server replays against come from the reconciler, so a
- * harness that only calls `room.input()` and `send()` sits still for ever and
- * wonders why its blockade caught nothing. This is the bot client's setup,
- * cut down to what steering and shooting need.
- */
-function fly(room: Room<unknown, SystemState>, profile: ShipProfile) {
-  const self = room.state.ships.get(room.sessionId);
-  if (!self) return undefined;
-
-  const predict = Predict.get(room, { mode: 'lerp', delay: 100 });
-  const input = room.input({ type: ShipInput });
-  predict.reconciler(self, {
-    // Exactly the fields the shared step owns. The rest is server truth
-    // arriving, not a misprediction to smooth away.
-    input,
-    fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
-    step: (ctx, state, cmd) => {
-      stepFlight(state, cmd, profile, ctx);
-    },
-  });
-
-  /**
-   * Commit the current controls for however many fixed steps are due.
-   *
-   * The timestep is the predictor's, not the caller's: an input is only
-   * meaningful against a step the server will replay, so sending one per
-   * wall-clock frame sends nothing the server can place. Returns how many
-   * steps were committed, which is zero most frames.
-   */
-  const commit = (): number => {
-    const due = predict.tick(performance.now());
-    for (let i = 0; i < due; i++) input.send();
-    return due;
-  };
-
-  return { predict, input, commit };
-}
-
-
-/**
- * The flight profile of whatever this captain is flying.
- *
- * A hull the captain built is not in the catalogue — its id is its own — so
- * its grid arrives on the state as a share code. Reading only the catalogue
- * returned nothing for exactly the captains this harness arms, and every
- * flying routine that asked for a profile quietly did nothing.
- */
-function profileOf(room: Room<unknown, SystemState>) {
-  const { blueprints, modules, tuning } = content();
-  const self = room.state.ships.get(room.sessionId);
-  if (!self) return undefined;
-
-  const placements =
-    self.hull !== ''
-      ? decodeShareCode(self.hull).placements
-      : blueprints.get(self.blueprint)?.placements;
-  if (!placements) return undefined;
-
-  return deriveStats(placeAll(placements, modules), tuning).profile;
 }
 
 /**

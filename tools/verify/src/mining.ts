@@ -9,24 +9,20 @@
  *   pnpm verify:mining
  */
 
-import { ColyseusSDK, Predict, type Room } from '@colyseus/sdk';
+import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
   PROJECTILE_KIND,
   SERVER_MESSAGES,
-  ShipInput,
   SystemState,
   beltOf,
   content,
-  deriveStats,
   isAimedAt,
   mountsOf,
   placeAll,
   decodeShareCode,
-  stepFlight,
   turnToward,
   validateDesign,
   type Placement,
-  type ShipProfile,
 } from '@marque/shared';
 import { requirePortFree, spawnGroup, stopGroup } from '@marque/harness';
 import { runSeed } from '@marque/harness/seed';
@@ -35,6 +31,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { fly, flyTo, profileOf } from './control.ts';
 import { REPO_ROOT, sleep } from './harness.ts';
 
 const PORT = 2595;
@@ -74,98 +71,6 @@ function rigHull(): Placement[] {
   const base = content().blueprints.get('spoil-heap');
   if (!base) throw new Error('the mining draught is missing');
   return [...base.placements];
-}
-
-/**
- * Take the controls.
- *
- * An input handle on its own sends nothing the server will act on: the
- * sequence numbers the server replays against come from the reconciler. The
- * same setup the Bourse's blockade uses, which is the bot client's cut down
- * to steering and shooting.
- */
-function fly(room: Room<unknown, SystemState>, profile: ShipProfile) {
-  const self = room.state.ships.get(room.sessionId);
-  if (!self) return undefined;
-
-  const predict = Predict.get(room, { mode: 'lerp', delay: 100 });
-  const input = room.input({ type: ShipInput });
-  predict.reconciler(self, {
-    input,
-    fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
-    step: (ctx, state, cmd) => {
-      stepFlight(state, cmd, profile, ctx);
-    },
-  });
-
-  const commit = (): number => {
-    const due = predict.tick(performance.now());
-    for (let i = 0; i < due; i++) input.send();
-    return due;
-  };
-
-  return { predict, input, commit };
-}
-
-/** The profile of whatever this captain is actually flying. */
-function profileOf(room: Room<unknown, SystemState>): ShipProfile | undefined {
-  const { blueprints, modules, tuning } = content();
-  const self = room.state.ships.get(room.sessionId);
-  if (!self) return undefined;
-
-  const placements =
-    self.hull !== ''
-      ? decodeShareCode(self.hull).placements
-      : blueprints.get(self.blueprint)?.placements;
-  if (!placements) return undefined;
-
-  return deriveStats(placeAll(placements, modules), tuning).profile;
-}
-
-/**
- * Fly to within `standoff` of a point, and stop there.
- *
- * Burns toward it, then brakes into the last stretch: arriving at speed and
- * sliding past a rock is not arriving. Returns whether it got there.
- */
-async function flyTo(
-  room: Room<unknown, SystemState>,
-  flying: NonNullable<ReturnType<typeof fly>>,
-  profile: ShipProfile,
-  x: number,
-  y: number,
-  standoff: number,
-  timeoutMs: number,
-): Promise<boolean> {
-  const until = Date.now() + timeoutMs;
-
-  while (Date.now() < until) {
-    const me = room.state.ships.get(room.sessionId);
-    if (!me) return false;
-
-    const range = Math.hypot(x - me.x, y - me.y);
-    const speed = Math.hypot(me.vx, me.vy);
-    // In reach is arrived. Parking dead on a rock is a nicety a rig does not
-    // need, and waiting for it is how this sat in a braking oscillation
-    // twenty units outside its own tolerance for four minutes.
-    if (range <= standoff) return true;
-
-    const bearing = Math.atan2(y - me.y, x - me.x);
-    // Brake into the last stretch rather than sailing through it: how far it
-    // takes to stop at this speed, with something in hand.
-    const stopping = ((speed * speed) / (2 * Math.max(1, profile.thrustAccel))) * 1.6;
-    const closing = range > standoff + stopping;
-
-    flying.input.data.turn = turnToward(me, bearing, profile);
-    flying.input.data.thrust = closing && isAimedAt(me, bearing, 0.4) ? 1 : 0;
-    flying.input.data.brake = !closing;
-    flying.input.data.firePrimary = false;
-    flying.input.data.fireSecondary = false;
-    flying.commit();
-    await sleep(16);
-  }
-
-  return false;
 }
 
 async function main(): Promise<void> {

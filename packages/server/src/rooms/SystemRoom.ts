@@ -54,6 +54,7 @@ import {
   BoardIntent,
   BOARDING_RANGE,
   BOARDING_SPEED,
+  isAdrift,
   TakeCommissionIntent,
   ShareCommissionIntent,
   ConvoyInviteIntent,
@@ -1414,6 +1415,12 @@ export class SystemRoom extends Room<{
       if (!prize || message.id === client.sessionId) return ctx.reject('unknown-target');
       if (prize.destroyedAt > 0) return ctx.reject('unknown-target');
       if (!prize.adrift) return ctx.reject('not-adrift');
+      // Arrival protection is why a jump does not drop a captain straight
+      // into somebody's guns. Taking their cargo off them while it holds
+      // would be the same arrival, by another door — and a hull that arrives
+      // adrift, which is what a crippled hull does on reconnecting, would
+      // have no moment at all to put its engines back on.
+      if (prize.protectedUntil > this.clock.elapsedTime) return ctx.reject('target-protected');
 
       const distance = Math.hypot(prize.x - ship.x, prize.y - ship.y);
       if (distance > BOARDING_RANGE) return ctx.reject('out-of-range');
@@ -1924,13 +1931,19 @@ export class SystemRoom extends Room<{
    * needs to know what a captain flies goes through here, so the Yard, the
    * flight simulation and the purse cannot disagree about it.
    */
-  private hullFor(pilot: Pilot): { blueprint: Blueprint; code: string } {
+  private hullFor(pilot: Pilot): {
+    blueprint: Blueprint;
+    code: string;
+    /** A built hull's own damage record, which is the authority for it. */
+    damage?: readonly number[];
+  } {
     const { blueprints, tuning } = content();
     const owned = world().yard.flying(pilot.accountId);
     if (owned) {
       return {
         blueprint: builtBlueprint(owned, pilot.licence as LicenceId, tuning),
         code: encodeShareCode({ name: owned.name, placements: owned.placements }),
+        damage: owned.moduleHp,
       };
     }
 
@@ -1946,13 +1959,21 @@ export class SystemRoom extends Room<{
     options: { chargeShields?: boolean } = {},
   ): void {
     const { modules, tuning } = content();
-    const { blueprint, code } = this.hullFor(pilot);
+    const { blueprint, code, damage } = this.hullFor(pilot);
 
     const runtime = new ShipRuntime(blueprint, modules, tuning, EMPTY_LOADOUT, pilot.ammo);
 
+    // A built hull's damage is on its own row, which is what makes parking a
+    // battered hull mean anything: `switch-ship` clears the captain's array
+    // on purpose, because it described the hull they just left, so reading
+    // only that one handed a captain a sound hull every time they changed
+    // hulls and came back. A catalogue draught has no row, and there the
+    // captain's own array is the only record there is.
+    const recorded = damage ?? pilot.moduleHp;
+
     // Restore damage, but never more modules than this draught has: a row
     // written against a different draught must not corrupt the hull.
-    pilot.moduleHp.slice(0, runtime.hp.length).forEach((hp, index) => {
+    recorded.slice(0, runtime.hp.length).forEach((hp, index) => {
       const max = runtime.modules[index]?.def.hitPoints ?? 0;
       runtime.hp[index] = Math.max(0, Math.min(max, hp));
     });
@@ -1974,6 +1995,10 @@ export class SystemRoom extends Room<{
     if (options.chargeShields) pilot.shield = runtime.shieldCapacity;
     ship.shield = Math.min(pilot.shield, runtime.shieldCapacity);
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
+    // Engine damage persists, so a hull can arrive adrift. Read it here as
+    // well as where the damage lands, or a captain who logged out with their
+    // engines out would come back unboardable until somebody shot them.
+    ship.adrift = isAdrift(runtime.modules, runtime.hp);
 
     // A captain who has never flown, or who was written off, starts off a
     // berth, close enough to see it and to be offered the landing.

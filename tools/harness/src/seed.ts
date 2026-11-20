@@ -71,6 +71,14 @@ export interface SeedSpec {
    */
   readonly flying?: string;
   /**
+   * Take the flown hull's engines out before anybody connects.
+   *
+   * For a check whose subject is what happens to a hull that cannot run.
+   * How one comes to be in that state is combat's business and is tested
+   * where the damage lands.
+   */
+  readonly crippled?: boolean;
+  /**
    * Callsigns to open a convoy with, this captain leading.
    *
    * They must be seeded too, and earlier in the list: a convoy is a row
@@ -190,8 +198,8 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
           portId: null,
           systemId: pilots.load(accountId)?.systemId ?? '',
           moduleHp: JSON.stringify(
-            placeAll(draught.placements, content().modules).map(
-              (module) => module.def.hitPoints,
+            placeAll(draught.placements, content().modules).map((module) =>
+              spec.crippled === true && module.def.type === 'engine' ? 0 : module.def.hitPoints,
             ),
           ),
           builtAt: now,

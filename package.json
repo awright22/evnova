@@ -30,7 +30,8 @@
     "verify:bourse": "tsx tools/verify/src/bourse.ts",
     "verify:convoy": "tsx tools/verify/src/convoy.ts",
     "verify:standing": "tsx tools/verify/src/standing.ts",
-    "verify:mining": "tsx tools/verify/src/mining.ts"
+    "verify:mining": "tsx tools/verify/src/mining.ts",
+    "verify:boarding": "tsx tools/verify/src/boarding.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -83,6 +83,7 @@ export const REJECTIONS = {
   'nothing-offered': 'An offer has to be of something.',
   'not-enough-cargo': 'That is not in the hold.',
   'not-adrift': 'That hull can still run. Stop it first.',
+  'target-protected': 'That hull has only just arrived. Leave it be.',
   'too-fast-to-board': 'Match speeds before putting anybody across.',
   'nothing-aboard': 'There is nothing in it worth taking.',
   'no-room-in-hold': 'There is not room aboard for that.',
