@@ -36,6 +36,11 @@ export const REJECTIONS = {
   'no-room': 'The hull will not take any more.',
   'nothing-to-do': 'Nothing to do: the hull is already sound.',
   'nothing-owed': 'The Prize Court has nothing against you.',
+  'no-such-design': 'No such draught on your books.',
+  'no-such-ship': 'No such hull.',
+  'too-many-designs': 'Your books are full. Clear a draught first.',
+  'too-many-ships': 'Your moorings are full.',
+  'no-yard': 'This berth keeps no Yard.',
   'no-such-commodity': 'The Register knows no such good.',
   'no-such-market': 'This berth keeps no Staple.',
   'nothing-to-trade': 'Nothing to trade.',
@@ -105,6 +110,40 @@ export function scrubChat(body: string): string {
     .slice(0, CHAT_MAX_LENGTH);
 }
 
+/** A module on the grid, as the editor sends it. */
+export const PlacementIntent = z.object({
+  moduleId: z.string().min(1).max(64),
+  x: z.int().min(-64).max(64),
+  y: z.int().min(-64).max(64),
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+});
+export type PlacementIntent = z.infer<typeof PlacementIntent>;
+
+/** Keep a design, or replace one already kept. */
+export const SaveDesignIntent = z.object({
+  id: z.string().max(64).optional(),
+  name: z.string().min(1).max(40),
+  placements: z.array(PlacementIntent).min(1).max(160),
+});
+export type SaveDesignIntent = z.infer<typeof SaveDesignIntent>;
+
+/** Forget a design. */
+export const ForgetDesignIntent = z.object({ id: z.string().min(1).max(64) });
+export type ForgetDesignIntent = z.infer<typeof ForgetDesignIntent>;
+
+/**
+ * Build a hull, or refit one.
+ *
+ * `refitting` names a hull the captain owns, which is changed rather than
+ * added to the hangar.
+ */
+export const BuildIntent = z.object({
+  name: z.string().min(1).max(40),
+  placements: z.array(PlacementIntent).min(1).max(160),
+  refitting: z.string().max(64).optional(),
+});
+export type BuildIntent = z.infer<typeof BuildIntent>;
+
 /** Buy from or sell to the berth's Staple. */
 export const StapleIntent = z.object({
   side: z.enum(['buy', 'sell']),
@@ -149,6 +188,8 @@ export const SERVER_MESSAGES = [
   'jump-complete',
   'jump-failed',
   'market',
+  'yard',
+  'survey',
 ] as const;
 
 /** A line as it reaches the other captains. */

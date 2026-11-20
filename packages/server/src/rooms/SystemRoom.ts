@@ -36,7 +36,10 @@ import {
   TICK_RATE,
   Rng,
   clamp,
+  BuildIntent,
   ChatIntent,
+  ForgetDesignIntent,
+  SaveDesignIntent,
   StapleIntent,
   berthRefusesPosted,
   compositionForDamage,
@@ -62,6 +65,7 @@ import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
 import { patrolPilot, unletteredPilot, type NpcPilot, type NpcRole } from './npc.ts';
 import { TradeRefused } from '../world/Market.ts';
+import { YardRefused } from '../world/Yard.ts';
 
 /** The draught every Open Ticket starts with. */
 const STARTER_BLUEPRINT = 'prudent-return';
@@ -478,6 +482,91 @@ export class SystemRoom extends Room<{
       return { launched: true };
     }),
 
+    /** Keep a draught on the captain's books. */
+    'save-design': validate(SaveDesignIntent, (client: Client, message: SaveDesignIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+
+      try {
+        const saved = world().yard.saveDesign(
+          pilot.accountId,
+          { ...(message.id !== undefined ? { id: message.id } : {}), name: message.name, placements: message.placements },
+          Date.now(),
+        );
+        this.sendYard(client.sessionId);
+        return saved;
+      } catch (error) {
+        if (error instanceof YardRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /** And take one off them. */
+    'forget-design': validate(
+      ForgetDesignIntent,
+      (client: Client, message: ForgetDesignIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          world().yard.deleteDesign(pilot.accountId, message.id);
+          this.sendYard(client.sessionId);
+          return { forgotten: message.id };
+        } catch (error) {
+          if (error instanceof YardRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /**
+     * Build a hull, or refit the one being flown.
+     *
+     * Only at a berth that keeps a Yard, and only from a design the server
+     * validates for itself: the editor's quote is a courtesy, not an
+     * authority.
+     */
+    build: validate(BuildIntent, (client: Client, message: BuildIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+      if (!port.services.includes('yard')) return ctx.reject('no-yard');
+
+      try {
+        const receipt = world().yard.build({
+          pilot,
+          portId: port.id,
+          systemId: this.state.systemId,
+          name: message.name,
+          placements: message.placements,
+          ...(message.refitting !== undefined ? { refitting: message.refitting } : {}),
+          now: Date.now(),
+        });
+
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+        this.sendStaple(client.sessionId, port);
+        this.sendYard(client.sessionId);
+        return receipt;
+      } catch (error) {
+        if (error instanceof YardRefused) {
+          // The problems go with the refusal: the editor marks them on the
+          // grid where they are, and a captain fixing one should not find the
+          // next by surprise.
+          this.clients.get(client.sessionId)?.send('survey', { problems: error.problems });
+          return ctx.reject(error.reason);
+        }
+        throw error;
+      }
+    }),
+
     /**
      * Trade at the berth's Staple.
      *
@@ -676,6 +765,18 @@ export class SystemRoom extends Room<{
     return Math.max(0, Math.floor(stats.cargoCapacity));
   }
 
+  /** What the captain has on their books and at their moorings. */
+  private sendYard(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    this.clients.get(sessionId)?.send('yard', {
+      designs: world().yard.designsOf(pilot.accountId),
+      ships: world().yard.shipsOf(pilot.accountId),
+      licence: pilot.licence,
+    });
+  }
+
   /** Send a captain alongside the berth's current prices and their own hold. */
   private sendStaple(sessionId: string, port: PortDef): void {
     const pilot = this.pilotsBySession.get(sessionId);
@@ -782,6 +883,7 @@ export class SystemRoom extends Room<{
         this.sendPurse(client.sessionId);
         const berth = this.system?.ports.find((p) => p.id === pilot.landedPortId);
         if (berth) this.sendStaple(client.sessionId, berth);
+        this.sendYard(client.sessionId);
         return;
       }
 
@@ -1227,6 +1329,7 @@ export class SystemRoom extends Room<{
     // than on a screen that has to ask for them.
     const berth = this.system?.ports.find((candidate) => candidate.id === portId);
     if (berth) this.sendStaple(sessionId, berth);
+    this.sendYard(sessionId);
 
     // A landed hull leaves the simulation and cannot be attacked. The
     // captain does not leave the room: they are standing on the berth, and
