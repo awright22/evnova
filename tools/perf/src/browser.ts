@@ -173,7 +173,19 @@ export async function captureFrames(
       await page.goto(`${baseUrl}/?harness=1&debug=1&callsign=Rate%20Card`, {
         waitUntil: 'networkidle',
       });
-      await page.waitForSelector('.hud', { timeout: 30_000 });
+      // Two minutes, and it says what is on screen if it never comes.
+      //
+      // Thirty seconds is enough on an idle box and not when the capture is
+      // bringing up a client under software rasterisation with two dozen
+      // bots already in the system — cycle 3's run failed here with nothing
+      // but the selector name, which is the fault this project keeps
+      // finding in its own harnesses.
+      try {
+        await page.waitForSelector('.hud', { timeout: 120_000 });
+      } catch (error) {
+        const body = (await page.locator('body').innerText().catch(() => '')).slice(0, 300);
+        throw new Error(`the flight view never came up.\nOn screen:\n${body}`, { cause: error });
+      }
       // Let textures generate and the link settle before measuring.
       await sleep(3000);
 

@@ -15,7 +15,7 @@ again — and the first one with a fair chance of being clean.
 | `pnpm play:late` | 27 of 27 |
 | `pnpm audio` | passes — 6 voyage checks, 31 sound events, the lane check now reporting `parity -> fairlead` |
 | `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.93 ms**, no spike over 33 ms, 0 of 12 diverging; worst drift EMA 0.0789, peak 0.1639 |
-| `pnpm perf` | *filled in below* |
+| `pnpm perf` | sim step **0.0075 ms** mean for 30 ships (0.25 µs a ship, p99 is 0.09% of a 60 fps frame); the browser capture timed out — see N8 |
 | **CI** | ran for the first time; see B1 |
 
 ## Findings
@@ -153,7 +153,18 @@ CI install, a capture sweep and four browsers having been through the box in
 the preceding hour. Cycle 4 runs it on a quieter machine and will say
 whether it comes back to zero.
 
-**N8. Two of the three required browsers have never been run.** Spec section
+**N8. The performance capture gave up after thirty seconds and said only
+the selector.** `pnpm perf` reported its simulation figures — 0.0075 ms a
+step for thirty ships, inside every budget — and then failed bringing up a
+browser client: `page.waitForSelector: Timeout 30000ms exceeded`. Thirty
+seconds is enough on an idle box and not while two dozen bots are already
+in the system under software rasterisation. Two minutes now, and it says
+what is on the screen if the flight view never comes.
+
+The load figures from the last clean run still stand — 1.56 MB to the title
+screen, interactive in 249 ms — and will be re-measured in cycle 4.
+
+**N9. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So
