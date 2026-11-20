@@ -307,6 +307,26 @@ export const Tuning = z.object({
     maxHops: z.int().positive(),
   }),
   manufacturers: z.record(ManufacturerId, z.string().min(1)),
+  standing: z.object({
+    floor: z.number(),
+    ceiling: z.number(),
+    opening: z.number(),
+    /** A berth closes to a captain below this. */
+    refusedBelow: z.number(),
+    /** Above this, standing starts shading the Staple's spread. */
+    discountAbove: z.number(),
+    /** And never by more than this fraction, which stays inside the spread. */
+    maxDiscount: z.number().min(0).max(0.5),
+    /** A gain with one company costs this fraction of it with the others. */
+    rivalShare: z.number().min(0).max(1),
+    perTradeUnit: z.number(),
+    perFreighterLost: z.number(),
+    perUnletteredKilled: z.number(),
+    perCommission: z.number(),
+    perSmugglingCaught: z.number(),
+    /** How fast an unworked standing drifts back toward nothing, a day. */
+    decayPerDay: z.number().nonnegative(),
+  }),
   exchange: z.object({
     /** Seconds between market ticks. */
     tickSeconds: z.number().positive(),
@@ -446,12 +466,16 @@ export const EarningsRule = z.discriminatedUnion('kind', [
 ]);
 export type EarningsRule = z.infer<typeof EarningsRule>;
 
+/** Whose charter a listed company belongs to, or nobody's. */
+export const CompanyParent = z.enum(['kessler', 'thirty', 'reprisal', 'independent']);
+export type CompanyParent = z.infer<typeof CompanyParent>;
+
 export const CompanyDef = z.object({
   /** Three letters, as the Gazette prints them. */
   ticker: z.string().regex(/^[A-Z]{3}$/),
   name: z.string().min(1),
   /** Which charter it belongs to, or independent. */
-  parent: z.enum(['kessler', 'thirty', 'reprisal', 'independent']),
+  parent: CompanyParent,
   sector: z.string().min(1),
   /**
    * Whose ports count as "its ports" for a goods-sold rule.

@@ -16,6 +16,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import {
   capacityFor,
   content,
+  isCharter,
   driftStock,
   netRate,
   openingPile,
@@ -31,6 +32,7 @@ import {
 
 import { schema, type Store } from '../db/index.ts';
 import type { Exchange } from './Exchange.ts';
+import type { Standings } from './Standings.ts';
 import { InsufficientMarks, type Ledger } from './Ledger.ts';
 import type { Pilot } from './PilotStore.ts';
 
@@ -123,6 +125,15 @@ export class Market {
    * it; an earnings event with nobody listening is simply not reported.
    */
   exchange: Exchange | undefined;
+
+  /**
+   * What the charters think of each captain, once the world has it.
+   *
+   * The Staple reads it twice: a berth belonging to a company a captain is
+   * barred from will not trade with them at all, and a regular pays a little
+   * less than a stranger.
+   */
+  standings: Standings | undefined;
 
   constructor(
     private readonly store: Store,
@@ -246,10 +257,28 @@ export class Market {
         possible = Math.min(possible, carried, pile.capacity - pile.stock);
       }
 
-      const priced = quote(options.side, possible, pile, commodity, tuning);
-      if (priced.units <= 0) {
+      const quoted = quote(options.side, possible, pile, commodity, tuning);
+      if (quoted.units <= 0) {
         throw new TradeRefused(options.side === 'buy' ? 'out-of-stock' : 'berth-full');
       }
+
+      // A regular pays a little less and is paid a little more. Half the
+      // spread at the very most, so a favoured captain still loses on a round
+      // trip at one berth: invariant 1 does not have an exception for being
+      // liked.
+      const favour = isCharter(options.port.owner)
+        ? (this.standings?.discount(options.pilot.accountId, options.port.owner) ?? 0)
+        : 0;
+      const priced =
+        favour > 0
+          ? {
+              ...quoted,
+              marks:
+                options.side === 'buy'
+                  ? Math.ceil(quoted.marks * (1 - favour))
+                  : Math.floor(quoted.marks * (1 + favour)),
+            }
+          : quoted;
 
       // Marks first: a refusal here must leave the berth and the hold alone,
       // and the transaction would roll them back anyway.
@@ -272,6 +301,18 @@ export class Market {
       }
 
       this.writeStock(options.port.id, commodity.id, priced.stockAfter, options.now);
+
+      // Dealing with a company's berth is how a captain becomes known to it.
+      // Per unit, not per mark, so hauling bulk earns standing at the same
+      // rate as hauling luxuries and a captain cannot buy regard outright.
+      if (isCharter(options.port.owner)) {
+        this.standings?.shift(
+          options.pilot.accountId,
+          options.port.owner,
+          priced.units * tuning.standing.perTradeUnit,
+          options.now,
+        );
+      }
 
       // The producer earns when goods actually leave its berth's stockpile to
       // a buyer — spec section 10's one costly-to-fake event for a producer.

@@ -61,6 +61,7 @@ export const REJECTIONS = {
   'holding-capped': 'You may not hold more of one company than that.',
   'not-holding': 'You do not hold that many shares.',
   'market-too-thin': 'The pool will not take an order that size. Try a smaller parcel.',
+  'barred-here': 'This company will not have you alongside.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -318,6 +319,7 @@ export const SERVER_MESSAGES = [
   'bourse',
   'news',
   'standings',
+  'standing',
 ] as const;
 
 /** A line as it reaches the other captains. */

@@ -19,6 +19,7 @@ import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
 import { ChatLog } from './ChatLog.ts';
 import { Exchange } from './Exchange.ts';
+import { Standings } from './Standings.ts';
 import { Gazette } from './Gazette.ts';
 import { Ledger } from './Ledger.ts';
 import { Freight } from './Freight.ts';
@@ -65,6 +66,7 @@ export class World {
   readonly freight: Freight;
   readonly yard: Yard;
   readonly exchange: Exchange;
+  readonly standings: Standings;
   readonly gazette = new Gazette();
   readonly chat = new ChatLog();
 
@@ -97,12 +99,14 @@ export class World {
     this.market = new Market(this.store, this.ledger);
     this.freight = new Freight(this.market);
     this.yard = new Yard(this.store, this.ledger, this.market);
+    this.standings = new Standings(this.store);
     this.exchange = new Exchange(this.store, this.ledger);
     // The Staple and the Yard credit companies for what actually leaves a
     // stockpile and what is actually spent on fittings, so they need the
     // Bourse. Set after construction because the Exchange needs the ledger,
     // which they also hold.
     this.market.exchange = this.exchange;
+    this.market.standings = this.standings;
     this.yard.exchange = this.exchange;
     this.freight.exchange = this.exchange;
     this.exchange.seed();
@@ -148,6 +152,9 @@ export class World {
       // berth that only eats something from running out for good.
       this.freight.run(hours, now);
       this.tickBourse(now);
+      // An old grudge and an old favour both fade, at the same measured rate
+      // the rest of the world moves at.
+      this.standings.decayAll(hours, now);
     } catch (error) {
       // A failed drift must not stop the world; the next one covers the gap,
       // because the elapsed time is measured and not assumed.

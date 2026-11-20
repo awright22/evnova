@@ -179,6 +179,7 @@ export function App(): React.JSX.Element {
             hasYard={port.services.includes('yard')}
             hasMoorings={port.services.includes('moorings')}
             hasBourse={port.services.includes('bourse')}
+            standing={snapshot.standing}
           />
           {bourseOpen && (
             <Bourse

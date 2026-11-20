@@ -262,12 +262,34 @@ export const holdings = sqliteTable(
   (table) => [primaryKey({ columns: [table.accountId, table.ticker] })],
 );
 
+/**
+ * What each charter thinks of a captain.
+ *
+ * One row per captain per charter rather than three columns on the pilot,
+ * because the set of charters is content: spec section 19 fixes it at three
+ * today, and a row is the shape that does not need a migration if that ever
+ * reads differently.
+ */
+export const standings = sqliteTable(
+  'standings',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    charter: text('charter').notNull(),
+    value: real('value').notNull().default(0),
+    /** When it last moved, so decay is measured and not assumed. */
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.charter] })],
+);
+
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * Migrations, applied in order.
@@ -420,6 +442,18 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         CHECK (cost_basis >= 0)
       );
       CREATE INDEX IF NOT EXISTS holdings_ticker ON holdings (ticker);
+    `,
+  },
+  {
+    version: 7,
+    up: `
+      CREATE TABLE IF NOT EXISTS standings (
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        charter TEXT NOT NULL,
+        value REAL NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (account_id, charter)
+      );
     `,
   },
 ];

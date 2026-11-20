@@ -157,3 +157,53 @@
 .port__actions .micro {
   opacity: 0.7;
 }
+
+/* --- Standing ------------------------------------------------------------ */
+
+.port__standing {
+  padding-bottom: var(--space-1);
+}
+
+.port__charters {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.port__charter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.port__charter:last-child {
+  border-bottom: none;
+}
+
+/*
+ * Whose berth this is. Marked with a rule down the left rather than a fill:
+ * it is the one of the three that decides whether the door opens, not a
+ * warning about it.
+ */
+.port__charter--here {
+  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.port__charter-reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.port__charter-reading .data {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

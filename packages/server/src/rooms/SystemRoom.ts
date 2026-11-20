@@ -55,6 +55,9 @@ import {
   buildCost,
   builtBlueprint,
   encodeShareCode,
+  isCharter,
+  standingName,
+  CHARTERS,
   placeAll,
   stepFlight,
   type Blueprint,
@@ -355,6 +358,16 @@ export class SystemRoom extends Room<{
         berthRefusesPosted(security, content().tuning.law)
       ) {
         return ctx.reject('posted-here');
+      }
+
+      // And a company's own berth closes to a captain it has had enough of.
+      // Only its own: being hated by the Thirty does not shut a Kessler
+      // counting-house, which is what makes taking a side survivable.
+      const berth = this.system?.ports.find((candidate) => candidate.id === message.port);
+      if (pilot && berth && isCharter(berth.owner)) {
+        if (!world().standings.accepts(pilot.accountId, berth.owner)) {
+          return ctx.reject('barred-here');
+        }
       }
 
       // Asking again for the berth already being approached is a no-op, not a
@@ -1763,6 +1776,7 @@ export class SystemRoom extends Room<{
     if (berth) this.sendStaple(sessionId, berth);
     this.sendYard(sessionId);
     this.sendBourse(sessionId);
+    this.sendStanding(sessionId);
 
     // A landed hull leaves the simulation and cannot be attacked. The
     // captain does not leave the room: they are standing on the berth, and
@@ -1857,6 +1871,70 @@ export class SystemRoom extends Room<{
   // --- Aftermath ----------------------------------------------------------
 
   /**
+   * What a kill does to the killer's standing.
+   *
+   * Only a captain's kills count: the Unlettered shooting a freighter is the
+   * Unlettered being themselves, and crediting a captain for it would pay
+   * them for being in the room. Nothing here reads who was shot *at* — a hull
+   * is judged by what it was, which is what a company's assessor would see.
+   */
+  private noteKill(id: string, ship: ShipState, killedBy: string): void {
+    const killer = this.pilotsBySession.get(killedBy);
+    if (!killer || killedBy === id) return;
+
+    const { tuning } = content();
+    const now = Date.now();
+
+    // Destroying a company's freighter is the clearest way to be disliked by
+    // it. Which company is whoever owns the berth it was working out of.
+    if (ship.freighter) {
+      const owner = this.system?.ports.find((port) => isCharter(port.owner))?.owner;
+      if (owner !== undefined && isCharter(owner)) {
+        world().standings.shift(
+          killer.accountId,
+          owner,
+          tuning.standing.perFreighterLost,
+          now,
+        );
+        this.sendStanding(killedBy);
+      }
+      return;
+    }
+
+    // And clearing the Unlettered off a lane is worth something to whoever
+    // holds that lane. They are nobody's licensed raiders, so every charter
+    // with a berth in the system is glad of it.
+    const pilot = this.pilots.get(id);
+    if (pilot?.role === 'unlettered') {
+      const owner = this.system?.ports.find((port) => isCharter(port.owner))?.owner;
+      if (owner !== undefined && isCharter(owner)) {
+        world().standings.shift(
+          killer.accountId,
+          owner,
+          tuning.standing.perUnletteredKilled,
+          now,
+        );
+        this.sendStanding(killedBy);
+      }
+    }
+  }
+
+  /** Tell a captain where they stand with the three charters. */
+  private sendStanding(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const { tuning } = content();
+    const standings = world().standings.of(pilot.accountId);
+    this.clients.get(sessionId)?.send('standing', {
+      standings,
+      names: Object.fromEntries(
+        CHARTERS.map((charter) => [charter, standingName(standings[charter], tuning)]),
+      ),
+    });
+  }
+
+  /**
    * A freighter did not arrive.
    *
    * Two companies lose. The carrier for this region loses the haulage it will
@@ -1936,6 +2014,7 @@ export class SystemRoom extends Room<{
     }
     if (spilled.length > 0) this.combat.spill(ship, spilled, this.clock.elapsedTime);
 
+    this.noteKill(id, ship, killedBy);
     this.combat.retireRoundsOf(id);
 
     // Writing off lawful traffic is a separate matter from damaging it.

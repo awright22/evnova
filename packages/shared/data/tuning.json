@@ -193,5 +193,25 @@
     "$multipleComment": "Marks of value per mark of earnings a tick. Large because a tick is twenty seconds and a company is worth rather more than twenty seconds of trading; fairValue divides by the float, so this is a company-wide figure and not a price.",
     "earningsFloor": 0.25,
     "$earningsFloorComment": "A company is never worth nothing. Smoothed earnings never fall below this fraction of what the company opened on, because a quiet quarter does not sell the yards: there is still a going concern underneath. Without it a listing whose earnings depend on player orders alone \u2014 Slipway, which earns only on its fittings \u2014 decays to the value floor within a day of nobody building, and then spikes many times over on the next hull. A quarter leaves a bad year costing three quarters of the share price, which is a drawdown and not a collapse."
+  },
+  "standing": {
+    "$comment": "What a captain is worth to each of the three companies. Spec section 11: a standing responds to what they do and affects port access, prices and which commissions they are offered. It is not experience: it can fall as fast as it rises, and it is held per company, so pleasing one costs with the others.",
+    "floor": -1000,
+    "ceiling": 1000,
+    "opening": 0,
+    "refusedBelow": -600,
+    "$refusedBelowComment": "A berth closes to a captain this far out of favour. Low enough that it takes a campaign to reach, not one bad afternoon.",
+    "discountAbove": 400,
+    "maxDiscount": 0.03,
+    "$discountComment": "Standing shades the Staple's spread in a captain's favour, up to this fraction, so a regular is worth being. Half the spread, not all of it: invariant 1 says buying and selling back at one berth loses money, and a discount that merely matched the spread would make the round trip free for a favoured captain, which is the same hole one step smaller.",
+    "rivalShare": 0.5,
+    "$rivalShareComment": "A gain with one company costs this fraction of it with each of the other two, which at a half makes standing zero-sum across the three charters: working all three in rotation nets exactly nothing. Below a half it does not \u2014 at 0.4 a captain gains a fifth of every push and ends up well in with everybody, which is the one state the setting cannot have.",
+    "perTradeUnit": 0.02,
+    "perFreighterLost": -45,
+    "perUnletteredKilled": 12,
+    "perCommission": 60,
+    "perSmugglingCaught": -120,
+    "decayPerDay": 6,
+    "$decayComment": "Standing drifts back toward nothing when a captain stops dealing with a company at all, so an old grudge and an old favour both fade."
   }
 }

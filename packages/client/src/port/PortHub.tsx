@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 
-import { content, placeAll } from '@marque/shared';
+import { CHARTERS, content, placeAll } from '@marque/shared';
 
 import type { ChartPort, ChartSystem } from '../map/galaxy.ts';
 import { PortVista } from './PortVista.tsx';
@@ -23,6 +23,23 @@ import './port.css';
  * berth's own words: the captain is told the floor is shut, not which
  * milestone opens it.
  */
+/**
+ * The charters, as a captain reads them.
+ *
+ * Named here rather than taken from content because these three are fixed by
+ * spec section 19 and the port's `owner` is the plain key, not a label.
+ */
+const CHARTER_NAMES: Record<string, string> = {
+  kessler: 'Kessler & Daughters',
+  thirty: 'The Thirty',
+  reprisal: 'The Reprisal Company',
+  neutral: 'Independent',
+  unlettered: 'the Unlettered',
+};
+
+/** Services the hub gives a row of its own, so the footer does not repeat them. */
+const ROWED_ABOVE = new Set(['repair', 'staple', 'yard', 'bourse', 'moorings']);
+
 const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
   staple: { name: 'the Staple', trading: true },
   bourse: { name: 'the Bourse', trading: true },
@@ -73,6 +90,8 @@ export interface PortHubProps {
   readonly hasYard: boolean;
   readonly hasMoorings: boolean;
   readonly hasBourse: boolean;
+  /** Where this captain stands with the three charters, once it is known. */
+  readonly standing: { standings: Record<string, number>; names: Record<string, string> } | undefined;
 }
 
 export function PortHub({
@@ -87,6 +106,7 @@ export function PortHub({
   hasYard,
   hasMoorings,
   hasBourse,
+  standing,
 }: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
   const [focusMoved, setFocusMoved] = useState(false);
@@ -260,15 +280,46 @@ export function PortHub({
             )}
           </div>
 
+          {standing !== undefined && (
+            <section className="port__standing panel">
+              <header className="panel-header">
+                <h2>Standing</h2>
+                <span className="micro">{CHARTER_NAMES[state.port.owner] ?? 'Independent'}</span>
+              </header>
+              <ul className="port__charters">
+                {CHARTERS.map((charter) => {
+                  const value = standing.standings[charter] ?? 0;
+                  const here = charter === state.port.owner;
+                  return (
+                    <li
+                      key={charter}
+                      className={here ? 'port__charter port__charter--here' : 'port__charter'}
+                    >
+                      <span>{CHARTER_NAMES[charter]}</span>
+                      <span className="port__charter-reading">
+                        <span className={value < 0 ? 'is-loss' : value > 0 ? 'is-gain' : undefined}>
+                          {standing.names[charter] ?? 'Unknown'}
+                        </span>
+                        <span className="data micro">
+                          {value > 0 ? '+' : ''}
+                          {Math.round(value)}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
           <footer className="port__offers">
             <span className="label">Also at this berth</span>
             <ul>
               {state.port.services
-                // Repairs and the Staple have rows of their own above.
-                .filter(
-                  (service) =>
-                    service !== 'repair' && service !== 'staple' && service !== 'yard',
-                )
+                // Everything with a row of its own above. This listed the
+                // Bourse and the Moorings a second time, under a heading
+                // that means "and these as well".
+                .filter((service) => !ROWED_ABOVE.has(service))
                 .map((service) => {
                   const label = SERVICE_LABELS[service];
                   return (

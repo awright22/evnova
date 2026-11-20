@@ -93,6 +93,12 @@ export interface StapleState {
   readonly holdUsed: number;
 }
 
+/** What the three charters think of this captain, and what to call it. */
+export interface StandingState {
+  readonly standings: Record<string, number>;
+  readonly names: Record<string, string>;
+}
+
 /** The floor, the feed and the board, as one screen's worth of state. */
 export interface BourseState {
   readonly listings: readonly Listing[];
@@ -154,6 +160,8 @@ export interface GameSnapshot {
   readonly yard: YardState | undefined;
   /** The Bourse, the Gazette and the standings, while alongside one. */
   readonly bourse: BourseState | undefined;
+  /** Where this captain stands with the three charters. */
+  readonly standing: StandingState | undefined;
   /** What the server's survey found, when it refused a build. */
   readonly surveyProblems: readonly Problem[];
 }
@@ -205,6 +213,7 @@ export class GameClient {
   private staple: StapleState | undefined;
   private yard: YardState | undefined;
   private bourse: BourseState | undefined;
+  private standing: StandingState | undefined;
   private surveyProblems: readonly Problem[] = [];
   private disposed = false;
 
@@ -246,6 +255,7 @@ export class GameClient {
       staple: this.staple,
       yard: this.yard,
       bourse: this.bourse,
+      standing: this.standing,
       surveyProblems: this.surveyProblems,
     };
   }
@@ -425,6 +435,11 @@ export class GameClient {
     // The three arrive separately but are one screen, so they are held
     // together and the parts that have not arrived yet read as empty rather
     // than as undefined.
+    room.onMessage('standing', (payload) => {
+      this.standing = payload as StandingState;
+      this.emit();
+    });
+
     room.onMessage('bourse', (payload) => {
       const board = payload as { listings: Listing[]; feeRate: number; maxPoolFraction: number };
       this.bourse = {
