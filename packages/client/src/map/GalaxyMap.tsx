@@ -24,6 +24,14 @@ export interface GalaxyMapProps {
   readonly refusal: string | undefined;
   /** The course already plotted, so the chart opens on it. */
   readonly course: string | undefined;
+  /**
+   * Which systems hold a captain sailing in convoy, and who.
+   *
+   * Spec section 12 wants a convoy visible on the chart as well as on the
+   * radar: on a map the useful fact is not where somebody is to the metre,
+   * it is which system to set a course for.
+   */
+  readonly convoy: ReadonlyMap<string, readonly string[]>;
   onJump: (systemId: string) => void;
   /** Note the destination without spooling, so J can spool for it later. */
   onPlot: (systemId: string) => void;
@@ -37,6 +45,7 @@ export function GalaxyMap({
   propellant,
   jumpCost,
   refusal,
+  convoy,
   course,
   onJump,
   onPlot,
@@ -205,6 +214,7 @@ export function GalaxyMap({
                 const isHere = system.id === currentSystem;
                 const canReach = reachableSet.has(system.id);
                 const isSelected = system.id === selected;
+                const sailing = convoy.get(system.id) ?? [];
                 return (
                   <g
                     key={system.id}
@@ -224,6 +234,26 @@ export function GalaxyMap({
                     <circle cx={system.mapX} cy={system.mapY} r={isHere ? 8 : 5.5} className="chart__dot" />
                     {isHere && (
                       <circle cx={system.mapX} cy={system.mapY} r={13} className="chart__here" />
+                    )}
+                    {/*
+                      A broken ring for a system with somebody of yours in
+                      it: open, so it never reads as the solid ring that
+                      means "you are here", and dashed so it is told apart
+                      from both by shape rather than by colour alone.
+                    */}
+                    {sailing.length > 0 && (
+                      <circle
+                        cx={system.mapX}
+                        cy={system.mapY}
+                        r={11}
+                        className="chart__convoy"
+                      >
+                        <title>
+                          {sailing.length === 1
+                            ? `${sailing[0]}, sailing with you`
+                            : `${sailing.length} of your convoy`}
+                        </title>
+                      </circle>
                     )}
                     <text x={system.mapX} y={system.mapY - 16} className="chart__label">
                       {system.name}

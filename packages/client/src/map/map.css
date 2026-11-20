@@ -95,6 +95,21 @@
   stroke-width: 1.5;
 }
 
+/*
+ * A system with somebody of your convoy in it.
+ *
+ * Dashed and dim: the solid amber ring means "you are here", and the two
+ * should never be mistaken for each other at a glance. Dashed rather than
+ * only dimmer, so it reads without colour.
+ */
+.chart__convoy {
+  fill: none;
+  stroke: var(--amber-dim);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 4;
+  pointer-events: none;
+}
+
 .chart__halo {
   fill: none;
   stroke: var(--amber-bright);

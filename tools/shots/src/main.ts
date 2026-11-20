@@ -161,7 +161,12 @@ async function main(): Promise<void> {
     //    posted to anybody who has not run six beats of it. Written before
     //    the server opens the file, with the environment the server will
     //    read, so the seeded world is the one the game would have made.
-    const specs = screens.flatMap((screen) => (screen.seed ? [screen.seed] : []));
+    const specs = screens.flatMap((screen) => [
+      // Companions first: a convoy's invitation names a captain, and the
+      // captain has to exist before anybody can name them.
+      ...(screen.companions ?? []).map((companion) => companion.seed),
+      ...(screen.seed ? [screen.seed] : []),
+    ]);
     const tokens = new Map<string, string>();
     if (specs.length > 0) {
       console.log(`Seeding ${specs.length} captain(s)...`);
@@ -232,7 +237,28 @@ async function main(): Promise<void> {
         if (screen.seed && token === undefined) {
           throw new Error(`no device token was seeded for "${screen.seed.callsign}"`);
         }
-        const file = await capture(browser, baseUrl, screen, options, token);
+
+        // Bring any companions online first and leave them there: a screen
+        // about two captains cannot be photographed from one page.
+        const held: Playwright.BrowserContext[] = [];
+        for (const companion of screen.companions ?? []) {
+          const theirToken = tokens.get(companion.seed.callsign);
+          if (theirToken === undefined) {
+            throw new Error(`no device token was seeded for "${companion.seed.callsign}"`);
+          }
+          // Only the ones with something to do need a browser at all.
+          if (!companion.act) continue;
+          held.push(
+            await openCompanion(browser, baseUrl, companion.seed.callsign, theirToken, companion.act, options),
+          );
+        }
+
+        let file: string;
+        try {
+          file = await capture(browser, baseUrl, screen, options, token);
+        } finally {
+          for (const context of held) await context.close();
+        }
         captured.push({ name: screen.name, file, description: screen.description });
         console.log(`  captured ${screen.name}`);
       }
@@ -287,6 +313,45 @@ async function runSeed(
   } catch {
     throw new Error(`seeding printed no tokens:\n${seeder.output()}`);
   }
+}
+
+/**
+ * Another captain, online and left there.
+ *
+ * Returns its context so the caller can close it once the capture is taken:
+ * a companion held open past its screen would still be standing at the berth
+ * when the next one is photographed.
+ */
+async function openCompanion(
+  browser: Playwright.Browser,
+  baseUrl: string,
+  callsign: string,
+  deviceToken: string,
+  act: (page: Playwright.Page) => Promise<void>,
+  options: Options,
+): Promise<Playwright.BrowserContext> {
+  const context = await browser.newContext({
+    viewport: options.viewport,
+    colorScheme: 'dark',
+    reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  await page.addInitScript(
+    ([name, token]: [string, string]) => {
+      try {
+        localStorage.setItem('marque.callsign', name);
+        localStorage.setItem('marque.deviceToken', token);
+      } catch {
+        // Storage disabled: this captain stays on the Register, and the
+        // screen that wanted them says so rather than lying about it.
+      }
+    },
+    [callsign, deviceToken] as [string, string],
+  );
+
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await act(page);
+  return context;
 }
 
 async function capture(

@@ -24,9 +24,12 @@ import { CHARTERS, content, type Charter } from '@marque/shared';
 
 import { Accounts } from '@marque/server/src/accounts.ts';
 import { openStore, schema } from '@marque/server/src/db/index.ts';
+import { Convoys } from '@marque/server/src/world/Convoys.ts';
 import { Ledger } from '@marque/server/src/world/Ledger.ts';
+import { Market } from '@marque/server/src/world/Market.ts';
 import { PilotStore } from '@marque/server/src/world/PilotStore.ts';
 import { Standings } from '@marque/server/src/world/Standings.ts';
+import { Yard } from '@marque/server/src/world/Yard.ts';
 
 /** A captain to write, and what they should already have behind them. */
 export interface SeedSpec {
@@ -37,6 +40,19 @@ export interface SeedSpec {
   readonly at?: string;
   /** Mark every beat of this chain answered, so its ending is waiting. */
   readonly chainDone?: string;
+  /** Goods in the hold, by commodity id. */
+  readonly cargo?: Record<string, number>;
+  /** Draughts on this captain's books, by name. */
+  readonly designs?: readonly string[];
+  /**
+   * Callsigns to open a convoy with, this captain leading.
+   *
+   * They must be seeded too, and earlier in the list: a convoy is a row
+   * about two captains and both have to exist.
+   */
+  readonly convoyWith?: readonly string[];
+  /** Callsigns this captain has asked, who have not answered. */
+  readonly convoyAsked?: readonly string[];
 }
 
 /** Where a berth is, and which system it is in. */
@@ -53,9 +69,12 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
   const accounts = new Accounts(store);
   const pilots = new PilotStore(store);
   const standings = new Standings(store);
-  // Constructed so a seeded captain's marks go through the same ledger the
-  // game uses; nothing here posts, but the services expect it to exist.
-  void new Ledger(store);
+  const convoys = new Convoys(store);
+  // The game's own services, so a seeded world is one the real code would
+  // also have produced rather than a set of rows that happen to look right.
+  const ledger = new Ledger(store);
+  const market = new Market(store, ledger);
+  const yard = new Yard(store, ledger, market);
 
   const tokens: Record<string, string> = {};
   const now = Date.now();
@@ -96,6 +115,34 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
       pilot.y = where.y + 60;
       pilots.touch(accountId);
       pilots.flush();
+    }
+
+    for (const [commodityId, units] of Object.entries(spec.cargo ?? {})) {
+      market.adjustCargo(accountId, commodityId, units);
+    }
+
+    for (const name of spec.designs ?? []) {
+      // A plain hull: the capture is of a list of names, not of a grid.
+      yard.saveDesign(accountId, { name, placements: [] }, now);
+    }
+
+    const toAsk = [...(spec.convoyWith ?? []), ...(spec.convoyAsked ?? [])];
+    if (toAsk.length > 0) {
+      // The invitation itself names them, and the view it returns carries
+      // their account id, so there is nothing to look up.
+      let convoyId = '';
+      for (const callsign of toAsk) {
+        convoyId = convoys.invite(accountId, callsign, now).id;
+      }
+      for (const callsign of spec.convoyWith ?? []) {
+        const them = convoys
+          .view(convoyId)
+          .members.find(
+            (member) => member.callsign.toLowerCase() === callsign.trim().toLowerCase(),
+          );
+        if (!them) throw new Error(`no captain called "${callsign}"`);
+        convoys.accept(them.accountId, convoyId, now);
+      }
     }
 
     if (spec.chainDone !== undefined) {

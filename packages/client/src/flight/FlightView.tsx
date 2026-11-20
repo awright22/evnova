@@ -55,6 +55,13 @@ export interface FlightViewProps {
   onCancelJump: () => void;
   /** True while the chat composer has the keyboard. */
   readonly composing: boolean;
+  /**
+   * Callsigns of the captains sailing in convoy with this one.
+   *
+   * By callsign because that is what a hull in the simulation carries: the
+   * room's ships know who they are, not which account they belong to.
+   */
+  readonly convoy: ReadonlySet<string>;
 }
 
 export function FlightView({
@@ -68,6 +75,7 @@ export function FlightView({
   onJump,
   onCancelJump,
   composing,
+  convoy,
 }: FlightViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const radarRef = useRef<HTMLCanvasElement | null>(null);
@@ -109,6 +117,11 @@ export function FlightView({
   useEffect(() => {
     if (composing) keyboardRef.current?.releaseAll();
   }, [composing]);
+
+  // Read through a ref: the draw loop runs outside React and a new Set on
+  // every render would rebuild the effect that owns the renderer.
+  const convoyRef = useRef(convoy);
+  convoyRef.current = convoy;
 
   const liveRef = useRef({
     purse,
@@ -391,7 +404,13 @@ export function FlightView({
             writtenOff: view.writtenOff,
           };
           frames.push(shipFrame);
-          contacts.push({ x: view.x, y: view.y, kind: 'ship', isSelf });
+          contacts.push({
+            x: view.x,
+            y: view.y,
+            kind: 'ship',
+            isSelf,
+            convoy: !isSelf && convoyRef.current.has(view.callsign),
+          });
           if (isSelf) self = shipFrame;
         }
 

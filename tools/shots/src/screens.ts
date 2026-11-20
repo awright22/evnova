@@ -20,6 +20,18 @@ export interface Screen {
    * as them instead of opening a new account. See `seed.ts`.
    */
   readonly seed?: SeedSpec;
+  /**
+   * Other captains, seeded and brought online in pages of their own.
+   *
+   * Some screens are about two captains in the same room — an offer needs
+   * somebody to offer to — and one browser page can only ever be one of
+   * them. These are opened first, driven by their own `act`, and held open
+   * while the screen is captured.
+   */
+  readonly companions?: readonly {
+    readonly seed: SeedSpec;
+    readonly act?: (page: Page) => Promise<void>;
+  }[];
   /** Prepare the page before it loads, e.g. block the server to force a state. */
   readonly setup?: (page: Page) => Promise<void>;
   /** Wait for this selector before capturing. */
@@ -563,6 +575,89 @@ export const SCREENS: readonly Screen[] = [
       // The second choice, which is the one that pays and costs nothing yet.
       await page.click('.board__choices li:nth-child(2) .board__choice');
       await page.waitForTimeout(600);
+    },
+  },
+  {
+    name: 'convoy',
+    description:
+      'Sailing in convoy: who is in it, where each of them is, who has been asked and has '
+      + 'not answered, and the field for asking another captain.',
+    path: '/?callsign=Fair%20Wind',
+    settle: '.hud',
+    settleMs: 900,
+    seed: {
+      callsign: 'Fair Wind',
+      at: 'countinghouse',
+      // Two sailing with them and one who has not answered, which is every
+      // row the screen can draw at once.
+      convoyWith: ['Slack Water', 'Dead Reckoning'],
+      convoyAsked: ['Lee Helm'],
+    },
+    // Three captains who have to exist for the convoy to name them. One of
+    // them comes online and lands, so the screen shows a member alongside a
+    // berth as well as members who are not on the link.
+    companions: [
+      { seed: { callsign: 'Lee Helm' } },
+      { seed: { callsign: 'Dead Reckoning' } },
+      {
+        seed: { callsign: 'Slack Water', at: 'lading' },
+        act: async (page) => {
+          await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+          await page.keyboard.press('KeyL');
+          await page.waitForSelector('.port', { timeout: 20_000 });
+        },
+      },
+    ],
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open it")');
+      await page.waitForSelector('.convoy', { timeout: 20_000 });
+      await page.waitForTimeout(600);
+    },
+  },
+  {
+    name: 'offers',
+    description:
+      'An offer between two captains alongside the same berth: what leaves the hold, what '
+      + 'is paid for it, and what the purse comes to afterwards.',
+    path: '/?callsign=Supercargo%20Three',
+    settle: '.hud',
+    settleMs: 900,
+    seed: {
+      callsign: 'Supercargo Three',
+      at: 'countinghouse',
+      cargo: { alloy: 180, leaf: 40, provisions: 60 },
+      designs: ['Prudent Return', 'Short Measure'],
+    },
+    // Somebody to hand it to, standing at the same berth. Nothing else will
+    // do: the screen's whole subject is two captains in one room.
+    companions: [
+      {
+        seed: { callsign: 'Broken Stowage', at: 'countinghouse' },
+        act: async (page) => {
+          await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+          await page.keyboard.press('KeyL');
+          await page.waitForSelector('.port', { timeout: 20_000 });
+        },
+      },
+    ],
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Offers")');
+      await page.waitForSelector('.offers', { timeout: 20_000 });
+
+      // Put a real parcel and a real price on the ticket: an empty ticket
+      // photographs the controls rather than the thing they are for.
+      await page.locator('.offers__units').first().fill('60');
+      await page.locator('.offers__figure').fill('3500');
+      await page.click('.offers__chip:text("Prudent Return")');
+      await page.waitForTimeout(700);
     },
   },
   {

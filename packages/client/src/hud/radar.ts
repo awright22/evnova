@@ -19,6 +19,8 @@ export interface RadarContact {
   readonly y: number;
   readonly kind: 'ship' | 'port' | 'star';
   readonly isSelf: boolean;
+  /** A captain sailing in convoy with this one. */
+  readonly convoy?: boolean;
 }
 
 export function drawRadar(
@@ -105,8 +107,18 @@ export function drawRadar(
         break;
 
       case 'ship':
-        ctx.fillStyle = css(p.textPrimary, beyond ? 0.45 : 1);
-        ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
+        // A captain sailing with you reads as yours without reading as you:
+        // the dim amber of the "yours, not active" family, and hollow rather
+        // than filled, so the two are told apart by shape as well as by
+        // colour. Everything else on this radar is distinguished by shape.
+        if (contact.convoy === true) {
+          ctx.strokeStyle = css(p.amberDim, beyond ? 0.5 : 1);
+          ctx.lineWidth = 1.25;
+          ctx.strokeRect(px - 2.5, py - 2.5, 5, 5);
+        } else {
+          ctx.fillStyle = css(p.textPrimary, beyond ? 0.45 : 1);
+          ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
+        }
         break;
     }
   }

@@ -76,6 +76,33 @@ export function App(): React.JSX.Element {
     [snapshot.staple],
   );
 
+  /**
+   * Who is sailing with this captain, by callsign.
+   *
+   * The radar and the chart both mark them, and a hull in the simulation
+   * carries a callsign rather than an account. Only those who have actually
+   * joined: somebody who has been asked and has not answered is not in it.
+   */
+  const convoyCallsigns = useMemo(
+    () =>
+      new Set(
+        (snapshot.convoy?.members ?? [])
+          .filter((member) => member.state === 'member' && !member.isSelf)
+          .map((member) => member.callsign),
+      ),
+    [snapshot.convoy],
+  );
+
+  /** Where each of them is, for the chart to mark the systems they are in. */
+  const convoyBySystem = useMemo(() => {
+    const out = new Map<string, string[]>();
+    for (const member of snapshot.convoy?.members ?? []) {
+      if (member.state !== 'member' || member.isSelf || member.systemId === '') continue;
+      out.set(member.systemId, [...(out.get(member.systemId) ?? []), member.callsign]);
+    }
+    return out;
+  }, [snapshot.convoy]);
+
   // Leaving the berth closes its floor: a market is a thing you stand in, and
   // one left open over the flight view would be reading stale prices.
   useEffect(() => {
@@ -85,6 +112,8 @@ export function App(): React.JSX.Element {
       setMooringsOpen(false);
       setBourseOpen(false);
       setBoardOpen(false);
+      setOffersOpen(false);
+      setConvoyOpen(false);
     }
   }, [mode.kind]);
 
@@ -122,6 +151,7 @@ export function App(): React.JSX.Element {
         jumpCost={purse.jumpCost}
         refusal={snapshot.notice}
         course={snapshot.course}
+        convoy={convoyBySystem}
         onJump={onJump}
         onPlot={(systemId) => {
           client.plot(systemId);
@@ -343,6 +373,7 @@ export function App(): React.JSX.Element {
                   ? undefined
                   : chart?.byId.get(snapshot.course)?.name
               }
+              convoy={convoyCallsigns}
               onLand={(portId) => client.land(portId)}
               onOpenChart={() => setChartOpen(true)}
               onJump={() => client.jumpPlotted()}
