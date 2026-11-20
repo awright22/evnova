@@ -14,7 +14,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 import {
 
@@ -35,6 +35,7 @@ import { RAIDER_NAMES } from '../rooms/npc.ts';
 import { schema, type Store } from '../db/index.ts';
 import type { Ledger } from './Ledger.ts';
 import type { Pilot } from './PilotStore.ts';
+import type { Convoys } from './Convoys.ts';
 import type { Standings } from './Standings.ts';
 
 /** Why a commission could not be taken or answered. */
@@ -43,6 +44,7 @@ export type CommissionRefusal =
   | 'already-taken'
   | 'too-many-commissions'
   | 'standing-too-low'
+  | 'not-in-a-convoy'
   | 'hold-full';
 
 export class CommissionRefused extends Error {
@@ -91,6 +93,10 @@ function spokenWords(terms: CommissionTerms): Spoken {
 /** A commission in hand, as the interface and the room both read it. */
 export interface HeldCommission {
   readonly id: string;
+  /** The captain whose name is on it, which is not always the one flying it. */
+  readonly accountId: string;
+  /** The convoy it is on the books of, or empty. */
+  readonly sharedFleetId: string;
   readonly templateId: string;
   readonly chainId: string;
   readonly step: number;
@@ -107,11 +113,93 @@ export interface HeldCommission {
 const MAX_HELD = 6;
 
 export class Commissions {
+  /**
+   * Set by the world once both exist.
+   *
+   * Sharing is a convoy's business and commissions are the Factor's, and
+   * neither owns the other: a commission knows the convoy it is on the books
+   * of, and asks who is in it only when somebody tries to discharge it.
+   */
+  convoys: Convoys | undefined;
+
   constructor(
     private readonly store: Store,
     private readonly ledger: Ledger,
     private readonly standings: Standings,
   ) {}
+
+  /**
+   * Put a commission on a convoy's books, or take it off again.
+   *
+   * It stays one commission. Any member may discharge it, it pays once, to
+   * whoever does — copying it per member would multiply the Factor's faucet
+   * by the size of the convoy for exactly the same work, which is the sort
+   * of thing a convoy of six would find within an afternoon.
+   *
+   * The standing still moves for the captain who took it on: the house dealt
+   * with them, and does not know or care who actually flew it.
+   */
+  share(accountId: string, id: string, shared: boolean): HeldCommission {
+    const row = this.store.db
+      .select()
+      .from(schema.commissions)
+      .where(and(eq(schema.commissions.id, id), eq(schema.commissions.accountId, accountId)))
+      .get();
+    if (!row || row.state !== 'taken') throw new CommissionRefused('no-such-commission');
+
+    let fleetId = '';
+    if (shared) {
+      const convoy = this.convoys?.of(accountId);
+      if (!convoy) throw new CommissionRefused('not-in-a-convoy');
+      fleetId = convoy.id;
+    }
+
+    this.store.db
+      .update(schema.commissions)
+      .set({ sharedFleetId: fleetId })
+      .where(eq(schema.commissions.id, id))
+      .run();
+
+    return toHeld({ ...row, sharedFleetId: fleetId });
+  }
+
+  /**
+   * Everything this captain may discharge: their own, and their convoy's.
+   *
+   * The screen reads this rather than `held`, because a shared commission is
+   * work in hand for everybody in the convoy even though only one captain's
+   * name is on it.
+   */
+  workingOn(accountId: string): HeldCommission[] {
+    const mine = this.held(accountId);
+    const convoy = this.convoys?.of(accountId);
+    if (!convoy) return mine;
+
+    const theirs = this.store.db
+      .select()
+      .from(schema.commissions)
+      .where(
+        and(
+          eq(schema.commissions.sharedFleetId, convoy.id),
+          eq(schema.commissions.state, 'taken'),
+          ne(schema.commissions.accountId, accountId),
+        ),
+      )
+      .all()
+      .map((row) => toHeld(row));
+
+    return [...mine, ...theirs];
+  }
+
+  /** The captain whose name is on a commission, for paying the right one. */
+  holderOf(id: string): string | undefined {
+    const row = this.store.db
+      .select({ accountId: schema.commissions.accountId })
+      .from(schema.commissions)
+      .where(eq(schema.commissions.id, id))
+      .get();
+    return row?.accountId;
+  }
 
   /**
    * What this berth is posting for this captain right now.
@@ -244,6 +332,8 @@ export class Commissions {
 
     return {
       id,
+      accountId: pilot.accountId,
+      sharedFleetId: '',
       templateId: offer.templateId,
       chainId: chain?.id ?? '',
       step,
@@ -285,9 +375,16 @@ export class Commissions {
   settle(pilot: Pilot, commission: HeldCommission, now: number): { text: string; pay: number } {
     const { commissions, tuning } = content();
 
+    // Who actually flew it, recorded when it was not the captain whose name
+    // is on it: a convoy's shared commission pays the one who discharges it.
+    const byAnother = commission.accountId !== '' && commission.accountId !== pilot.accountId;
     this.store.db
       .update(schema.commissions)
-      .set({ state: 'done', settledAt: now })
+      .set({
+        state: 'done',
+        settledAt: now,
+        ...(byAnother ? { settledBy: pilot.accountId } : {}),
+      })
       .where(eq(schema.commissions.id, commission.id))
       .run();
 
@@ -307,7 +404,9 @@ export class Commissions {
     const charter = commission.terms.charter;
     if (charter !== undefined && isCharter(charter)) {
       const gain = commission.terms.standing || tuning.standing.perCommission;
-      this.standings.shift(pilot.accountId, charter, gain, now);
+      // To whoever took it on, not whoever flew it. The house dealt with one
+      // captain and does not know or care that a convoy shared the work.
+      this.standings.shift(commission.accountId || pilot.accountId, charter, gain, now);
     }
 
     // The Factor's own words for a job done.
@@ -332,9 +431,14 @@ export class Commissions {
 
     const charter = commission.terms.charter;
     if (charter !== undefined && isCharter(charter)) {
-      // Half what answering it would have been worth. A job not done is not
-      // the same as a hull destroyed.
-      this.standings.shift(pilot.accountId, charter, -tuning.standing.perCommission / 2, now);
+      // Half what answering it would have been worth, and against whoever
+      // took it on. A job not done is not the same as a hull destroyed.
+      this.standings.shift(
+        commission.accountId || pilot.accountId,
+        charter,
+        -tuning.standing.perCommission / 2,
+        now,
+      );
     }
 
     const template = commissions.templates.find(
@@ -476,6 +580,8 @@ function toHeld(row: typeof schema.commissions.$inferSelect): HeldCommission {
   const terms = JSON.parse(row.terms) as CommissionTerms;
   return {
     id: row.id,
+    accountId: row.accountId,
+    sharedFleetId: row.sharedFleetId,
     templateId: row.templateId,
     chainId: row.chainId,
     step: row.step,

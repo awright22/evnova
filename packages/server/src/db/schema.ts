@@ -330,8 +330,21 @@ export const commissions = sqliteTable(
     /** When it is too late, or 0 for work with no deadline. */
     dueAt: integer('due_at').notNull().default(0),
     settledAt: integer('settled_at').notNull().default(0),
+    /**
+     * The convoy this is on the books of, or empty.
+     *
+     * A shared commission is still one commission: any member may discharge
+     * it, and it pays once, to whoever does. Copying it per member would
+     * multiply the faucet by the size of the convoy for the same work.
+     */
+    sharedFleetId: text('shared_fleet_id').notNull().default(''),
+    /** Who actually discharged it, when that was not the captain who took it. */
+    settledBy: text('settled_by').notNull().default(''),
   },
-  (table) => [index('commissions_account').on(table.accountId)],
+  (table) => [
+    index('commissions_account').on(table.accountId),
+    index('commissions_shared').on(table.sharedFleetId),
+  ],
 );
 
 /**
@@ -371,12 +384,50 @@ export const fleetMembers = sqliteTable(
   ],
 );
 
+/**
+ * An offer from one captain to another, alongside at the same berth.
+ *
+ * One-sided with a price: "this cargo, this draught, for these marks". A
+ * swap is two offers, which costs a second click and saves the whole
+ * apparatus of a two-sided negotiation that nobody was asking for. The row
+ * is the offer; accepting it applies both halves in one transaction and
+ * closes it.
+ */
+export const trades = sqliteTable(
+  'trades',
+  {
+    id: text('id').primaryKey(),
+    fromId: text('from_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    toId: text('to_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** Where it was made. Both must still be here when it is taken. */
+    portId: text('port_id').notNull(),
+    /** 'offered', 'accepted', 'declined', 'withdrawn' or 'lapsed'. */
+    state: text('state').notNull().default('offered'),
+    /** What the receiving captain pays. Negative is the offerer paying. */
+    marks: integer('marks').notNull().default(0),
+    /** `[{ commodityId, units }]`, moving from the offerer to the receiver. */
+    cargo: text('cargo').notNull().default('[]'),
+    designId: text('design_id').notNull().default(''),
+    designName: text('design_name').notNull().default(''),
+    offeredAt: integer('offered_at').notNull(),
+    closedAt: integer('closed_at').notNull().default(0),
+  },
+  (table) => [
+    index('trades_to').on(table.toId, table.state),
+    index('trades_from').on(table.fromId, table.state),
+  ],
+);
+
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /**
  * Migrations, applied in order.
@@ -587,6 +638,30 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         PRIMARY KEY (fleet_id, account_id)
       );
       CREATE INDEX IF NOT EXISTS fleet_members_account ON fleet_members (account_id);
+    `,
+  },
+  {
+    version: 11,
+    up: `
+      ALTER TABLE commissions ADD COLUMN shared_fleet_id TEXT NOT NULL DEFAULT '';
+      ALTER TABLE commissions ADD COLUMN settled_by TEXT NOT NULL DEFAULT '';
+      CREATE INDEX IF NOT EXISTS commissions_shared ON commissions (shared_fleet_id);
+
+      CREATE TABLE IF NOT EXISTS trades (
+        id TEXT PRIMARY KEY,
+        from_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        to_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        port_id TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'offered',
+        marks INTEGER NOT NULL DEFAULT 0,
+        cargo TEXT NOT NULL DEFAULT '[]',
+        design_id TEXT NOT NULL DEFAULT '',
+        design_name TEXT NOT NULL DEFAULT '',
+        offered_at INTEGER NOT NULL,
+        closed_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS trades_to ON trades (to_id, state);
+      CREATE INDEX IF NOT EXISTS trades_from ON trades (from_id, state);
     `,
   },
 ];

@@ -193,10 +193,14 @@ export function App(): React.JSX.Element {
               held={snapshot.commissions?.held ?? []}
               berthName={snapshot.commissions?.berthName ?? port.name}
               ending={snapshot.commissions?.ending}
+              convoyName={
+                snapshot.convoy && snapshot.convoy.id !== '' ? snapshot.convoy.name : undefined
+              }
               busy={false}
               notice={snapshot.notice}
               onTake={(id) => void client.takeCommission(id)}
               onAbandon={(id) => void client.abandonCommission(id)}
+              onShare={(id, shared) => void client.shareCommission(id, shared)}
               onChooseEnding={(chain, choice, name) =>
                 void client.chooseChainEnding(chain, choice, name)
               }

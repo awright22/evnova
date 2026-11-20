@@ -11,7 +11,15 @@
  */
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
-import type { Headline, Listing, Placement, Problem, Standing } from '@marque/shared';
+import type {
+  ConvoyState,
+  Headline,
+  Listing,
+  OffersState,
+  Placement,
+  Problem,
+  Standing,
+} from '@marque/shared';
 
 import type { BoardOffer, HeldOffer } from '../commissions/Board.tsx';
 
@@ -204,6 +212,10 @@ export interface GameSnapshot {
   readonly standing: StandingState | undefined;
   /** The berth's board and what the captain is carrying, while alongside. */
   readonly commissions: CommissionState | undefined;
+  /** Who this captain sails with, and where they all are. */
+  readonly convoy: ConvoyState | undefined;
+  /** Offers open either way, and who else is at this counter. */
+  readonly offers: OffersState | undefined;
   /** The last word from a Factor about a commission, for the hub to show. */
   readonly commissionNews: CommissionNews | undefined;
   /** What the server's survey found, when it refused a build. */
@@ -259,6 +271,8 @@ export class GameClient {
   private bourse: BourseState | undefined;
   private standing: StandingState | undefined;
   private commissions: CommissionState | undefined;
+  private convoy: ConvoyState | undefined;
+  private offers: OffersState | undefined;
   private commissionNews: CommissionNews | undefined;
   private surveyProblems: readonly Problem[] = [];
   private disposed = false;
@@ -303,6 +317,8 @@ export class GameClient {
       bourse: this.bourse,
       standing: this.standing,
       commissions: this.commissions,
+      convoy: this.convoy,
+      offers: this.offers,
       commissionNews: this.commissionNews,
       surveyProblems: this.surveyProblems,
     };
@@ -485,6 +501,27 @@ export class GameClient {
     // than as undefined.
     room.onMessage('commissions', (payload) => {
       this.commissions = payload as CommissionState;
+      this.emit();
+    });
+
+    room.onMessage('convoy', (payload) => {
+      this.convoy = payload as ConvoyState;
+      this.emit();
+    });
+
+    room.onMessage('offers', (payload) => {
+      this.offers = payload as OffersState;
+      this.emit();
+    });
+
+    room.onMessage('offer', (payload) => {
+      // An offer this captain made has been taken up. Said as a notice
+      // rather than left to the list quietly losing a row.
+      const taken = payload as { to: string; marks: number };
+      this.notice =
+        taken.marks > 0
+          ? `${taken.to} took your offer, and paid ${taken.marks.toLocaleString()} marks.`
+          : `${taken.to} took your offer.`;
       this.emit();
     });
 
@@ -731,6 +768,49 @@ export class GameClient {
   /** Give one up. */
   async abandonCommission(id: string): Promise<boolean> {
     return this.requestOk('abandon-commission', { id });
+  }
+
+  /** Put a commission on the convoy's books, or take it off again. */
+  async shareCommission(id: string, shared: boolean): Promise<boolean> {
+    return this.requestOk('share-commission', { id, shared });
+  }
+
+  /** Ask another captain to sail in convoy. */
+  async inviteToConvoy(callsign: string): Promise<boolean> {
+    return this.requestOk('convoy-invite', { callsign });
+  }
+
+  /** Take an invitation up, or turn it down. */
+  async answerConvoy(fleet: string, accept: boolean): Promise<boolean> {
+    return this.requestOk('convoy-answer', { fleet, accept });
+  }
+
+  /** Leave a convoy. An empty callsign is yourself; a callsign is a removal. */
+  async leaveConvoy(callsign = ''): Promise<boolean> {
+    return this.requestOk('convoy-leave', { callsign });
+  }
+
+  /** Offer another captain cargo, a draught and marks, alongside this berth. */
+  async offerTrade(offer: {
+    callsign: string;
+    marks: number;
+    cargo: readonly { commodityId: string; units: number }[];
+    design: string;
+  }): Promise<boolean> {
+    return this.requestOk('trade-offer', {
+      callsign: offer.callsign,
+      marks: Math.trunc(offer.marks),
+      cargo: offer.cargo.map((parcel) => ({
+        commodityId: parcel.commodityId,
+        units: Math.trunc(parcel.units),
+      })),
+      design: offer.design,
+    });
+  }
+
+  /** Take an offer up, turn it down, or take your own back. */
+  async answerOffer(id: string, accept: boolean): Promise<boolean> {
+    return this.requestOk('trade-answer', { id, accept });
   }
 
   /**

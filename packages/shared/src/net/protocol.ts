@@ -14,6 +14,8 @@
 
 import { z } from 'zod';
 
+import type { CommissionOffer } from '../sim/commissions.ts';
+
 /** Why the server refused an intent. */
 export const REJECTIONS = {
   'unknown-target': 'That hull is not in this system.',
@@ -68,6 +70,22 @@ export const REJECTIONS = {
   'no-such-commission': 'That commission is no longer posted.',
   'already-taken': 'You are already carrying that one.',
   'too-many-commissions': 'You have as much work in hand as a Factor will give you.',
+  'no-such-captain': 'No captain of that callsign is on the Register.',
+  'already-in-a-convoy': 'That captain already sails in a convoy.',
+  'not-in-a-convoy': 'You are not sailing in a convoy.',
+  'not-invited': 'That convoy has not asked you.',
+  'already-invited': 'You have already asked them.',
+  'convoy-full': 'A convoy will not take another hull.',
+  'not-the-leader': 'Only the captain who opened the convoy may do that.',
+  'cannot-invite-yourself': 'You are already aboard.',
+  'trade-with-yourself': 'You are already aboard.',
+  'not-at-the-same-berth': 'You are not alongside the same berth.',
+  'nothing-offered': 'An offer has to be of something.',
+  'not-enough-cargo': 'That is not in the hold.',
+  'no-room-in-hold': 'There is not room aboard for that.',
+  'no-such-offer': 'That offer is no longer open.',
+  'too-many-offers': 'You have as many offers open as a berth will keep.',
+  'unknown-commodity': 'The Staple trades no such good.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -230,6 +248,89 @@ export interface Headline {
   readonly direction: 'up' | 'down' | 'flat';
 }
 
+/**
+ * A commission in hand, as the Factor's board sends it.
+ *
+ * The terms flattened, plus the clock it is against and, for a convoy's
+ * shared work, whose name is on it. Declared here rather than copied into
+ * the screen: the two drifted once, the figures all came out undefined and
+ * nothing but a capture noticed.
+ */
+export interface HeldCommissionLine extends CommissionOffer {
+  readonly takenAt: number;
+  readonly dueAt: number;
+  /** The captain who took it on, or empty when that is the one reading it. */
+  readonly holder: string;
+  /** True when it is on a convoy's books, so anybody in it may discharge it. */
+  readonly shared: boolean;
+}
+
+/**
+ * A captain in a convoy, as the convoy's own screen and the map read them.
+ *
+ * Where they are travels with the row, because the point of a convoy is
+ * knowing where everybody is: a member in another system is a line on the
+ * chart, and a member alongside is somebody you can hand cargo to.
+ */
+export interface ConvoyMemberLine {
+  readonly callsign: string;
+  /** 'member', or 'invited' for somebody who has not answered yet. */
+  readonly state: 'member' | 'invited';
+  readonly isLeader: boolean;
+  /** True for the captain reading it. */
+  readonly isSelf: boolean;
+  /** Empty when they are not connected. */
+  readonly systemId: string;
+  readonly systemName: string;
+  /** The berth they are alongside, or empty while they are flying. */
+  readonly portId: string;
+  readonly portName: string;
+  readonly online: boolean;
+}
+
+/** The convoy push: who is in it, and what is waiting on an answer. */
+export interface ConvoyState {
+  /** Empty when this captain sails alone. */
+  readonly id: string;
+  readonly name: string;
+  readonly isLeader: boolean;
+  readonly members: readonly ConvoyMemberLine[];
+  /** Invitations waiting on this captain. */
+  readonly invitations: readonly {
+    readonly fleetId: string;
+    readonly name: string;
+    readonly from: string;
+    readonly at: number;
+  }[];
+  /** How many may sail together, so the screen can say when it is full. */
+  readonly limit: number;
+}
+
+/** An offer between two captains alongside the same berth. */
+export interface TradeOfferLine {
+  readonly id: string;
+  readonly from: string;
+  readonly to: string;
+  /** True when this captain made it, so the screen knows which way it reads. */
+  readonly mine: boolean;
+  /** What the receiving captain pays. Negative is the offerer paying. */
+  readonly marks: number;
+  readonly cargo: readonly {
+    readonly commodityId: string;
+    readonly name: string;
+    readonly units: number;
+  }[];
+  readonly designName: string;
+  readonly offeredAt: number;
+}
+
+/** Everything open either way, and who else is alongside to offer to. */
+export interface OffersState {
+  readonly offers: readonly TradeOfferLine[];
+  /** Other captains landed at this berth right now, by callsign. */
+  readonly alongside: readonly string[];
+}
+
 /** A line on the leaderboard. */
 export interface Standing {
   readonly callsign: string;
@@ -276,6 +377,70 @@ export const LetterIntent = z.object({
   charter: z.string().max(32),
 });
 export type LetterIntent = z.infer<typeof LetterIntent>;
+
+/**
+ * Ask another captain to sail with you.
+ *
+ * Opens a convoy if the asking captain is not in one, because "make a
+ * convoy, then invite somebody" is one intent in two steps.
+ */
+export const ConvoyInviteIntent = z.object({
+  callsign: z.string().min(1).max(20),
+});
+export type ConvoyInviteIntent = z.infer<typeof ConvoyInviteIntent>;
+
+/** Take an invitation up, or turn it down. */
+export const ConvoyAnswerIntent = z.object({
+  fleet: z.string().min(1).max(64),
+  accept: z.boolean(),
+});
+export type ConvoyAnswerIntent = z.infer<typeof ConvoyAnswerIntent>;
+
+/**
+ * Leave a convoy, or put somebody out of it.
+ *
+ * An empty callsign leaves; a callsign is the leader removing that captain.
+ * The leader leaving dissolves it rather than handing it on.
+ */
+export const ConvoyLeaveIntent = z.object({
+  callsign: z.string().max(20),
+});
+export type ConvoyLeaveIntent = z.infer<typeof ConvoyLeaveIntent>;
+
+/** Put a commission on the convoy's books, or take it off again. */
+export const ShareCommissionIntent = z.object({
+  id: z.string().min(1).max(64),
+  shared: z.boolean(),
+});
+export type ShareCommissionIntent = z.infer<typeof ShareCommissionIntent>;
+
+/**
+ * Offer another captain cargo, a draught and marks, alongside the same berth.
+ *
+ * One-sided with a price: `marks` is what the receiving captain pays, and a
+ * negative figure is the offering captain paying them. A swap is two offers.
+ */
+export const TradeOfferIntent = z.object({
+  callsign: z.string().min(1).max(20),
+  marks: z.number().int().min(-1_000_000_000).max(1_000_000_000),
+  cargo: z
+    .array(
+      z.object({
+        commodityId: z.string().min(1).max(64),
+        units: z.number().int().min(1).max(100_000),
+      }),
+    )
+    .max(16),
+  design: z.string().max(64),
+});
+export type TradeOfferIntent = z.infer<typeof TradeOfferIntent>;
+
+/** Take an offer up, turn it down, or take your own back. */
+export const TradeAnswerIntent = z.object({
+  id: z.string().min(1).max(64),
+  accept: z.boolean(),
+});
+export type TradeAnswerIntent = z.infer<typeof TradeAnswerIntent>;
 
 /** Buy a hull licence. Only upward, and only what the Register issues. */
 export const BuyLicenceIntent = z.object({
@@ -364,7 +529,13 @@ export const SERVER_MESSAGES = [
   'scanned',
   'commissions',
   'commission',
+  'convoy',
+  'offers',
+  'offer',
 ] as const;
+
+/** One of the pushes above, for code that routes them. */
+export type ServerMessage = (typeof SERVER_MESSAGES)[number];
 
 /** A line as it reaches the other captains. */
 export interface ChatLine {

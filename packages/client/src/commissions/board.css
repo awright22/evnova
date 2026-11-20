@@ -187,13 +187,32 @@
   color: var(--text-muted);
 }
 
+.board__carried-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-0-5);
+  margin-top: var(--space-0-5);
+}
+
+/*
+ * On the convoy's books.
+ *
+ * A pressed state rather than a second control: it is one fact about the
+ * row, and two buttons that do opposite things is how a captain ends up
+ * un-sharing work they meant to share.
+ */
+.board__shared {
+  color: var(--amber);
+  border-color: var(--amber-dim);
+}
+
 /* A row action, so a plain button: the amber belongs to taking work on. */
 .board__give-up {
   justify-self: start;
   min-height: 22px;
-  margin-top: var(--space-0-5);
   padding: 0 var(--space-1);
   font-size: var(--size-label);
+  white-space: nowrap;
 }
 
 .board__none {

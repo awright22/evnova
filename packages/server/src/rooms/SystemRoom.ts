@@ -47,6 +47,12 @@ import {
   ChainEndingIntent,
   LetterIntent,
   TakeCommissionIntent,
+  ShareCommissionIntent,
+  ConvoyInviteIntent,
+  ConvoyAnswerIntent,
+  ConvoyLeaveIntent,
+  TradeOfferIntent,
+  TradeAnswerIntent,
   SaveDesignIntent,
   SwitchShipIntent,
   StapleIntent,
@@ -68,6 +74,7 @@ import {
   placeAll,
   stepFlight,
   type Blueprint,
+  type ServerMessage,
   type Standing,
   type LicenceId,
   type ChatLine,
@@ -80,6 +87,8 @@ import { registerRoom, TickMetrics } from '../metrics.ts';
 import { AuthError, type Account } from '../accounts.ts';
 import { BourseRefused } from '../world/Exchange.ts';
 import { CommissionRefused } from '../world/Commissions.ts';
+import { CONVOY_LIMIT, ConvoyRefused } from '../world/Convoys.ts';
+import { OfferRefused } from '../world/Trades.ts';
 import { InsufficientMarks } from '../world/Ledger.ts';
 import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
@@ -198,6 +207,54 @@ export function refreshEveryBourse(): void {
  */
 export function scanEveryLane(): void {
   for (const room of liveRooms) room.runPatrolScans();
+}
+
+/**
+ * Where a captain is, across every room.
+ *
+ * A convoy's whole point is knowing where everybody is, and everybody is
+ * spread across one room per system. The rooms are all in this process, so
+ * this is a walk over a handful of sets rather than anything the database
+ * needs to know about.
+ */
+export function whereIs(accountId: string):
+  | { systemId: string; portId: string | undefined }
+  | undefined {
+  for (const room of liveRooms) {
+    const found = room.pilotOf(accountId);
+    if (found) return { systemId: found.systemId, portId: found.landedPortId };
+  }
+  return undefined;
+}
+
+/** Push something to a captain wherever they are, if they are anywhere. */
+export function tellCaptain(accountId: string, type: ServerMessage, payload: unknown): void {
+  for (const room of liveRooms) {
+    if (room.tell(accountId, type, payload)) return;
+  }
+}
+
+/** Push the convoy to everybody in it who is connected. */
+export function refreshConvoy(accountIds: readonly string[]): void {
+  for (const accountId of accountIds) {
+    for (const room of liveRooms) {
+      if (room.resendConvoy(accountId)) break;
+    }
+  }
+}
+
+/**
+ * Push the Factor's list to each of these captains, wherever they are.
+ *
+ * Sharing a commission changes what everybody in the convoy has in hand, and
+ * they are spread across rooms.
+ */
+export function refreshCommissions(accountIds: readonly string[]): void {
+  for (const accountId of accountIds) {
+    for (const room of liveRooms) {
+      if (room.resendCommissions(accountId)) break;
+    }
+  }
 }
 
 export class SystemRoom extends Room<{
@@ -575,6 +632,14 @@ export class SystemRoom extends Room<{
       // charged on launch. Structure still costs money to put right.
       this.spawnFromPilot(client.sessionId, pilot, { chargeShields: true });
       this.sendPurse(client.sessionId);
+
+      // An offer is a conversation at a counter, and this captain has left
+      // it. The rest of the berth gets a list without them in it.
+      world().trades.closeAllFor(pilot.accountId, Date.now());
+      this.sendOffers(client.sessionId);
+      if (port) this.refreshOffersAt(port.id);
+      // Everybody sailing with them sees them under way again.
+      refreshConvoy(world().convoys.memberIds(pilot.accountId));
       return { launched: true };
     }),
 
@@ -794,6 +859,212 @@ export class SystemRoom extends Room<{
         throw error;
       }
     }),
+
+    /**
+     * Put a commission on the convoy's books, or take it off again.
+     *
+     * It stays one commission: any member may discharge it, it pays once,
+     * and the standing still moves for the captain who took it on.
+     */
+    'share-commission': validate(
+      ShareCommissionIntent,
+      (client: Client, message: ShareCommissionIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          const shared = world().commissions.share(pilot.accountId, message.id, message.shared);
+          // Everybody in it has a different list now.
+          const convoy = world().convoys.of(pilot.accountId);
+          refreshCommissions(
+            (convoy?.members ?? [])
+              .filter((member) => member.state === 'member')
+              .map((member) => member.accountId),
+          );
+          return { id: shared.id, shared: shared.sharedFleetId !== '' };
+        } catch (error) {
+          if (error instanceof CommissionRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /**
+     * Ask another captain to sail in convoy.
+     *
+     * By callsign rather than by who is in the room, because a convoy is an
+     * arrangement between captains and not a thing you can only make with
+     * whoever happens to be in front of you.
+     */
+    'convoy-invite': validate(
+      ConvoyInviteIntent,
+      (client: Client, message: ConvoyInviteIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          const convoy = world().convoys.invite(pilot.accountId, message.callsign, Date.now());
+          refreshConvoy(convoy.members.map((member) => member.accountId));
+          return { invited: message.callsign };
+        } catch (error) {
+          if (error instanceof ConvoyRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /** Take an invitation up, or turn it down. */
+    'convoy-answer': validate(
+      ConvoyAnswerIntent,
+      (client: Client, message: ConvoyAnswerIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          if (message.accept) {
+            const convoy = world().convoys.accept(pilot.accountId, message.fleet, Date.now());
+            refreshConvoy(convoy.members.map((member) => member.accountId));
+            this.sendCommissions(client.sessionId);
+            return { joined: convoy.name };
+          }
+
+          // Read the convoy before declining: afterwards this captain's row
+          // is gone and there is nobody left to tell.
+          const before = world().convoys.view(message.fleet);
+          world().convoys.decline(pilot.accountId, message.fleet);
+          refreshConvoy([
+            ...before.members.map((member) => member.accountId),
+            pilot.accountId,
+          ]);
+          return { declined: message.fleet };
+        } catch (error) {
+          if (error instanceof ConvoyRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /** Leave a convoy, or put somebody out of it. */
+    'convoy-leave': validate(
+      ConvoyLeaveIntent,
+      (client: Client, message: ConvoyLeaveIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          const before = world().convoys.of(pilot.accountId);
+          if (!before) return ctx.reject('not-in-a-convoy');
+          const everybody = before.members.map((member) => member.accountId);
+
+          if (message.callsign === '') {
+            const { disbanded } = world().convoys.leave(pilot.accountId);
+            refreshConvoy(everybody);
+            refreshCommissions(everybody);
+            return { disbanded };
+          }
+
+          const target = before.members.find(
+            (member) => member.callsign.toLowerCase() === message.callsign.trim().toLowerCase(),
+          );
+          if (!target) return ctx.reject('no-such-captain');
+          world().convoys.remove(pilot.accountId, target.accountId);
+          refreshConvoy(everybody);
+          return { removed: target.callsign };
+        } catch (error) {
+          if (error instanceof ConvoyRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /**
+     * Offer another captain cargo, a draught and marks.
+     *
+     * Both must be alongside the same berth, both when it is made and when
+     * it is taken up: a trade is handing something over, not posting it.
+     */
+    'trade-offer': validate(TradeOfferIntent, (client: Client, message: TradeOfferIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      try {
+        const offer = world().trades.offer(
+          pilot,
+          message.callsign,
+          { marks: message.marks, cargo: message.cargo, designId: message.design },
+          Date.now(),
+        );
+        this.refreshOffersAt(pilot.landedPortId);
+        return { id: offer.id, to: offer.to };
+      } catch (error) {
+        if (error instanceof OfferRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /** Take an offer up, turn it down, or take your own back. */
+    'trade-answer': validate(
+      TradeAnswerIntent,
+      (client: Client, message: TradeAnswerIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          if (!message.accept) {
+            const closed = world().trades.close(pilot.accountId, message.id, Date.now());
+            this.refreshOffersAt(closed.portId);
+            return { closed: closed.id };
+          }
+
+          if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+          const offer = world().trades.read(message.id);
+          // The offering captain has to still be standing here. Only this
+          // room can say so, because this room is the berth.
+          const from = this.pilotOf(offer.fromId);
+          const taken = world().trades.accept(
+            pilot,
+            message.id,
+            from,
+            this.holdCapacityOf(pilot),
+            Date.now(),
+          );
+
+          world().pilots.touch(pilot.accountId);
+          if (from) world().pilots.touch(from.accountId);
+          const berth = this.berthOf(pilot);
+          this.sendPurse(client.sessionId);
+          if (berth) this.sendStaple(client.sessionId, berth);
+
+          const theirSession = from ? this.sessionOf(from.accountId) : undefined;
+          if (from && theirSession !== undefined) {
+            const theirBerth = this.berthOf(from);
+            this.sendPurse(theirSession);
+            if (theirBerth) this.sendStaple(theirSession, theirBerth);
+          }
+          if (taken.designId !== '') this.sendYard(client.sessionId);
+          this.refreshOffersAt(taken.portId);
+          tellCaptain(offer.fromId, 'offer', { ...taken, mine: true, accepted: true });
+          return taken;
+        } catch (error) {
+          if (error instanceof OfferRefused) return ctx.reject(error.reason);
+          if (error instanceof InsufficientMarks) return ctx.reject('cannot-afford');
+          throw error;
+        }
+      },
+    ),
 
     /** Give one up. */
     'abandon-commission': validate(
@@ -1231,10 +1502,18 @@ export class SystemRoom extends Room<{
    * The bays, less the Propellant and Ordnance already riding in them: a hold
    * is a hold, and the market has no business knowing what a ship is made of.
    */
+  /**
+   * How much this captain's hull will carry.
+   *
+   * Through the same resolver the simulation flies, because a captain in a
+   * hull they built is not in any catalogue draught: reading the blueprint
+   * table directly gave them the capacity of whatever they flew last, or
+   * none at all, which is a hold that refuses to take cargo aboard a ship
+   * with bays in it.
+   */
   private holdCapacityOf(pilot: Pilot): number {
-    const { blueprints, modules, tuning } = content();
-    const blueprint = blueprints.get(pilot.blueprintId);
-    if (!blueprint) return 0;
+    const { modules, tuning } = content();
+    const { blueprint } = this.hullFor(pilot);
     const stats = deriveStats(placeAll(blueprint.placements, modules), tuning);
     return Math.max(0, Math.floor(stats.cargoCapacity));
   }
@@ -1420,6 +1699,9 @@ export class SystemRoom extends Room<{
 
       this.spawnFromPilot(client.sessionId, pilot);
       this.sendPurse(client.sessionId);
+      this.sendConvoy(client.sessionId);
+      // Everybody sailing with them sees them come online, and where.
+      refreshConvoy(world().convoys.memberIds(pilot.accountId));
       return;
     }
 
@@ -1463,10 +1745,21 @@ export class SystemRoom extends Room<{
    * A captain is gone for good: they left, or the grace window closed.
    */
   override onLeave(client: Client): void {
+    const pilot = this.pilotsBySession.get(client.sessionId);
+    const berth = pilot?.landedPortId;
+
     this.intentLog.delete(client.sessionId);
     this.persist(client.sessionId);
     this.releaseCaptain(client.sessionId);
     this.removeHull(client.sessionId);
+
+    if (pilot) {
+      // Their offers go with them, and the berth and the convoy both find
+      // out: an offer from somebody who has gone is a dead row on a screen.
+      world().trades.closeAllFor(pilot.accountId, Date.now());
+      if (berth !== undefined) this.refreshOffersAt(berth);
+      refreshConvoy(world().convoys.memberIds(pilot.accountId));
+    }
   }
 
   /**
@@ -1597,6 +1890,64 @@ export class SystemRoom extends Room<{
    * captain in flight has no Bourse open and no use for ten prices, and the
    * bandwidth budget in spec section 3 is for the flight view.
    */
+  /**
+   * A captain's callsign by account, for rows about somebody else.
+   *
+   * Through the convoy rather than the accounts table: the only captains
+   * whose names appear on another captain's screen are the ones sailing
+   * with them, and that list is already in hand.
+   */
+  private callsignOf(accountId: string): string {
+    const convoy = world().convoys.of(accountId);
+    return convoy?.members.find((member) => member.accountId === accountId)?.callsign ?? '';
+  }
+
+  /** The berth a captain is alongside in this room, if any. */
+  private berthOf(pilot: Pilot): PortDef | undefined {
+    if (pilot.landedPortId === undefined) return undefined;
+    return this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+  }
+
+  /** This captain, if they are flying in this room. */
+  pilotOf(accountId: string): Pilot | undefined {
+    for (const pilot of this.pilotsBySession.values()) {
+      if (pilot.accountId === accountId) return pilot;
+    }
+    return undefined;
+  }
+
+  /** The session a captain is connected on here, if any. */
+  private sessionOf(accountId: string): string | undefined {
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      if (pilot.accountId === accountId) return sessionId;
+    }
+    return undefined;
+  }
+
+  /** Push to a captain in this room. False means they are not here. */
+  tell(accountId: string, type: ServerMessage, payload: unknown): boolean {
+    const sessionId = this.sessionOf(accountId);
+    if (sessionId === undefined) return false;
+    this.clients.get(sessionId)?.send(type, payload);
+    return true;
+  }
+
+  /** Rebuild and push the convoy for a captain here. False if they are not. */
+  resendConvoy(accountId: string): boolean {
+    const sessionId = this.sessionOf(accountId);
+    if (sessionId === undefined) return false;
+    this.sendConvoy(sessionId);
+    return true;
+  }
+
+  /** The same for the Factor's list. */
+  resendCommissions(accountId: string): boolean {
+    const sessionId = this.sessionOf(accountId);
+    if (sessionId === undefined) return false;
+    this.sendCommissions(sessionId);
+    return true;
+  }
+
   refreshBourse(): void {
     for (const [sessionId, pilot] of this.pilotsBySession) {
       if (pilot.landedPortId === undefined) continue;
@@ -2116,7 +2467,7 @@ export class SystemRoom extends Room<{
   private settleEscorts(): void {
     const now = Date.now();
     for (const [sessionId, pilot] of this.pilotsBySession) {
-      for (const held of world().commissions.held(pilot.accountId)) {
+      for (const held of world().commissions.workingOn(pilot.accountId)) {
         if (held.kind !== 'escort' || held.dueAt === 0 || now < held.dueAt) continue;
         const said = world().commissions.settle(pilot, held, now);
         this.clients.get(sessionId)?.send('commission', {
@@ -2248,7 +2599,7 @@ export class SystemRoom extends Room<{
     if (pilot?.role === 'unlettered') {
       // A bounty names a captain. Theirs is on their hull, which is the only
       // way anybody could tell one raider from another.
-      for (const held of world().commissions.held(killer.accountId)) {
+      for (const held of world().commissions.workingOn(killer.accountId)) {
         if (held.kind !== 'bounty' || held.terms.target !== ship.callsign) continue;
         const said = world().commissions.settle(killer, held, now);
         this.clients.get(killedBy)?.send('commission', {
@@ -2298,13 +2649,17 @@ export class SystemRoom extends Room<{
       // the board, with the clock it is against. Sending the nested terms
       // instead left every figure in the "in hand" column undefined, which
       // nothing noticed until a capture put a commission in it.
-      held: world().commissions.held(pilot.accountId).map((row) => ({
+      held: world().commissions.workingOn(pilot.accountId).map((row) => ({
         ...row.terms,
         id: row.id,
         title: row.title,
         brief: row.brief,
         takenAt: row.takenAt,
         dueAt: row.dueAt,
+        // Whose it is, and whether the convoy is on it: a shared one is
+        // work in hand for everybody even though one name is on it.
+        holder: row.accountId === pilot.accountId ? '' : this.callsignOf(row.accountId),
+        shared: row.sharedFleetId !== '',
       })),
       berthName: port?.name ?? '',
       ...(chain !== undefined && port?.seat === true && port.owner === chain.charter
@@ -2353,7 +2708,7 @@ export class SystemRoom extends Room<{
       });
     }
 
-    for (const held of commissions.held(pilot.accountId)) {
+    for (const held of commissions.workingOn(pilot.accountId)) {
       if (held.terms.toPortId !== portId) continue;
       if (held.kind !== 'delivery' && held.kind !== 'passengers' && held.kind !== 'smuggling') {
         continue;
@@ -2380,9 +2735,97 @@ export class SystemRoom extends Room<{
     this.sendPurse(sessionId);
     this.sendStanding(sessionId);
     this.sendCommissions(sessionId);
+    this.sendConvoy(sessionId);
+    this.refreshOffersAt(portId);
+    refreshConvoy(world().convoys.memberIds(pilot.accountId));
   }
 
   /** Tell a captain where they stand with the three charters. */
+  /**
+   * Who is sailing with this captain, and where they all are.
+   *
+   * Positions come from the live rooms rather than the captains' rows,
+   * because a row is up to a flush old and "where is everybody" is the one
+   * question a convoy exists to answer.
+   */
+  private sendConvoy(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const { systems } = content();
+    const convoy = world().convoys.of(pilot.accountId);
+    const invitations = world().convoys.invitations(pilot.accountId);
+
+    const members = (convoy?.members ?? []).map((member) => {
+      const at = whereIs(member.accountId);
+      const system = at ? systems.get(at.systemId) : undefined;
+      const port = system?.ports.find((candidate) => candidate.id === at?.portId);
+      return {
+        callsign: member.callsign,
+        state: member.state,
+        isLeader: member.isLeader,
+        isSelf: member.accountId === pilot.accountId,
+        systemId: at?.systemId ?? '',
+        systemName: system?.name ?? '',
+        portId: port?.id ?? '',
+        portName: port?.name ?? '',
+        online: at !== undefined,
+      };
+    });
+
+    this.clients.get(sessionId)?.send('convoy', {
+      id: convoy?.id ?? '',
+      name: convoy?.name ?? '',
+      isLeader: convoy?.leaderId === pilot.accountId,
+      members,
+      invitations,
+      limit: CONVOY_LIMIT,
+    });
+  }
+
+  /**
+   * Offers open either way, and who else is standing at this counter.
+   *
+   * Only captains alongside the same berth: a trade is handing something
+   * over, and the list of people you can hand something to is the list of
+   * people in the room.
+   */
+  private sendOffers(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const alongside: string[] = [];
+    if (pilot.landedPortId !== undefined) {
+      for (const other of this.pilotsBySession.values()) {
+        if (other.accountId === pilot.accountId) continue;
+        if (other.landedPortId === pilot.landedPortId) alongside.push(other.callsign);
+      }
+    }
+
+    this.clients.get(sessionId)?.send('offers', {
+      offers: world()
+        .trades.openFor(pilot.accountId)
+        .map((offer) => ({
+          id: offer.id,
+          from: offer.from,
+          to: offer.to,
+          mine: offer.fromId === pilot.accountId,
+          marks: offer.marks,
+          cargo: offer.cargo,
+          designName: offer.designName,
+          offeredAt: offer.offeredAt,
+        })),
+      alongside: alongside.sort((a, b) => a.localeCompare(b)),
+    });
+  }
+
+  /** Push the offers to everybody standing at this berth. */
+  private refreshOffersAt(portId: string): void {
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      if (pilot.landedPortId === portId) this.sendOffers(sessionId);
+    }
+  }
+
   private sendStanding(sessionId: string): void {
     const pilot = this.pilotsBySession.get(sessionId);
     if (!pilot) return;
@@ -2416,7 +2859,7 @@ export class SystemRoom extends Room<{
     // took the work, whoever actually pulled the trigger.
     const now = Date.now();
     for (const [sessionId, pilot] of this.pilotsBySession) {
-      for (const held of world().commissions.held(pilot.accountId)) {
+      for (const held of world().commissions.workingOn(pilot.accountId)) {
         if (held.kind !== 'escort') continue;
         const said = world().commissions.fail(pilot, held, now);
         this.clients.get(sessionId)?.send('commission', {

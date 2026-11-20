@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from 'react';
 
-import type { CommissionOffer } from '@marque/shared';
+import type { CommissionOffer, HeldCommissionLine } from '@marque/shared';
 
 import './board.css';
 
@@ -28,10 +28,7 @@ import './board.css';
 export type BoardOffer = CommissionOffer;
 
 /** One in hand, with the clock it is against. */
-export interface HeldOffer extends CommissionOffer {
-  readonly takenAt: number;
-  readonly dueAt: number;
-}
+export type HeldOffer = HeldCommissionLine;
 
 /** A finished chain, and the two ways out of it. */
 export interface ChainEnding {
@@ -52,10 +49,13 @@ export interface BoardProps {
   readonly berthName: string;
   /** Present only at the one berth where this chain can be settled. */
   readonly ending: ChainEnding | undefined;
+  /** The convoy this captain sails in, if any, so work can be shared with it. */
+  readonly convoyName: string | undefined;
   readonly busy: boolean;
   readonly notice: string | undefined;
   onTake: (id: string) => void;
   onAbandon: (id: string) => void;
+  onShare: (id: string, shared: boolean) => void;
   onChooseEnding: (chain: string, ending: string, name: string) => void;
   onClose: () => void;
 }
@@ -80,10 +80,12 @@ export function Board({
   held,
   berthName,
   ending,
+  convoyName,
   busy,
   notice,
   onTake,
   onAbandon,
+  onShare,
   onChooseEnding,
   onClose,
 }: BoardProps): React.JSX.Element {
@@ -276,14 +278,38 @@ export function Board({
                         to {row.toPortName ?? row.toPortId}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="button board__give-up"
-                      disabled={busy}
-                      onClick={() => onAbandon(row.id)}
-                    >
-                      Give it up
-                    </button>
+                    {/*
+                      Somebody else's, shared with the convoy. There is
+                      nothing to give up — it is not this captain's to give —
+                      so the row says whose it is and stops there.
+                    */}
+                    {row.holder !== '' ? (
+                      <span className="board__carried-to">{row.holder}’s, shared</span>
+                    ) : (
+                      <div className="board__carried-acts">
+                        <button
+                          type="button"
+                          className="button board__give-up"
+                          disabled={busy}
+                          onClick={() => onAbandon(row.id)}
+                        >
+                          Give it up
+                        </button>
+                        {convoyName !== undefined && (
+                          <button
+                            type="button"
+                            className={`button board__give-up${
+                              row.shared ? ' board__shared' : ''
+                            }`}
+                            disabled={busy}
+                            aria-pressed={row.shared}
+                            onClick={() => onShare(row.id, !row.shared)}
+                          >
+                            {row.shared ? 'On the books' : 'Share it'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
