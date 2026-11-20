@@ -7,17 +7,16 @@
  * the soak run drive the live server at accelerated scale.
  */
 
-import type {
-  Reconciler} from '@colyseus/sdk';
+import type { Reconciler } from "@colyseus/sdk";
 import {
   ColyseusSDK,
   Predict,
   type InputHandle,
   type Room,
-} from '@colyseus/sdk';
+} from "@colyseus/sdk";
 // Drift telemetry lives on a subpath: it is the SDK's own classifier, so the
 // bot's verdict and the dev panel's can never disagree.
-import { classifyDrift, type DriftStatus } from '@colyseus/sdk/predict/drift';
+import { classifyDrift, type DriftStatus } from "@colyseus/sdk/predict/drift";
 import {
   PATCH_RATE,
   SERVER_MESSAGES,
@@ -29,7 +28,7 @@ import {
   stepFlight,
   type ShipProfile,
   type ShipState,
-} from '@marque/shared';
+} from "@marque/shared";
 
 /**
  * The SDK types a Room by its server room class. The bot deliberately does not
@@ -71,7 +70,7 @@ export interface BotView {
   /** The bot's own predicted ship state: exact, unsmoothed, for logic. */
   readonly self: ShipState;
   /** Everything in the system, including the bot's own ship. */
-  readonly ships: SystemState['ships'];
+  readonly ships: SystemState["ships"];
   readonly profile: ShipProfile;
   readonly sessionId: string;
   /** Server time in ms, for absolute deadlines. */
@@ -80,6 +79,53 @@ export interface BotView {
   readonly step: number;
   /** Ask the server to mark a hull, through the same intent a captain uses. */
   readonly mark: (id: string) => void;
+
+  // --- Trade -------------------------------------------------------------
+  //
+  // Everything a captain can do at a berth, through the same intents. A
+  // trading brain is not given a shortcut: if it can do it, a player can.
+
+  /** The system the bot is in, for a brain that plans a route. */
+  readonly systemId: string;
+  /** The berth it is standing on, or undefined while flying. */
+  readonly landedAt: string | undefined;
+  /** The latest purse the server sent. */
+  readonly purse: BotPurse;
+  /** The berth's Staple, while alongside one that keeps a market. */
+  readonly market: BotMarket | undefined;
+
+  readonly land: (portId: string) => void;
+  readonly launch: () => void;
+  readonly trade: (
+    side: "buy" | "sell",
+    commodity: string,
+    units: number,
+  ) => void;
+  readonly jump: (systemId: string) => void;
+}
+
+/** What the server says the bot has. */
+export interface BotPurse {
+  readonly marks: number;
+  readonly propellant: number;
+  readonly propellantCapacity: number;
+  readonly jumpCost: number;
+  readonly landedPort: string;
+}
+
+/** What a berth is trading, as the bot sees it. */
+export interface BotMarket {
+  readonly port: string;
+  readonly listings: readonly {
+    commodityId: string;
+    name: string;
+    ask: number;
+    bid: number;
+    stock: number;
+    carried: number;
+  }[];
+  readonly holdCapacity: number;
+  readonly holdUsed: number;
 }
 
 /** A bot strategy. Stages one command per fixed step. */
@@ -96,6 +142,13 @@ export interface BotOptions {
   readonly systemId?: string;
   /** Draught to fly. Falls back to the starter. */
   readonly blueprint?: string;
+  /**
+   * Open an account on the Register before joining.
+   *
+   * An anonymous hull has no captain's row, so it has no purse, no hold and
+   * no standing: every berth refuses it. A brain that trades needs one.
+   */
+  readonly account?: boolean;
 }
 
 /** Netcode health, sampled from the SDK's own telemetry. */
@@ -109,6 +162,14 @@ export interface BotTelemetry {
   readonly jitter: number;
   readonly pendingInputs: number;
   readonly inputsSent: number;
+  /** What the bot has, and how its orders went, for the soak's report. */
+  readonly marks: number;
+  readonly trades: number;
+  readonly refusedTrades: number;
+  /** Every refused intent, and the last one, so a stuck bot says why. */
+  readonly refusals: number;
+  readonly lastRefusal: string;
+  readonly landedAt: string;
   readonly steps: number;
   readonly shipsSeen: number;
 }
@@ -122,7 +183,7 @@ export class Bot {
     private readonly room: SystemRoom,
     private readonly self: ShipState,
     private readonly predict: Predict<SystemState>,
-    private readonly me: Reconciler<ShipState>,
+    private me: Reconciler<ShipState>,
     private readonly input: InputHandle<ShipInput>,
     private readonly options: BotOptions,
     private readonly profile: ShipProfile,
@@ -130,12 +191,39 @@ export class Bot {
 
   static async connect(options: BotOptions): Promise<Bot> {
     const sdk = new ColyseusSDK(options.endpoint);
+    // A trading bot needs a captain's row, which only the Register issues.
+    let deviceToken: string | undefined;
+    if (options.account) {
+      const httpBase = options.endpoint
+        .replace(/^ws/, "http")
+        .replace(/\/$/, "");
+      const response = await fetch(`${httpBase}/account/sign-up`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ callsign: options.callsign, inviteCode: "" }),
+      });
+      if (!response.ok) {
+        throw new Error(
+          `could not open an account for ${options.callsign}: ${response.status}`,
+        );
+      }
+      deviceToken = ((await response.json()) as { deviceToken: string })
+        .deviceToken;
+    }
+
     const room = await sdk.joinOrCreate<SystemState>(
-      options.roomName ?? 'system',
+      options.roomName ?? "system",
       {
         callsign: options.callsign,
-        systemId: options.systemId,
-        ...(options.blueprint !== undefined ? { blueprint: options.blueprint } : {}),
+        // A captain joins the system their row names; an anonymous hull takes
+        // whichever it was told.
+        systemId: deviceToken
+          ? content().tuning.start.system
+          : options.systemId,
+        ...(deviceToken !== undefined ? { deviceToken } : {}),
+        ...(options.blueprint !== undefined
+          ? { blueprint: options.blueprint }
+          : {}),
       },
       SystemState,
     );
@@ -148,14 +236,24 @@ export class Bot {
     const { blueprints, modules, tuning } = content();
     const blueprint = blueprints.get(self.blueprint);
     if (!blueprint) throw new Error(`unknown draught "${self.blueprint}"`);
-    const profile = deriveStats(placeAll(blueprint.placements, modules), tuning).profile;
+    const profile = deriveStats(
+      placeAll(blueprint.placements, modules),
+      tuning,
+    ).profile;
 
-    const predict = Predict.get(room, { mode: 'lerp', delay: INTERP_DELAY_MS });
+    const predict = Predict.get(room, { mode: "lerp", delay: INTERP_DELAY_MS });
 
     // Remote ships: interpolated a little in the past. Angles interpolate over
     // the shortest arc, so they must be attached separately from linear fields.
-    predict.attachAll('ships', { mode: 'lerp', fields: ['x', 'y', 'vx', 'vy'] });
-    predict.attachAll('ships', { mode: 'lerp', fields: ['angle'], angle: true });
+    predict.attachAll("ships", {
+      mode: "lerp",
+      fields: ["x", "y", "vx", "vy"],
+    });
+    predict.attachAll("ships", {
+      mode: "lerp",
+      fields: ["angle"],
+      angle: true,
+    });
 
     const input = room.input({ type: ShipInput });
 
@@ -172,7 +270,7 @@ export class Bot {
       // have predicted. Those are not mispredictions to smooth away — they are
       // server truth arriving — so shield, module damage and the rest come in
       // as plain state.
-      fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
+      fields: ["x", "y", "vx", "vy", "angle", "angVel"],
 
       step: (ctx, state, cmd) => {
         stepFlight(state, cmd, profile, ctx);
@@ -182,13 +280,31 @@ export class Bot {
       warnOnDivergence: DRIFT_TOLERANCE,
     });
 
-    // Presentation broadcasts are for browsers. Registering no-ops keeps the
-    // SDK from warning once per message that nothing is listening.
-    for (const type of SERVER_MESSAGES) {
-      room.onMessage(type, () => undefined);
-    }
-
     const bot = new Bot(room, self, predict, me, input, options, profile);
+    bot.noteBound(self);
+
+    // What a trading brain needs: the purse, the berth's prices, and whether
+    // it is standing on one.
+    const handled = new Set<string>(["purse", "market", "landed", "at-port"]);
+    room.onMessage("purse", (payload) =>
+      bot.notePurse(payload as Partial<BotPurse>),
+    );
+    room.onMessage("market", (payload) => bot.noteMarket(payload as BotMarket));
+    room.onMessage("landed", (payload) =>
+      bot.noteLanded((payload as { port: string }).port),
+    );
+    room.onMessage("at-port", (payload) =>
+      bot.noteLanded((payload as { port: string }).port),
+    );
+
+    // The rest are presentation broadcasts for browsers. Registering no-ops
+    // keeps the SDK from warning once per message that nothing is listening —
+    // but only for types nothing else is listening for, because a second
+    // handler for a type replaces the first, and a no-op registered over the
+    // purse handler is how this bot came to think it had no marks.
+    for (const type of SERVER_MESSAGES) {
+      if (!handled.has(type)) room.onMessage(type, () => undefined);
+    }
     bot.start();
     return bot;
   }
@@ -204,23 +320,104 @@ export class Bot {
    * then read. The order matters — a read between `tick()` and the sends is one
    * step stale.
    */
+  /** The server's latest word on what this captain has. */
+  notePurse(purse: Partial<BotPurse>): void {
+    this.purse = { ...this.purse, ...purse };
+    // The purse is the authority on whether the bot is alongside: `landed`
+    // announces an arrival, but only the purse says it is still true.
+    this.landedAt =
+      this.purse.landedPort === "" ? undefined : this.purse.landedPort;
+    if (this.landedAt === undefined) this.market = undefined;
+  }
+
+  noteMarket(market: BotMarket): void {
+    this.market = market;
+  }
+
+  noteLanded(port: string): void {
+    this.landedAt = port === "" ? undefined : port;
+  }
+
+  /**
+   * Bind the predictor to the hull that is actually in the simulation.
+   *
+   * Landing removes the hull and launching creates a new one, so a reconciler
+   * bound at connect time is left pointing at a ship the server no longer
+   * has: it predicts forward against nothing and reports that as divergence.
+   * The browser rebinds by remounting the flight view; this is the same thing
+   * done deliberately.
+   */
+  private rebind(ship: ShipState): void {
+    this.me = this.predict.reconciler(ship, {
+      input: this.input,
+      step: (ctx, state, cmd) => {
+        stepFlight(state, cmd, this.profile, ctx);
+      },
+      fields: ["x", "y", "vx", "vy", "angle", "angVel"],
+      smoothMs: 60,
+      warnOnDivergence: DRIFT_TOLERANCE,
+    });
+    this.boundTo = ship;
+  }
+
+  private purse: BotPurse = {
+    marks: 0,
+    propellant: 0,
+    propellantCapacity: 0,
+    jumpCost: 1,
+    landedPort: "",
+  };
+  private market: BotMarket | undefined;
+  private landedAt: string | undefined;
+  /** The hull the predictor is bound to, so a relaunch can rebind. */
+  private boundTo: ShipState | undefined;
+
+  /** Record the hull bound at connect time. */
+  noteBound(ship: ShipState): void {
+    this.boundTo = ship;
+  }
+  /** Orders sent and orders refused, for the soak's report. */
+  private trades = 0;
+  private refusedTrades = 0;
+  private refusals = 0;
+  private lastRefusal = "";
+
+  /**
+   * Send an intent, keeping why it was refused.
+   *
+   * A bot that swallows its refusals is a bot that cannot be debugged: this
+   * one spent a run flying in circles because every `land` was being turned
+   * down and nothing said so.
+   */
+  private send(type: string, payload: unknown, onRefused?: () => void): void {
+    void this.room.request(type, payload).catch((error: unknown) => {
+      const reason = (error as { reason?: string }).reason ?? "unknown";
+      this.lastRefusal = `${type}:${reason}`;
+      this.refusals++;
+      onRefused?.();
+    });
+  }
+
   private frame(): void {
     if (this.closed) return;
+
+    // While alongside there is no hull to predict. Ticking the predictor
+    // against one the server has removed is what made a trading bot report
+    // divergence it had not actually suffered.
+    if (this.landedAt !== undefined) {
+      this.runBrain();
+      return;
+    }
+
+    // Launched again: the server made a new hull, so bind to that one.
+    const live = this.room.state.ships.get(this.room.sessionId);
+    if (live && live !== this.boundTo) this.rebind(live);
+    if (!live) return;
 
     const due = this.predict.tick(performance.now());
 
     for (let i = 0; i < due; i++) {
-      const view: BotView = {
-        self: this.me.state,
-        ships: this.room.state.ships,
-        profile: this.profile,
-        sessionId: this.room.sessionId,
-        serverNow: this.room.clock.serverNow(),
-        step: this.steps,
-        mark: (id: string) => {
-          void this.room.request('target', { id }).catch(() => undefined);
-        },
-      };
+      const view = this.view();
 
       // Reset to neutral so a brain that sets nothing coasts rather than
       // repeating last frame's command by accident.
@@ -234,9 +431,62 @@ export class Bot {
     }
   }
 
+  /** Everything a brain is given, rebuilt each step. */
+  private view(): BotView {
+    return {
+      self: this.me.state,
+      ships: this.room.state.ships,
+      profile: this.profile,
+      sessionId: this.room.sessionId,
+      serverNow: this.room.clock.serverNow(),
+      step: this.steps,
+      mark: (id: string) => {
+        void this.room.request("target", { id }).catch(() => undefined);
+      },
+      systemId: this.room.state.systemId,
+      landedAt: this.landedAt,
+      purse: this.purse,
+      market: this.market,
+      land: (portId: string) => {
+        this.send("land", { port: portId });
+      },
+      launch: () => {
+        this.send("launch", {});
+      },
+      trade: (side, commodity, units) => {
+        this.trades++;
+        this.send(
+          "staple",
+          { side, commodity, units },
+          () => this.refusedTrades++,
+        );
+      },
+      jump: (systemId: string) => {
+        this.send("jump", { system: systemId });
+      },
+    };
+  }
+
+  /**
+   * Run the brain without flying.
+   *
+   * Alongside, the brain is still where trading and the decision to launch
+   * happen, but there is no hull and nothing to send.
+   */
+  private runBrain(): void {
+    this.options.brain.decide(this.view(), this.input.data);
+    this.steps++;
+  }
+
   get telemetry(): BotTelemetry {
     const drift = this.me.drift;
     return {
+      marks: this.purse.marks,
+      trades: this.trades,
+      refusedTrades: this.refusedTrades,
+      refusals: this.refusals,
+      lastRefusal: this.lastRefusal,
+      landedAt: this.landedAt ?? "",
       callsign: this.options.callsign,
       brain: this.options.brain.name,
       status: classifyDrift(drift, DRIFT_TOLERANCE),
@@ -273,14 +523,21 @@ export class Bot {
  * Wait until the server has created this client's ship and the first patch has
  * decoded it. Joining is not the same as existing in the simulation.
  */
-function waitForOwnShip(room: SystemRoom, timeoutMs = 10_000): Promise<ShipState> {
+function waitForOwnShip(
+  room: SystemRoom,
+  timeoutMs = 10_000,
+): Promise<ShipState> {
   const existing = room.state.ships.get(room.sessionId);
   if (existing) return Promise.resolve(existing);
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       clearInterval(poll);
-      reject(new Error(`bot ${room.sessionId}: own ship never arrived in room state`));
+      reject(
+        new Error(
+          `bot ${room.sessionId}: own ship never arrived in room state`,
+        ),
+      );
     }, timeoutMs);
 
     const poll = setInterval(() => {

@@ -15,6 +15,7 @@ import { parseArgs } from 'node:util';
 import { Bot, type BotBrain, type BotTelemetry } from './bot.ts';
 import { circleBrain } from './brains/circle.ts';
 import { fighterBrain } from './brains/fighter.ts';
+import { traderBrain } from './brains/trader.ts';
 import { wanderBrain } from './brains/wander.ts';
 
 interface RunnerOptions {
@@ -22,6 +23,8 @@ interface RunnerOptions {
   bots: number;
   seconds: number;
   brain: string;
+  /** Open an account per bot, which a trading brain needs. */
+  account: boolean;
   systemId: string;
   draught: string | undefined;
   quiet: boolean;
@@ -37,6 +40,7 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
       bots: { type: 'string', default: '2' },
       seconds: { type: 'string', default: '20' },
       brain: { type: 'string', default: 'circle' },
+      account: { type: 'boolean', default: false },
       system: { type: 'string', default: 'parity' },
       draught: { type: 'string' },
       quiet: { type: 'boolean', default: false },
@@ -53,6 +57,8 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
     bots,
     seconds,
     brain: values.brain,
+    // Trading needs a captain's row whether or not it was asked for.
+    account: values.account === true || values.brain === 'trader',
     systemId: values.system,
     draught: values.draught,
     quiet: values.quiet === true,
@@ -71,8 +77,10 @@ function makeBrain(kind: string, index: number): BotBrain {
       return wanderBrain({ seed: `bot-${index}` });
     case 'fighter':
       return fighterBrain(`bot-${index}`);
+    case 'trader':
+      return traderBrain({ seed: `bot-${index}` });
     default:
-      throw new Error(`unknown brain "${kind}" (expected: circle, wander, fighter)`);
+      throw new Error(`unknown brain "${kind}" (expected: circle, wander, fighter, trader)`);
   }
 }
 
@@ -88,6 +96,10 @@ function formatTable(rows: readonly BotTelemetry[]): string {
     'pending'.padStart(8),
     'sent'.padStart(7),
     'ships'.padStart(6),
+    'marks'.padStart(8),
+    'orders'.padStart(7),
+    'refused'.padStart(8),
+    'why'.padEnd(26),
   ].join(' ');
 
   const lines = rows.map((row) =>
@@ -102,6 +114,10 @@ function formatTable(rows: readonly BotTelemetry[]): string {
       String(row.pendingInputs).padStart(8),
       String(row.inputsSent).padStart(7),
       String(row.shipsSeen).padStart(6),
+      String(row.marks).padStart(8),
+      String(row.trades).padStart(7),
+      String(row.refusedTrades).padStart(8),
+      (row.lastRefusal || (row.landedAt ? `at ${row.landedAt}` : '')).padEnd(26),
     ].join(' '),
   );
 
@@ -121,8 +137,13 @@ async function main(): Promise<void> {
     for (let i = 0; i < options.bots; i++) {
       const bot = await Bot.connect({
         endpoint: options.endpoint,
-        callsign: `Bot-${String(i + 1).padStart(2, '0')}`,
+        // Unique per run: the Register refuses a callsign it already holds,
+        // and a soak is run over and over against one database.
+        callsign: options.account
+          ? `Bot ${Date.now().toString(36).slice(-4)}-${String(i + 1).padStart(2, '0')}`
+          : `Bot-${String(i + 1).padStart(2, '0')}`,
         brain: makeBrain(options.brain, i),
+        account: options.account,
         systemId: options.systemId,
         // With no draught named, bots spread across the shipped designs so a
         // system shows contrasting hulls rather than a row of identical ones.

@@ -292,6 +292,11 @@ export class SystemRoom extends Room<{
         return ctx.reject('posted-here');
       }
 
+      // Asking again for the berth already being approached is a no-op, not a
+      // restart: resetting the progress would mean a captain holding the key
+      // down, or a tool asking on a timer, could never actually arrive.
+      if (ship.landingAt === port.id) return { landing: port.id };
+
       ship.landingAt = port.id;
       ship.landingProgress = 0;
       ship.jumpTo = '';
