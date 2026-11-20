@@ -7,7 +7,16 @@ again — and the first one with a fair chance of being clean.
 
 ## What was run
 
-*Filled in when the suite finishes.*
+| | Result |
+|---|---|
+| `pnpm check` | green — typecheck, lint, 619 unit tests in 37 files |
+| `pnpm shots` (full sweep) | **38 of 39** captured, up from 34 — one miss, `posted`, which this cycle caused and fixed |
+| `pnpm play:new` | 14 of 14 |
+| `pnpm play:late` | 27 of 27 |
+| `pnpm audio` | passes — 6 voyage checks, 31 sound events, the lane check now reporting `parity -> fairlead` |
+| `pnpm sim` | *filled in below* |
+| `pnpm perf` | *filled in below* |
+| **CI** | ran for the first time; see B1 |
 
 ## Findings
 
