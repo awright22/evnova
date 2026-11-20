@@ -33,6 +33,33 @@ all three went untouched, because the workaround made the symptom I could see
 go away — which is the failure mode this project's own rules were already
 written against, one cycle after they were written.
 
+**Why it survived nine milestones.** This build container's own environment
+carries the same rewrite I added to `ci.yml`:
+
+```
+GIT_CONFIG_COUNT=3
+GIT_CONFIG_KEY_1=url.https://github.com/.insteadOf
+GIT_CONFIG_VALUE_1=git@github.com:
+```
+
+So every `pnpm install` run during this project has silently resolved that
+SSH remote over HTTPS. The container has no `ssh` binary at all — with the
+rewrite disabled, `git ls-remote git@github.com:uNetworking/uWebSockets.js.git`
+answers `ssh: not found` — so the pinned remote has never once been fetched
+the way it is written, here or anywhere.
+
+The lockfile has therefore been broken on every machine except this one since
+the day it was generated, and the only two things that had ever tried to
+install somewhere else were CI, which was red from M0 and unread until cycle
+3, and the image, which had never been built. A dependency graph is not
+verified by the machine that wrote it.
+
+The fix belongs in the lockfile, not in three environments: a pnpm override
+pinning `uWebSockets.js` to its HTTPS form, so no clone of this repository
+needs a git rewrite to install. `pnpm licenses list` also fails on that entry
+today — `ERR_PNPM_UNSUPPORTED_PACKAGE_TYPE` — which is a second thing nobody
+could run.
+
 **B2. `fly.toml` promised a shutdown window it never set.** `[deploy]
 strategy = "immediate"` carried the comment *"Give the process time to flush
 captains and close the database before the host kills it. The server handles
