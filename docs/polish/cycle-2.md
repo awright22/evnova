@@ -204,8 +204,14 @@ same hole as M3: nobody had looked at them.
   client is global, so the sign-up screen silently took the Bourse's rule.
   That list is `.ranking` now.
 
-Between them that is the first screen a player sees and the first screen a
-player types into.
+- **Settings used two thirds of the screen.** `.shell` lays out
+  `repeat(auto-fit, minmax(380px, 1fr))` across the whole width, which at
+  1440 is three tracks; the content fills two and leaves an empty third on
+  the right. Capped at 1200px and centred, so the tracks are wider, the
+  content fills them, and the slack is split either side.
+
+Between them that is the first screen a player sees, the first screen a
+player types into, and the one they open to turn the music down.
 
 This is the second time the Bourse has taken a block name another screen
 owns. The first was `chart`, which the galaxy map owns: it drew a
