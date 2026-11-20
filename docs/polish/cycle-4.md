@@ -60,6 +60,21 @@ needs a git rewrite to install. `pnpm licenses list` also fails on that entry
 today — `ERR_PNPM_UNSUPPORTED_PACKAGE_TYPE` — which is a second thing nobody
 could run.
 
+**Proved, rather than argued.** CI gained a job that builds the production
+image and boots it against `/health`, because the only thing that would
+otherwise have exercised the Dockerfile was the owner's first `fly deploy`.
+It earned itself immediately: run 43 is the first time this image has ever
+been built, and it failed at
+
+```
+>>> RUN pnpm install --frozen-lockfile
+ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete
+successfully: exit code: 1
+```
+
+which is B1, on the deploy path, from a machine that is not this one. The
+fix is in run 44.
+
 **B2. `fly.toml` promised a shutdown window it never set.** `[deploy]
 strategy = "immediate"` carried the comment *"Give the process time to flush
 captains and close the database before the host kills it. The server handles
