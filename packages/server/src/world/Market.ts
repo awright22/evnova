@@ -39,7 +39,7 @@ export type TradeRefusal =
   | 'no-such-market'
   | 'nothing-to-trade'
   | 'out-of-stock'
-  | 'no-room'
+  | 'berth-full'
   | 'hold-full'
   | 'not-carrying'
   | 'cannot-afford';
@@ -195,13 +195,13 @@ export class Market {
         possible = Math.min(possible, room, pile.stock);
       } else {
         if (carried <= 0) throw new TradeRefused('not-carrying');
-        if (pile.stock >= pile.capacity) throw new TradeRefused('no-room');
+        if (pile.stock >= pile.capacity) throw new TradeRefused('berth-full');
         possible = Math.min(possible, carried, pile.capacity - pile.stock);
       }
 
       const priced = quote(options.side, possible, pile, commodity, tuning);
       if (priced.units <= 0) {
-        throw new TradeRefused(options.side === 'buy' ? 'out-of-stock' : 'no-room');
+        throw new TradeRefused(options.side === 'buy' ? 'out-of-stock' : 'berth-full');
       }
 
       // Marks first: a refusal here must leave the berth and the hold alone,

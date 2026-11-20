@@ -33,9 +33,16 @@ export const REJECTIONS = {
   'not-in-reach': 'Not close enough to the berth.',
   'posted-here': 'The port will not have you while you are posted.',
   'no-such-service': 'This berth does not offer that.',
+  'no-room': 'The hull will not take any more.',
   'nothing-to-do': 'Nothing to do: the hull is already sound.',
   'nothing-owed': 'The Prize Court has nothing against you.',
-  'no-room': 'The hull will not take any more.',
+  'no-such-commodity': 'The Register knows no such good.',
+  'no-such-market': 'This berth keeps no Staple.',
+  'nothing-to-trade': 'Nothing to trade.',
+  'out-of-stock': 'The berth has none left.',
+  'hold-full': 'The hold will not take any more.',
+  'not-carrying': 'You are not carrying that.',
+  'berth-full': 'The berth has no room for more.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -98,6 +105,15 @@ export function scrubChat(body: string): string {
     .slice(0, CHAT_MAX_LENGTH);
 }
 
+/** Buy from or sell to the berth's Staple. */
+export const StapleIntent = z.object({
+  side: z.enum(['buy', 'sell']),
+  commodity: z.string().max(64),
+  /** Units wanted. The berth trades as many of them as it can. */
+  units: z.int().min(1).max(100_000),
+});
+export type StapleIntent = z.infer<typeof StapleIntent>;
+
 /**
  * Say something, on the global channel or to this system only.
  *
@@ -132,6 +148,7 @@ export const SERVER_MESSAGES = [
   'landed',
   'jump-complete',
   'jump-failed',
+  'market',
 ] as const;
 
 /** A line as it reaches the other captains. */

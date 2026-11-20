@@ -20,6 +20,7 @@ import { GameClient, type GameSnapshot } from './game/GameClient.ts';
 import { Register } from './game/Register.tsx';
 import { GalaxyMap } from './map/GalaxyMap.tsx';
 import { PortHub } from './port/PortHub.tsx';
+import { Staple } from './port/Staple.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -36,6 +37,7 @@ export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() => client.snapshot());
   const [chartOpen, setChartOpen] = useState(false);
   const [chat, setChat] = useState<readonly ChatLine[]>([]);
+  const [stapleOpen, setStapleOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -50,6 +52,12 @@ export function App(): React.JSX.Element {
   }, [client]);
 
   const { mode, purse, chart } = snapshot;
+
+  // Leaving the berth closes its floor: a market is a thing you stand in, and
+  // one left open over the flight view would be reading stale prices.
+  useEffect(() => {
+    if (mode.kind !== 'port') setStapleOpen(false);
+  }, [mode.kind]);
 
   const onJump = useCallback(
     (systemId: string) => {
@@ -126,6 +134,7 @@ export function App(): React.JSX.Element {
               propellantCapacity: purse.propellantCapacity,
               ordnance: purse.ordnance,
               composition: purse.composition,
+              hasStaple: snapshot.staple !== undefined,
               structure: purse.structure,
               draught: purse.draught,
               busy: false,
@@ -134,7 +143,18 @@ export function App(): React.JSX.Element {
             onBuy={(service) => client.buy(service)}
             onLaunch={() => client.launch()}
             onOpenChart={() => setChartOpen(true)}
+            onOpenStaple={() => setStapleOpen(true)}
           />
+          {stapleOpen && snapshot.staple && (
+            <Staple
+              state={snapshot.staple}
+              marks={purse.marks}
+              notice={snapshot.notice}
+              busy={false}
+              onTrade={(side, commodity, units) => client.trade(side, commodity, units)}
+              onClose={() => setStapleOpen(false)}
+            />
+          )}
           {chatOverlay}
           {chartOverlay}
         </>

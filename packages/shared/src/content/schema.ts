@@ -291,7 +291,6 @@ export const Tuning = z.object({
       manufactured: PriceBand,
       luxury: PriceBand,
     }),
-    landingFee: z.int().nonnegative(),
     /** Hours of throughput a berth wants on hand. */
     targetHours: z.number().positive(),
     /** And the least it wants, for something it neither makes nor eats. */

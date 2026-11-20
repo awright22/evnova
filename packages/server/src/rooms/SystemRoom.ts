@@ -37,6 +37,7 @@ import {
   Rng,
   clamp,
   ChatIntent,
+  StapleIntent,
   berthRefusesPosted,
   compositionForDamage,
   compositionForWriteOff,
@@ -48,6 +49,7 @@ import {
   type Blueprint,
   type ChatLine,
   type FlightCommand,
+  type PortDef,
   type SystemDef,
 } from '@marque/shared';
 
@@ -59,6 +61,7 @@ import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
 import { patrolPilot, unletteredPilot, type NpcPilot, type NpcRole } from './npc.ts';
+import { TradeRefused } from '../world/Market.ts';
 
 /** The draught every Open Ticket starts with. */
 const STARTER_BLUEPRINT = 'prudent-return';
@@ -456,6 +459,44 @@ export class SystemRoom extends Room<{
     }),
 
     /**
+     * Trade at the berth's Staple.
+     *
+     * The market owns the transaction; the room's job is to establish that
+     * this captain is actually alongside this berth and how much their hull
+     * can carry, neither of which the market knows about.
+     */
+    staple: validate(StapleIntent, (client: Client, message: StapleIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+
+      try {
+        const result = world().market.trade({
+          side: message.side,
+          port,
+          commodityId: message.commodity,
+          units: message.units,
+          pilot,
+          holdCapacity: this.holdCapacityOf(pilot),
+          now: Date.now(),
+        });
+
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+        this.sendStaple(client.sessionId, port);
+        return result;
+      } catch (error) {
+        if (error instanceof TradeRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /**
      * Say something. The global channel goes out through presence, so it
      * reaches every room in the process and, behind Redis presence, every
      * process. The system channel is this room's own business.
@@ -601,6 +642,38 @@ export class SystemRoom extends Room<{
     this.unsubscribeChat = undefined;
   }
 
+  /**
+   * How much the captain's hull can carry.
+   *
+   * The bays, less the Propellant and Ordnance already riding in them: a hold
+   * is a hold, and the market has no business knowing what a ship is made of.
+   */
+  private holdCapacityOf(pilot: Pilot): number {
+    const { blueprints, modules, tuning } = content();
+    const blueprint = blueprints.get(pilot.blueprintId);
+    if (!blueprint) return 0;
+    const stats = deriveStats(placeAll(blueprint.placements, modules), tuning);
+    return Math.max(0, Math.floor(stats.cargoCapacity));
+  }
+
+  /** Send a captain alongside the berth's current prices and their own hold. */
+  private sendStaple(sessionId: string, port: PortDef): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+    if (!port.services.includes('staple')) return;
+
+    // Named apart from the `staple` request on purpose: a request and a push
+    // share one name space, so a push called `staple` is delivered as the
+    // answer to any `staple` request in flight and the real answer never
+    // arrives. That cost an afternoon.
+    this.clients.get(sessionId)?.send('market', {
+      port: port.id,
+      listings: world().market.listingsFor(port, pilot.accountId),
+      holdCapacity: this.holdCapacityOf(pilot),
+      holdUsed: world().market.cargoUnits(pilot.accountId),
+    });
+  }
+
   /** Whether a pilot of this role would engage that hull. */
   private engages(selfId: string, otherId: string, other: ShipState, role: NpcRole): boolean {
     if (otherId === selfId || other.destroyedAt > 0) return false;
@@ -687,6 +760,8 @@ export class SystemRoom extends Room<{
       if (pilot.landedPortId !== undefined) {
         client.send('at-port', { port: pilot.landedPortId, system: pilot.systemId });
         this.sendPurse(client.sessionId);
+        const berth = this.system?.ports.find((p) => p.id === pilot.landedPortId);
+        if (berth) this.sendStaple(client.sessionId, berth);
         return;
       }
 
@@ -1128,10 +1203,18 @@ export class SystemRoom extends Room<{
     this.sendPurse(sessionId);
     this.clients.get(sessionId)?.send('landed', { port: portId });
 
-    // A landed hull leaves the simulation and cannot be attacked.
+    // What the berth is trading, so the terminal opens on real prices rather
+    // than on a screen that has to ask for them.
+    const berth = this.system?.ports.find((candidate) => candidate.id === portId);
+    if (berth) this.sendStaple(sessionId, berth);
+
+    // A landed hull leaves the simulation and cannot be attacked. The
+    // captain does not leave the room: they are standing on the berth, and
+    // every service it sells — repairs, Propellant, Ordnance, the
+    // composition, the Staple — is answered by looking them up here. Dropping
+    // them meant the room no longer knew whose berth it was, and refused all
+    // of it with "you do not own that".
     this.removeHull(sessionId);
-    this.pilotsBySession.delete(sessionId);
-    if (pilot) this.sessionsByAccount.delete(pilot.accountId);
   }
 
   /** Shields recover after a delay without being hit. */

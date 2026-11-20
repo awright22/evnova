@@ -24,7 +24,8 @@
     "verify": "tsx tools/verify/src/twoClients.ts",
     "verify:authority": "tsx tools/verify/src/authority.ts",
     "verify:persistence": "tsx tools/verify/src/persistence.ts",
-    "verify:travel": "tsx tools/verify/src/travel.ts"
+    "verify:travel": "tsx tools/verify/src/travel.ts",
+    "verify:trade": "tsx tools/verify/src/trade.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

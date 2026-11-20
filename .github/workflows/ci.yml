@@ -145,6 +145,11 @@ jobs:
       - name: Verify persistence across a hard kill
         run: pnpm verify:persistence
 
+      # A captain lands, trades, and the economic invariants hold over the
+      # wire rather than only inside the pricing function.
+      - name: Trade at a berth
+        run: pnpm verify:trade
+
       # A fight is the heaviest thing a room does. The soak fails if the tick
       # leaves its budget or any client's prediction diverges.
       - name: Soak a fight

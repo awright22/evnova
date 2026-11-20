@@ -338,6 +338,28 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'staple',
+    description:
+      "A berth's commodity market: what it charges, what it pays, what it is holding " +
+      'against what it wants, and what the captain has aboard.',
+    path: '/?callsign=Supercargo',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      // Open the floor, buy something, and let the prices come back, so the
+      // capture shows a market that has been traded in.
+      await page.click('.port__service-list button:text("Open the floor")');
+      await page.waitForSelector('.staple__table', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+      await page.click('.staple__row:first-child .staple__order');
+      await page.waitForTimeout(900);
+    },
+  },
+  {
     name: 'chat',
     description: 'The chat overlay: the composer open on the global channel, with the log behind it.',
     path: '/?callsign=Say%20Again',

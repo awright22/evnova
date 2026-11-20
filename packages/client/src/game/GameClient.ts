@@ -13,11 +13,14 @@
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
   CHAT_BACKLOG,
+  REJECTIONS,
   SERVER_MESSAGES,
   SystemState,
   content,
+  rejectionText,
   scrubChat,
   type ChatLine,
+  type RejectionReason,
 } from '@marque/shared';
 
 import { loadChart, type Chart } from '../map/galaxy.ts';
@@ -68,6 +71,24 @@ export type GameMode =
   | { kind: 'jumping'; to: string }
   | { kind: 'failed'; heading: string; body: string; detail: string; canRetry: boolean };
 
+/** What a berth is trading, as the Staple shows it. */
+export interface StapleState {
+  readonly port: string;
+  readonly listings: readonly {
+    commodityId: string;
+    name: string;
+    tier: string;
+    ask: number;
+    bid: number;
+    stock: number;
+    capacity: number;
+    pressure: number;
+    carried: number;
+  }[];
+  readonly holdCapacity: number;
+  readonly holdUsed: number;
+}
+
 export interface GameSnapshot {
   readonly mode: GameMode;
   readonly room: Room<unknown, SystemState> | undefined;
@@ -83,6 +104,8 @@ export interface GameSnapshot {
    * the chart so it survives closing the chart, and so J has somewhere to go.
    */
   readonly course: string | undefined;
+  /** The berth's Staple, while alongside one that keeps a market. */
+  readonly staple: StapleState | undefined;
 }
 
 /**
@@ -129,6 +152,7 @@ export class GameClient {
   private notice: string | undefined;
   /** Where the captain means to go next, cleared once they arrive. */
   private course: string | undefined;
+  private staple: StapleState | undefined;
   private disposed = false;
 
   constructor(
@@ -166,6 +190,7 @@ export class GameClient {
       epoch: this.epoch,
       notice: this.notice,
       course: this.course,
+      staple: this.staple,
     };
   }
 
@@ -336,6 +361,11 @@ export class GameClient {
       this.emit();
     });
 
+    room.onMessage('market', (payload) => {
+      this.staple = payload as StapleState;
+      this.emit();
+    });
+
     room.onMessage('chat', (payload) => {
       this.pushChat([payload as ChatLine]);
     });
@@ -366,6 +396,7 @@ export class GameClient {
       'chat',
       'chat-backlog',
       'posted',
+      'market',
     ]);
     for (const type of SERVER_MESSAGES) {
       if (!handled.has(type)) room.onMessage(type, () => undefined);
@@ -449,7 +480,16 @@ export class GameClient {
   }
 
   launch(): void {
+    // The berth's prices belong to the berth: a captain in flight is not
+    // looking at a market, and a stale one would be worse than none.
+    this.staple = undefined;
     void this.request('launch', {});
+  }
+
+  /** Trade at the berth's Staple. The server answers with fresh prices. */
+  trade(side: 'buy' | 'sell', commodity: string, units: number): void {
+    if (units < 1) return;
+    void this.request('staple', { side, commodity, units: Math.trunc(units) });
   }
 
   buy(service: 'repair' | 'propellant' | 'ordnance' | 'composition', units = 0): void {
@@ -481,27 +521,32 @@ export class GameClient {
   }
 }
 
-/** The protocol's refusal reasons, as something a captain can read. */
+/**
+ * The protocol's refusal reasons, as something a captain can read.
+ *
+ * The SDK puts the server's reason on `reason` and leaves `message` as a
+ * generic "request rejected", so reading the message — which this did — threw
+ * every typed refusal away and showed the same sentence for all of them. The
+ * reason is read first and the message only as a fallback.
+ *
+ * The table itself is the shared one. The copy this replaced had drifted:
+ * every refusal the Staple can give was missing from it.
+ */
 function refusalText(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error);
-  const reasons: Record<string, string> = {
-    'no-lane': 'No lane runs from here to there.',
-    'too-close-to-the-star': 'Too close to the star to spool. Move clear of the centre.',
-    'short-of-propellant': 'Not enough Propellant aboard for a hull this heavy.',
-    'already-spooling': 'Already spooling.',
-    'too-fast-to-land': 'Too fast to be taken alongside.',
-    'not-in-reach': 'Not close enough to the berth.',
-    'posted-here': 'The port will not have you while you are posted.',
-    'cannot-afford': 'You are short of marks.',
-    'nothing-to-do': 'The hull is already sound.',
-    'no-room': 'The hull will not take any more.',
-    'no-such-service': 'This berth does not offer that.',
-    'not-landed': 'You are not at a berth.',
-    'rate-limited': 'Too many requests. Slow down.',
-  };
-
-  for (const [reason, text] of Object.entries(reasons)) {
-    if (raw.includes(reason)) return text;
+  const reason = (error as { reason?: unknown } | null)?.reason;
+  if (typeof reason === 'string' && reason in REJECTIONS) {
+    return rejectionText(reason as RejectionReason);
   }
+
+  // Older or unwrapped errors carry it in the message instead. Longest first,
+  // so a short reason cannot shadow a longer one that contains it.
+  const raw = error instanceof Error ? error.message : String(error);
+  const reasons = (Object.keys(REJECTIONS) as RejectionReason[]).sort(
+    (a, b) => b.length - a.length,
+  );
+  for (const candidate of reasons) {
+    if (raw.includes(candidate)) return rejectionText(candidate);
+  }
+
   return 'The terminal declined.';
 }

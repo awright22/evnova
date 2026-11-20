@@ -78,7 +78,6 @@
       "manufactured": { "min": 0.45, "max": 2.6 },
       "luxury": { "min": 0.3, "max": 3.6 }
     },
-    "landingFee": 60,
     "$comment2": "A berth wants targetHours of whatever it makes or eats on hand, never fewer than baselineTarget, and can hold capacityMultiple times that. Five days of throughput: a berth holding only hours of it empties between freight runs and spends its life at the price ceiling, which is not a market, and the time constant has to be long enough that a captain's hold is a nudge rather than a shock. A commodity a berth neither makes nor eats still trades, at the baseline: the berth is a market in it, just not a source or a sink.",
     "targetHours": 120,
     "baselineTarget": 600,

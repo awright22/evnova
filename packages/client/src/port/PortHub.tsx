@@ -22,7 +22,7 @@ import './port.css';
  * milestone opens it.
  */
 const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
-  staple: { name: 'the Staple', trading: false },
+  staple: { name: 'the Staple', trading: true },
   bourse: { name: 'the Bourse', trading: false },
   factor: { name: 'the Factor', trading: false },
   yard: { name: 'the Yard', trading: false },
@@ -39,6 +39,8 @@ export interface PortHubState {
   readonly ordnance: number;
   /** Marks the Prize Court has against this captain, 0 when not posted. */
   readonly composition: number;
+  /** True while the berth's market is open to this captain. */
+  readonly hasStaple: boolean;
   readonly structure: number;
   readonly draught: string;
   readonly busy: boolean;
@@ -50,9 +52,16 @@ export interface PortHubProps {
   onBuy: (service: 'repair' | 'propellant' | 'ordnance' | 'composition') => void;
   onLaunch: () => void;
   onOpenChart: () => void;
+  onOpenStaple: () => void;
 }
 
-export function PortHub({ state, onBuy, onLaunch, onOpenChart }: PortHubProps): React.JSX.Element {
+export function PortHub({
+  state,
+  onBuy,
+  onLaunch,
+  onOpenChart,
+  onOpenStaple,
+}: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
   const [focusMoved, setFocusMoved] = useState(false);
 
@@ -150,6 +159,16 @@ export function PortHub({ state, onBuy, onLaunch, onOpenChart }: PortHubProps): 
               />
             )}
 
+            {state.hasStaple && (
+              <ServiceRow
+                name="the Staple"
+                detail="Commodities, bought and sold by the unit"
+                action="Open the floor"
+                disabled={state.busy}
+                onAction={onOpenStaple}
+              />
+            )}
+
             <ServiceRow
               name="Ordnance"
               detail={`${state.ordnance} units in the magazine`}
@@ -163,7 +182,8 @@ export function PortHub({ state, onBuy, onLaunch, onOpenChart }: PortHubProps): 
             <span className="label">Also at this berth</span>
             <ul>
               {state.port.services
-                .filter((service) => service !== 'repair')
+                // Repairs and the Staple have rows of their own above.
+                .filter((service) => service !== 'repair' && service !== 'staple')
                 .map((service) => {
                   const label = SERVICE_LABELS[service];
                   return (
