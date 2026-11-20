@@ -163,6 +163,15 @@ card in the bottom-left of an otherwise empty field, and it is the first
 thing a player sees. The plate keeps its left-aligned text and amber rule;
 it now sits in the middle of the page rather than against its edge.
 
+**M5. The Bourse's middle column is cut off at 1440x900.** The page grid
+gives row two a 400px cap for the company and row three whatever is left for
+the order ticket. At the sweep's viewport that is about 200px, and the
+ticket needs more: the capture shows the price chart's *fair value* line
+sliced through mid-label and the top edge of the order's own action button
+clipped by the panel's bottom border. A captain at a 900px-tall screen
+cannot see the button that places the order. Measured rather than inferred —
+see the figures below.
+
 ### Minors
 
 **N1. The Bourse's panels cut their last visible row in half.** A scroller
