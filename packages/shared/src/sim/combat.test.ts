@@ -404,3 +404,82 @@ describe('turret traverse', () => {
     expect(aimOf(turretMount(), { x: 0, y: 0, angle: 0 }, behindMe, rng, 0)).toBeUndefined();
   });
 });
+
+describe('beams and point defense', () => {
+  const fitted = placeAll(
+    [
+      { moduleId: 'hrc-bridge-1', x: 0, y: 0, rotation: 0 },
+      { moduleId: 'slp-engine-1', x: -1, y: 0, rotation: 0 },
+      { moduleId: 'slp-beam-1', x: 2, y: 0, rotation: 0 },
+      { moduleId: 'rpo-defense-1', x: 2, y: 2, rotation: 0 },
+    ],
+    modules,
+  );
+
+  it('reads a beam and a point-defense mount as their own kinds', () => {
+    const kinds = mountsOf(fitted).map((mount) => mount.kind);
+    expect(kinds).toContain(PROJECTILE_KIND.beam);
+    expect(kinds).toContain(PROJECTILE_KIND.defense);
+  });
+
+  it('gives a beam a muzzle like any other mount', () => {
+    const beam = mountsOf(fitted).find((mount) => mount.kind === PROJECTILE_KIND.beam)!;
+    const muzzle = muzzleOf(beam, atRest);
+    expect(muzzle.x).toBeGreaterThan(0);
+  });
+
+  it('declares every beam as damage a second, not a round', () => {
+    // Nothing enforces this but the reading of it, so it is written down:
+    // a beam's `roundsPerSecond` is 1 because the figure it carries is
+    // already per second, and the server multiplies by `dt`.
+    for (const module of modules.values()) {
+      if (module.type !== 'beam') continue;
+      expect(module.weapon?.roundsPerSecond, module.id).toBe(1);
+    }
+  });
+
+  it('gives every beam a reach shorter than the guns of its tier', () => {
+    // The trade is reach for certainty: a beam cannot miss and cannot be
+    // dodged, so it has to be something a captain closes to use.
+    for (const beam of modules.values()) {
+      if (beam.type !== 'beam') continue;
+      const guns = [...modules.values()].filter(
+        (other) => other.type === 'weapon' && other.tier === beam.tier,
+      );
+      for (const gun of guns) {
+        expect(beam.weapon?.range ?? 0, `${beam.id} against ${gun.id}`).toBeLessThan(
+          gun.weapon?.range ?? 0,
+        );
+      }
+    }
+  });
+
+  it('gives point defense an arc and no ammunition', () => {
+    for (const module of modules.values()) {
+      if (module.type !== 'defense') continue;
+      expect(module.weapon?.arc, module.id).toBeGreaterThan(0);
+      expect(module.weapon?.ammoPerShot, module.id).toBeUndefined();
+    }
+  });
+
+  it('keeps point defense from being a gun: it reaches nothing a gun does', () => {
+    const guns = [...modules.values()].filter((module) => module.type === 'weapon');
+    const shortest = Math.min(...guns.map((gun) => gun.weapon?.range ?? Infinity));
+    for (const module of modules.values()) {
+      if (module.type !== 'defense') continue;
+      expect(module.weapon?.range ?? 0, module.id).toBeLessThan(shortest);
+    }
+  });
+
+  it('charges a beam more power than anything that shoots a round', () => {
+    // It runs continuously, so it is the thing a reactor is bought for.
+    const rounds = [...modules.values()].filter(
+      (module) => module.type === 'weapon' || module.type === 'turret' || module.type === 'rack',
+    );
+    const heaviest = Math.max(...rounds.map((module) => module.power.draw ?? 0));
+    for (const module of modules.values()) {
+      if (module.type !== 'beam') continue;
+      expect(module.power.draw ?? 0, module.id).toBeGreaterThan(heaviest);
+    }
+  });
+});

@@ -1100,6 +1100,127 @@
         "ammoPerShot": 3
       },
       "description": "Three units of Ordnance a round and a round every four seconds. It turns slowly enough that a shuttle can fly away from it, and it will end anything that cannot."
+    },
+    {
+      "id": "slp-beam-1",
+      "name": "Slipway Thirty Pattern 2 Cutting Beam",
+      "type": "beam",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "mass": 7,
+      "hitPoints": 70,
+      "cost": 12500,
+      "bom": {
+        "circuitry": 12,
+        "alloy": 8
+      },
+      "power": {
+        "draw": 22
+      },
+      "weapon": {
+        "damage": 26,
+        "roundsPerSecond": 1,
+        "projectileSpeed": 1,
+        "range": 900,
+        "spread": 0
+      },
+      "description": "A yard's plate cutter on a mount. It arrives the instant it is pointed and it does not run out, which is the whole of its case; everything else about it is short reach and a reactor that notices."
+    },
+    {
+      "id": "rpo-beam-1",
+      "name": "Reprisal Ordnance Lance",
+      "type": "beam",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 13,
+      "hitPoints": 120,
+      "cost": 31000,
+      "bom": {
+        "ordnance": 14,
+        "circuitry": 22,
+        "alloy": 10
+      },
+      "power": {
+        "draw": 38
+      },
+      "weapon": {
+        "damage": 58,
+        "roundsPerSecond": 1,
+        "projectileSpeed": 1,
+        "range": 1500,
+        "spread": 0
+      },
+      "description": "Built as a weapon rather than adapted into one, and it shows in the reach. Hold it on a hull and the hull comes apart; let it wander and you have spent a great deal of power on nothing."
+    },
+    {
+      "id": "rpo-defense-1",
+      "name": "Reprisal Ordnance Close Watch",
+      "type": "defense",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 4,
+      "hitPoints": 55,
+      "cost": 9200,
+      "bom": {
+        "ordnance": 6,
+        "circuitry": 7,
+        "alloy": 3
+      },
+      "power": {
+        "draw": 9
+      },
+      "weapon": {
+        "damage": 1,
+        "roundsPerSecond": 1.6,
+        "projectileSpeed": 900,
+        "range": 520,
+        "spread": 0,
+        "arc": 2.0944
+      },
+      "description": "Watches its own arc and fires on anything coming in, without being told. It will not help you win a fight; it will stop a rack ending one."
+    },
+    {
+      "id": "rpo-defense-2",
+      "name": "Reprisal Ordnance Standing Watch",
+      "type": "defense",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "mass": 7,
+      "hitPoints": 85,
+      "cost": 21000,
+      "bom": {
+        "ordnance": 11,
+        "circuitry": 16,
+        "alloy": 6
+      },
+      "power": {
+        "draw": 16
+      },
+      "weapon": {
+        "damage": 1,
+        "roundsPerSecond": 2.8,
+        "projectileSpeed": 1100,
+        "range": 800,
+        "spread": 0,
+        "arc": 3.14159
+      },
+      "description": "All round, and fast enough to take two in a row. The Prize Court's own hulls carry a pair, which is the kind of recommendation that costs money."
     }
   ]
 }
