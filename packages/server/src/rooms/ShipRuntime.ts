@@ -14,6 +14,7 @@
 import {
   EMPTY_LOADOUT,
   deriveStats,
+  flyingProfile,
   hullShape,
   isWrittenOff,
   mountsOf,
@@ -103,17 +104,10 @@ export class ShipRuntime {
   }
 
   get profile(): ShipProfile {
-    const base = this.stats.profile;
-    const scale = this.power.engineScale;
-    if (scale >= 1) return base;
-    // A brownout starves the engines last, and when it reaches them it costs
-    // thrust rather than stopping the hull dead.
-    return {
-      ...base,
-      thrustAccel: base.thrustAccel * scale,
-      turnAccel: base.turnAccel * scale,
-      maxTurnRate: base.maxTurnRate * Math.max(0.25, scale),
-    };
+    // The shared rule, which the client predicts with. There is no second
+    // copy of it: a hull that flies one way here and another way there is a
+    // prediction that diverges every time anything is shot off.
+    return flyingProfile(this.modules, this.hp, this.tuning, this.loadout);
   }
 
   get power(): PowerState {

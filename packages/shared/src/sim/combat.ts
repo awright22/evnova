@@ -19,6 +19,8 @@ import {
   centreOfMass,
   type PlacedModule,
 } from '../ships/geometry.ts';
+import { deriveStats, EMPTY_LOADOUT, type Loadout } from '../ships/derive.ts';
+import type { ShipProfile } from './profile.ts';
 
 /** How a weapon's rounds behave, resolved from the module that fired them. */
 export const PROJECTILE_KIND = {
@@ -575,4 +577,40 @@ export function steerMissile(
   const next = heading + turn;
   projectile.vx = Math.cos(next) * speed;
   projectile.vy = Math.sin(next) * speed;
+}
+
+/**
+ * How a damaged hull actually flies.
+ *
+ * A module at zero keeps its cells and loses its contribution, and a hull
+ * short of power starves its engines last — so a hull with an engine shot off
+ * turns and accelerates differently from the draught it was built to.
+ *
+ * Both sides have to agree on this to the last decimal. The server steps the
+ * simulation with it; the client predicts with it. The client used to derive
+ * a profile once, from the whole blueprint, and keep predicting with it after
+ * the hull had been shot to pieces — which showed up as the reconciler
+ * reporting a diverging prediction in every fight that disabled anything.
+ */
+export function flyingProfile(
+  modules: readonly PlacedModule[],
+  hp: readonly number[],
+  tuning: Tuning,
+  loadout: Loadout = EMPTY_LOADOUT,
+): ShipProfile {
+  const alive = modules.filter((_, index) => (hp[index] ?? 0) > 0);
+  // A hull with nothing left still needs a profile rather than a crash.
+  const base = deriveStats(alive.length > 0 ? alive : modules, tuning, loadout).profile;
+
+  const scale = powerState(modules, (index) => (hp[index] ?? 0) > 0).engineScale;
+  if (scale >= 1) return base;
+
+  // A brownout starves the engines last, and when it reaches them it costs
+  // thrust rather than stopping the hull dead.
+  return {
+    ...base,
+    thrustAccel: base.thrustAccel * scale,
+    turnAccel: base.turnAccel * scale,
+    maxTurnRate: base.maxTurnRate * Math.max(0.25, scale),
+  };
 }

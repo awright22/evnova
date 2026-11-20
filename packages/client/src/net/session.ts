@@ -20,9 +20,10 @@ import {
   type RejectionReason,
   ShipInput,
   content,
-  deriveStats,
+  flyingProfile,
   placeAll,
   stepFlight,
+  type PlacedModule,
   type ShipProfile,
   type ShipState,
   type SystemState,
@@ -102,17 +103,33 @@ export class Session {
   private readonly predict: Predict<SystemState>;
   private readonly input: InputHandle<ShipInput>;
   private readonly me: Reconciler<ShipState>;
-  private readonly profile: ShipProfile;
+  /**
+   * How the hull flies *now*, not how the draught was drawn.
+   *
+   * Re-derived whenever a module of this captain's hull reaches zero, because
+   * the server steps the simulation with the same rule: a hull with an engine
+   * shot off turns and accelerates differently, and predicting with the
+   * undamaged figures diverged from the server in every fight that disabled
+   * anything. Mutable, and read inside the step rather than captured by it.
+   */
+  private profile: ShipProfile;
+  /** The hull's placements, kept for re-deriving the profile. */
+  private readonly placed: readonly PlacedModule[];
+  /** The module damage the current profile was derived from. */
+  private damage: string;
 
   /** Throttle actually sent last step, for the plume. */
   private throttle = 0;
 
   private constructor(
     private readonly room: FlightRoom,
-    self: ShipState,
+    private readonly self: ShipState,
     profile: ShipProfile,
+    placed: readonly PlacedModule[],
   ) {
     this.profile = profile;
+    this.placed = placed;
+    this.damage = [...self.moduleHp].join(',');
 
     this.predict = Predict.get(room, { mode: 'lerp', delay: INTERP_DELAY_MS });
 
@@ -136,9 +153,12 @@ export class Session {
       // as plain state.
       fields: ['x', 'y', 'vx', 'vy', 'angle', 'angVel'],
 
-      // The same function the server's fixed loop runs. There is no second copy.
+      // The same function the server's fixed loop runs. There is no second
+      // copy — and it reads the current profile rather than the one this
+      // hull was launched with, so damage changes how it flies here exactly
+      // when it changes how it flies there.
       step: (ctx, state, cmd) => {
-        stepFlight(state, cmd, profile, ctx);
+        stepFlight(state, cmd, this.profile, ctx);
       },
       smoothMs: 65,
       snap: SNAP_DISTANCE,
@@ -162,10 +182,11 @@ export class Session {
     if (!blueprint) {
       throw new Error(`the server assigned draught "${self.blueprint}", which this build lacks`);
     }
-    // Derive the same profile the server derived, from the same data.
-    const stats = deriveStats(placeAll(blueprint.placements, modules), tuning);
-
-    return new Session(room, self, stats.profile);
+    // Derive the same profile the server derived, from the same data — and
+    // from the same damage, because a captain can rejoin in a hull that has
+    // already been shot at.
+    const placed = placeAll(blueprint.placements, modules);
+    return new Session(room, self, flyingProfile(placed, [...self.moduleHp], tuning), placed);
   }
 
   get shipProfile(): ShipProfile {
@@ -187,6 +208,7 @@ export class Session {
    * inputs. Call before reading any position.
    */
   tick(now: number, intent: FlightIntent): number {
+    this.refreshProfile();
     const due = this.predict.tick(now);
 
     for (let i = 0; i < due; i++) {
@@ -205,6 +227,23 @@ export class Session {
     }
 
     return due;
+  }
+
+  /**
+   * Re-derive how this hull flies, if anything on it has changed.
+   *
+   * Once a frame, against a signature of the module damage, because the
+   * alternative is deriving a dozen modules' worth of mass and leverage every
+   * frame for a hull that is usually undamaged. The signature is cheap and
+   * the derivation only runs when a module's hit points have actually moved.
+   */
+  private refreshProfile(): void {
+    const now = [...this.self.moduleHp].join(',');
+    if (now === this.damage) return;
+    this.damage = now;
+
+    const { tuning } = content();
+    this.profile = flyingProfile(this.placed, [...this.self.moduleHp], tuning);
   }
 
   /** Every hull in the system, read through the one render idiom. */
