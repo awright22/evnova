@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M4 — Economy**
+**Current milestone: M5 — Shipyard**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -70,16 +70,16 @@ Done when:
 
 ## M4. Economy
 
-- [ ] Stockpiles, pricing, the Staple screen
-- [ ] Propellant, landing fees
-- [ ] NPC freight
-- [ ] The ledger
-- [ ] Invariants 1, 2, 4 and 5 with tests
-- [ ] A first soak run with trading bots
+- [x] Stockpiles, pricing, the Staple screen
+- [x] Propellant, landing fees
+- [x] NPC freight
+- [x] The ledger
+- [x] Invariants 1, 2, 4 and 5 with tests
+- [x] A first soak run with trading bots
 
 Done when:
-- [ ] The soak report shows stable prices and bounded credit growth with trading bots
-- [ ] A bot that hammers one route sees its margin decay, and a rested route recovers
+- [x] The soak report shows stable prices and bounded credit growth with trading bots
+- [x] A bot that hammers one route sees its margin decay, and a rested route recovers
 
 ## M5. Shipyard
 
@@ -535,3 +535,105 @@ A fourth is worth naming for how it was found: the soak reported one tick of
 — every NPC was building and filtering an array of candidates on every tick,
 and the collection that followed was the spike. The decision log in
 `docs/DESIGN.md` has the rest.
+
+---
+
+## M4. Economy — 2026-11-20
+
+### What is now playable
+
+There is a living economy, and you can make a living in it.
+
+Ten commodities move through the Reach along real chains: Ore becomes Alloy
+becomes Machinery and Circuitry, Ice becomes Propellant, Grain becomes the
+Provisions every berth eats, and Leaf grows only in the Marque and is chewed
+only in the Home Roads. Each of the 32 berths that keeps a Staple makes some
+and eats others, at rates authored from its own description, and every chain
+balances across the galaxy.
+
+Price is the base price scaled by target over stock, raised to an elasticity,
+and held inside its tier's band. An order is priced by walking it a unit at a
+time, so a large order moves the price against itself and splitting one
+changes nothing. A berth pays six per cent less than it charges, which is
+what makes buying and selling back at one berth always lose.
+
+**L** at a berth, then *Open the floor*: the Staple lists every good with what
+the berth charges, what it pays, what it is holding against what it wants, and
+what you have aboard. Propellant and Ordnance are commodities too, so filling
+your tanks takes the berth's stock down and costs what that berth charges —
+a berth drunk dry is expensive.
+
+Stock drifts on the world's own clock whether or not anyone is online, and
+the Reach's freighters move goods from surplus to shortage along real
+hyperlanes, slowly. That is what makes a route worth flying and worth
+resting: work one hard and its prices close behind you, leave it alone and it
+recovers.
+
+### How to run it
+
+```bash
+pnpm dev
+```
+
+Open the client, fly to a berth, press **L**, and open the floor. Buy what a
+berth has too much of and carry it to one that is short.
+
+The milestone's own measurements:
+
+```bash
+pnpm verify:trade
+```
+
+```bash
+pnpm sim -- --bots 8 --minutes 6 --trade
+```
+
+The first lands a captain and holds invariants 1, 2 and 5 over the wire. The
+second runs trading bots against an accelerated world and writes
+`artifacts/soak/report.md`: the price range of every commodity, how long any
+of them sat at a clamp, the ledger's totals by category, and the two halves
+of this milestone's bar — a worked route's prices closing, and the same
+berths recovering once the bots leave.
+
+### What the first soak run showed
+
+Over six minutes at 900x — about a week and a half of world time — with eight
+trading bots:
+
+- Every commodity held a real spread around its base price, and **no price
+  sat at a clamp in any sample**. No berth ran empty or filled to capacity.
+- **Invariant 4 reconciled exactly**: the marks every captain held equalled
+  faucets minus sinks.
+- Net worth grew about 80 marks a captain. Modest, and it should be: the
+  starting draught carries twenty units, and the shipyard is what scales it.
+- Decay and recovery both showed. Alloy at Dunnage rose 12.4% as the bots
+  bought its glut out, and the berths they worked moved back towards their
+  targets once they left.
+
+### Known issues
+
+- **A trading bot refuses about a third of its own orders.** They are its
+  mistakes, not the server's — asking to sell what it has already sold, or
+  trading a beat after launching — and they cost nothing but noise in the
+  report. Worth tidying when the bot next needs work.
+- **Ordnance is expensive as ammunition.** It is priced as the manufactured
+  commodity it is, which makes a missile rack costly to feed and the fixed
+  gun the sensible default. That reads as a deliberate trade-off rather than
+  a mistake, but it is worth revisiting when racks matter more.
+- **The economy has only been run with bots.** Nobody has played it.
+
+### What this milestone cost in bugs
+
+Nine, and the three that mattered had been true since M3. Landing deleted the
+captain from the room's own map, so every service a berth sells had been
+refused with "you do not own that" since the port hub existed — the capture
+showed the screen and never pressed a button. The client read refusals off
+the wrong field, so every typed refusal in the game came out as one sentence.
+And a push message sharing a name with a request was delivered as the answer
+to that request, so the real answer never arrived.
+
+The rest were in the harness, and each hid the next: a bot that registered
+its message handlers after an await and threw away the purse it was sent, a
+bot that swallowed every refusal, a bot that kept predicting in a room it had
+left, and a soak that reused its database so its ledger totals were the sum
+of every run ever made on the machine.

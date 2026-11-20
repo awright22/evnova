@@ -135,6 +135,10 @@ export function App(): React.JSX.Element {
               ordnance: purse.ordnance,
               composition: purse.composition,
               hasStaple: snapshot.staple !== undefined,
+              propellantAsk:
+                snapshot.staple?.listings.find((l) => l.commodityId === 'propellant')?.ask ?? 0,
+              ordnanceAsk:
+                snapshot.staple?.listings.find((l) => l.commodityId === 'ordnance')?.ask ?? 0,
               structure: purse.structure,
               draught: purse.draught,
               busy: false,

@@ -10,7 +10,9 @@
  * nothing is worse than no button.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
+
+import { content, placeAll } from '@marque/shared';
 
 import type { ChartPort, ChartSystem } from '../map/galaxy.ts';
 import { PortVista } from './PortVista.tsx';
@@ -41,6 +43,15 @@ export interface PortHubState {
   readonly composition: number;
   /** True while the berth's market is open to this captain. */
   readonly hasStaple: boolean;
+  /**
+   * What this berth charges for a unit of each, 0 when it keeps no Staple.
+   *
+   * Both are commodities, so their price is the berth's and moves with its
+   * stock: a row that said only "fill the tanks" was hiding the number that
+   * decides whether to.
+   */
+  readonly propellantAsk: number;
+  readonly ordnanceAsk: number;
   readonly structure: number;
   readonly draught: string;
   readonly busy: boolean;
@@ -91,6 +102,20 @@ export function PortHub({
 
   const hurt = state.structure < 0.999;
   const tanksShort = state.propellant < state.propellantCapacity;
+
+  // A magazine is only worth filling on a hull with something that empties
+  // it. Offering it to a draught carrying nothing but a fixed gun is the
+  // berth selling a service the hull cannot use.
+  const firesOrdnance = useMemo(() => {
+    const { blueprints, modules } = content();
+    const blueprint = [...blueprints.values()].find(
+      (candidate) => candidate.name === state.draught || candidate.id === state.draught,
+    );
+    if (!blueprint) return false;
+    return placeAll(blueprint.placements, modules).some(
+      (module) => (module.def.weapon?.ammoPerShot ?? 0) > 0,
+    );
+  }, [state.draught]);
 
   return (
     <main className="port" onKeyDown={onKeyDown} tabIndex={-1}>
@@ -143,7 +168,10 @@ export function PortHub({
 
             <ServiceRow
               name="Propellant"
-              detail={`${state.propellant} of ${state.propellantCapacity} aboard`}
+              detail={
+                `${state.propellant} of ${state.propellantCapacity} aboard` +
+                (state.propellantAsk > 0 ? ` · ${state.propellantAsk} a unit here` : '')
+              }
               action="Fill the tanks"
               disabled={!tanksShort || state.busy}
               onAction={() => onBuy('propellant')}
@@ -169,13 +197,18 @@ export function PortHub({
               />
             )}
 
-            <ServiceRow
-              name="Ordnance"
-              detail={`${state.ordnance} units in the magazine`}
-              action="Take on more"
-              disabled={state.busy}
-              onAction={() => onBuy('ordnance')}
-            />
+            {firesOrdnance && (
+              <ServiceRow
+                name="Ordnance"
+                detail={
+                  `${state.ordnance} units in the magazine` +
+                  (state.ordnanceAsk > 0 ? ` · ${state.ordnanceAsk} a unit here` : '')
+                }
+                action="Take on more"
+                disabled={state.busy}
+                onAction={() => onBuy('ordnance')}
+              />
+            )}
           </div>
 
           <footer className="port__offers">

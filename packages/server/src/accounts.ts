@@ -32,10 +32,18 @@ function openingKit(): {
   const { blueprints, modules, tuning } = content();
   const blueprint = blueprints.get(tuning.start.draught);
   if (!blueprint) throw new Error(`start draught "${tuning.start.draught}" is missing`);
-  const stats = deriveStats(placeAll(blueprint.placements, modules), tuning, EMPTY_LOADOUT);
+  const placed = placeAll(blueprint.placements, modules);
+  const stats = deriveStats(placed, tuning, EMPTY_LOADOUT);
+
+  // Ordnance only if the draught has something that fires it. The starting
+  // draught carries a gun and no rack, so a magazine's worth of Ordnance was
+  // a few thousand marks of cargo it could not use and could sell on the
+  // spot, which roughly tripled a new captain's purse.
+  const firesOrdnance = placed.some((module) => (module.def.weapon?.ammoPerShot ?? 0) > 0);
+
   return {
     draught: blueprint.id,
-    ordnance: tuning.start.ordnance,
+    ordnance: firesOrdnance ? tuning.start.ordnance : 0,
     propellant: Math.floor(stats.propellantCapacity),
     // Shields up. A hull leaves the berth charged, not naked.
     shield: Math.floor(stats.shieldCapacity),
