@@ -238,6 +238,27 @@ async function flyToRock(page: Page, seconds: number): Promise<boolean> {
   return false;
 }
 
+/**
+ * Wait for the seal to finish, rather than guessing how long it takes.
+ *
+ * The stamp's phases add up to 1.5 seconds — press, strike, settle, linger,
+ * lift — and under software rasterisation the main thread is busy enough
+ * that its timers run long: at 2.4 seconds `board` still photographed the
+ * impression crossing the control it had been pressed on, and so did
+ * `staple` and `bourse-orders` at their own guessed numbers. Three screens,
+ * three wrong guesses, which is what guessing gets.
+ *
+ * `rest` is both the phase before a press and the phase after one, and a
+ * screen like the Staple has a stamp on every row, so this waits for one to
+ * leave rest and then for all of them to be back in it.
+ */
+async function settleStamp(page: Page): Promise<void> {
+  const OUT = "document.querySelectorAll('.stamp:not(.stamp--rest)').length";
+  await page.waitForFunction(`${OUT} > 0`, undefined, { timeout: 6_000 }).catch(() => undefined);
+  await page.waitForFunction(`${OUT} === 0`, undefined, { timeout: 25_000 });
+  await page.waitForTimeout(250);
+}
+
 async function engageNearest(
   page: Page,
   seconds: number,
@@ -1091,10 +1112,7 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.staple__table', { timeout: 20_000 });
       await page.waitForTimeout(400);
       await page.click('.staple__row:first-child .staple__order');
-      // As long as the board's, and for the same reason: at 900ms the
-      // capture caught the seal mid-strike across the control it had been
-      // pressed on. The stamp has its own frames; this screen is the floor.
-      await page.waitForTimeout(2400);
+      await settleStamp(page);
     },
   },
   {
@@ -1273,12 +1291,7 @@ export const SCREENS: readonly Screen[] = [
       await page.locator('#ticket-limit').fill('6.40');
       await page.waitForTimeout(200);
       await page.click('.ticket__confirm button');
-      // Long enough for the seal to settle. At 700ms the impression was still
-      // crossing the confirm when the shutter came round a second later, the
-      // same way it did on `board` and `staple`. Third time; the stamp is a
-      // deliberate, slow ceremony, and any capture that presses it has to
-      // wait the ceremony out.
-      await page.waitForTimeout(2400);
+      await settleStamp(page);
 
       // Then a short, which is the other half of what this screen is for:
       // the sell side, the box ticked, and the margin line under it.
@@ -1392,12 +1405,7 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.board__columns', { timeout: 20_000 });
       // Take one, so the third column is a captain's day rather than empty.
       await page.click('.board__actions button:text("Take it on")');
-      // Long enough for the impression to settle. At 900ms the capture
-      // caught the seal mid-strike, struck across the control it was
-      // pressed on and across the commission's own terms — a photograph of
-      // an animation rather than of the board. The stamp has its own frame
-      // sequence; this screen is the board.
-      await page.waitForTimeout(2400);
+      await settleStamp(page);
     },
   },
   {

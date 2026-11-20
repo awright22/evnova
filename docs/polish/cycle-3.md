@@ -65,13 +65,22 @@ panel that shows eighteen — was not wired, and the `yard-code` capture shows
 it cut through "Mk II Fixed Gun". Wired now. The fade is cheap; finding the
 scrollers is the work, and a capture of each screen is what finds them.
 
-**N3. A third still was a photograph of the stamp.** Cycle 2 found `board`
-and `staple` photographing the seal mid-strike and gave both 2.4 seconds to
-settle. `bourse-orders` presses the same stamp and waited 700ms; the capture
-shows the impression crossing "Leave the order: 300 DPR". The stamp is a
-deliberate, slow ceremony — spec section 4 makes it the signature
-interaction — so any capture that presses it has to wait the ceremony out.
-Three screens, three separate waits, each found by looking.
+**N3. Three stills were photographs of the stamp, and timing it did not
+fix them.** Cycle 2 found `board` and `staple` photographing the seal
+mid-strike and gave both 2.4 seconds, which is well past the 1.5 seconds the
+stamp's phases add up to. This sweep shows the impression still crossing
+"Take it on" on the board, and crossing "Leave the order: 300 DPR" on
+`bourse-orders`, which had a 700ms guess of its own.
+
+The number was never the problem. Under software rasterisation the main
+thread is busy enough that the stamp's own timers run long, so no fixed wait
+is right. All three wait for the seal to return to rest now — and because a
+screen like the Staple has a stamp on every row, that means waiting for one
+to leave rest and then for all of them to be back in it.
+
+Three screens, three wrong guesses. The lesson is cycle 2's, arrived at
+again from the other end: a harness that times a thing instead of waiting
+for it is making an assumption about a machine it does not control.
 
 **N4. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
