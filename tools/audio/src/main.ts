@@ -380,6 +380,11 @@ async function listen(
     await lane.click();
     await page.waitForTimeout(500);
   }
+  // Which system the chart is actually offering, not just that a button is
+  // there. The lane check downstream reported `parity -> parity` twice with
+  // no way to tell whether the jump failed or the course was plotted for the
+  // system the captain was already in.
+  const chosen = await page.locator('.chart__detail h3').first().textContent().catch(() => null);
   const plot = page.getByRole('button', { name: /plot the course/i }).first();
   const plotted = (await plot.count()) > 0;
   if (plotted) {
@@ -388,7 +393,10 @@ async function listen(
   } else {
     await page.keyboard.press('Escape');
   }
-  record('a course can be plotted from the chart', plotted);
+  record(
+    `a course can be plotted from the chart (${chosen ?? 'nothing chosen'})`,
+    plotted,
+  );
   await page.waitForTimeout(400);
 
   console.log('  jumping');
