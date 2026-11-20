@@ -97,6 +97,10 @@ export interface BotView {
   readonly market: BotMarket | undefined;
   /** The Bourse, while alongside a berth that keeps one. */
   readonly bourse: readonly Listing[] | undefined;
+  /** The Factor's board and what is in hand, as the server last sent it. */
+  readonly commissions: BotCommissions | undefined;
+  /** The last word a Factor had about a commission, and whether it was paid. */
+  readonly lastVerdict: BotVerdict | undefined;
 
   readonly land: (portId: string) => void;
   readonly launch: () => void;
@@ -114,6 +118,48 @@ export interface BotView {
   readonly deal: (side: "buy" | "sell", ticker: string, shares: number) => void;
   /** Build a hull, which is how a brain spends on a maker. */
   readonly build: (name: string, placements: readonly Placement[]) => void;
+  /** Take a commission off the board, through the same intent a captain uses. */
+  readonly takeCommission: (id: string) => void;
+  /** Give one up. */
+  readonly abandonCommission: (id: string) => void;
+}
+
+/** The Factor's board and the work in hand, as the bot sees it. */
+export interface BotCommissions {
+  readonly board: readonly {
+    id: string;
+    templateId: string;
+    kind: string;
+    title: string;
+    pay: number;
+    hours: number;
+    units: number;
+    commodityId: string;
+    toPortId: string;
+    toSystemId: string;
+    target: string;
+  }[];
+  readonly held: readonly {
+    id: string;
+    templateId: string;
+    kind: string;
+    title: string;
+    pay: number;
+    units: number;
+    commodityId: string;
+    toPortId: string;
+    toSystemId: string;
+    dueAt: number;
+  }[];
+  readonly berthName: string;
+}
+
+/** What a Factor said about a commission that is now closed. */
+export interface BotVerdict {
+  readonly id: string;
+  readonly title: string;
+  readonly outcome: 'done' | 'failed';
+  readonly pay?: number;
 }
 
 /** What the server says the bot has. */
@@ -224,6 +270,10 @@ export interface BotTelemetry {
   readonly marks: number;
   readonly trades: number;
   readonly refusedTrades: number;
+  /** Commissions taken, answered and failed, for the soak's report. */
+  readonly commissionsTaken: number;
+  readonly commissionsDone: number;
+  readonly commissionsFailed: number;
   /** Every refused intent, and the last one, so a stuck bot says why. */
   readonly refusals: number;
   readonly lastRefusal: string;
@@ -298,6 +348,7 @@ export class Bot {
       purse: undefined as Partial<BotPurse> | undefined,
       market: undefined as BotMarket | undefined,
       bourse: undefined as readonly Listing[] | undefined,
+      commissions: undefined as BotCommissions | undefined,
       landedAt: undefined as string | undefined,
       jumpedTo: undefined as string | undefined,
       /** The bot, once it exists. The handlers above close over this. */
@@ -307,6 +358,9 @@ export class Bot {
     const handled = new Set<string>([
       "purse",
       "market",
+      "bourse",
+      "commissions",
+      "commission",
       "landed",
       "at-port",
       "jump-complete",
@@ -323,6 +377,13 @@ export class Bot {
     room.onMessage("bourse", (payload) => {
       inbox.bourse = (payload as { listings: Listing[] }).listings;
       inbox.bot?.noteBourse(inbox.bourse);
+    });
+    room.onMessage("commissions", (payload) => {
+      inbox.commissions = payload as BotCommissions;
+      inbox.bot?.noteCommissions(inbox.commissions);
+    });
+    room.onMessage("commission", (payload) => {
+      inbox.bot?.noteVerdict(payload as BotVerdict);
     });
     for (const type of ["landed", "at-port"] as const) {
       room.onMessage(type, (payload) => {
@@ -405,6 +466,7 @@ export class Bot {
     // Hand over anything that arrived while the hull was being waited for.
     if (inbox.purse) bot.notePurse(inbox.purse);
     if (inbox.market) bot.noteMarket(inbox.market);
+    if (inbox.commissions) bot.noteCommissions(inbox.commissions);
     if (inbox.landedAt !== undefined) bot.noteLanded(inbox.landedAt);
     if (inbox.jumpedTo !== undefined) bot.noteJumped(inbox.jumpedTo);
 
@@ -439,6 +501,23 @@ export class Bot {
 
   noteBourse(listings: readonly Listing[]): void {
     this.bourse = listings;
+  }
+
+  noteCommissions(commissions: BotCommissions): void {
+    this.commissions = commissions;
+  }
+
+  /**
+   * A Factor's verdict, kept until a brain reads it.
+   *
+   * The soak counts commissions answered and failed, and the only place the
+   * server says which is this message: it is a one-off push, not state, so a
+   * brain that is mid-step when it arrives would otherwise never see it.
+   */
+  noteVerdict(verdict: BotVerdict): void {
+    this.lastVerdict = verdict;
+    if (verdict.outcome === 'done') this.commissionsDone += 1;
+    else this.commissionsFailed += 1;
   }
 
   noteLanded(port: string): void {
@@ -487,6 +566,11 @@ export class Bot {
   };
   private market: BotMarket | undefined;
   private bourse: readonly Listing[] | undefined;
+  private commissions: BotCommissions | undefined;
+  private lastVerdict: BotVerdict | undefined;
+  private commissionsTaken = 0;
+  private commissionsDone = 0;
+  private commissionsFailed = 0;
   private landedAt: string | undefined;
   /** The hull the predictor is bound to, so a relaunch can rebind. */
   private boundTo: ShipState | undefined;
@@ -599,6 +683,8 @@ export class Bot {
       purse: this.purse,
       market: this.market,
       bourse: this.bourse,
+      commissions: this.commissions,
+      lastVerdict: this.lastVerdict,
       land: (portId: string) => {
         this.send("land", { port: portId });
       },
@@ -629,6 +715,15 @@ export class Bot {
       },
       build: (name, placements) => {
         this.send("build", { name, placements });
+      },
+      takeCommission: (id: string) => {
+        this.commissionsTaken += 1;
+        this.send("take-commission", { id }, () => {
+          this.commissionsTaken -= 1;
+        });
+      },
+      abandonCommission: (id: string) => {
+        this.send("abandon-commission", { id });
       },
     };
   }
@@ -663,6 +758,9 @@ export class Bot {
       landedAt: this.landedAt ?? "",
       callsign: this.options.callsign,
       brain: this.options.brain.name,
+      commissionsTaken: this.commissionsTaken,
+      commissionsDone: this.commissionsDone,
+      commissionsFailed: this.commissionsFailed,
       status: classifyDrift(drift, DRIFT_TOLERANCE),
       driftEma: drift.ema,
       driftPeak: drift.peak,

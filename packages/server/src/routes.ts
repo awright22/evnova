@@ -168,10 +168,21 @@ export const routes = createRouter({
     );
     const cargoUnits = holds.reduce((sum, row) => sum + row.units, 0);
 
+    // Commissions by template and outcome, so a soak can say which of the
+    // Factor's templates actually completed end to end rather than only that
+    // some did. Aggregate and nameless, like everything else here.
+    const commissions = world_.store.raw
+      .prepare(
+        `SELECT template_id AS templateId, kind, state, COUNT(*) AS count
+         FROM commissions GROUP BY template_id, kind, state`,
+      )
+      .all() as { templateId: string; kind: string; state: string; count: number }[];
+
     return Promise.resolve(
       json({
         commodities: world_.market.survey(),
         berths: world_.market.berthSurvey(),
+        commissions,
         // Every pool's product and quote, so the soak can check invariant 3
         // over a whole run rather than over one function call, and say
         // whether any listing ran to nothing or without bound.

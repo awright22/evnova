@@ -15,6 +15,7 @@ import { parseArgs } from 'node:util';
 import { Bot, type BotBrain, type BotTelemetry } from './bot.ts';
 import { circleBrain } from './brains/circle.ts';
 import { fighterBrain } from './brains/fighter.ts';
+import { factorBrain } from './brains/factor.ts';
 import { traderBrain } from './brains/trader.ts';
 import { wanderBrain } from './brains/wander.ts';
 
@@ -58,7 +59,11 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
     seconds,
     brain: values.brain,
     // Trading needs a captain's row whether or not it was asked for.
-    account: values.account === true || values.brain === 'trader' || values.brain === 'router',
+    account:
+      values.account === true ||
+      values.brain === 'trader' ||
+      values.brain === 'router' ||
+      values.brain === 'factor',
     systemId: values.system,
     draught: values.draught,
     quiet: values.quiet === true,
@@ -83,9 +88,13 @@ function makeBrain(kind: string, index: number): BotBrain {
       // Held to one system, so it works the same berths over and over. This
       // is the brain that decays a route.
       return traderBrain({ seed: `bot-${index}`, stay: true, lot: 20 });
+    case 'factor':
+      // Works the commission board: takes what is posted, buys what it has
+      // to carry, flies it where it is wanted and lands.
+      return factorBrain({ seed: `bot-${index}` });
     default:
       throw new Error(
-        `unknown brain "${kind}" (expected: circle, wander, fighter, trader, router)`,
+        `unknown brain "${kind}" (expected: circle, wander, fighter, trader, router, factor)`,
       );
   }
 }
@@ -105,6 +114,9 @@ function formatTable(rows: readonly BotTelemetry[]): string {
     'marks'.padStart(8),
     'orders'.padStart(7),
     'refused'.padStart(8),
+    'work'.padStart(6),
+    'done'.padStart(6),
+    'late'.padStart(6),
     'why'.padEnd(26),
   ].join(' ');
 
@@ -123,6 +135,9 @@ function formatTable(rows: readonly BotTelemetry[]): string {
       String(row.marks).padStart(8),
       String(row.trades).padStart(7),
       String(row.refusedTrades).padStart(8),
+      String(row.commissionsTaken).padStart(6),
+      String(row.commissionsDone).padStart(6),
+      String(row.commissionsFailed).padStart(6),
       (row.lastRefusal || (row.landedAt ? `at ${row.landedAt}` : '')).padEnd(26),
     ].join(' '),
   );

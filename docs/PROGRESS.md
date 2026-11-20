@@ -216,11 +216,11 @@ end it several hundred thousand marks down.
 
 ## M7. Living world
 
-- [ ] Company standing
-- [ ] Letters of marque and monopoly goods
-- [ ] Freighters with real cargo
-- [ ] Patrol and Unlettered behaviour by security level
-- [ ] Commission templates and the three chains
+- [x] Company standing
+- [x] Letters of marque and monopoly goods
+- [x] Freighters with real cargo
+- [x] Patrol and Unlettered behaviour by security level
+- [x] Commission templates and the three chains
 - [ ] Fleets and shared commissions
 - [ ] Player-to-player trade
 

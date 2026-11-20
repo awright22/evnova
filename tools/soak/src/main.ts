@@ -24,9 +24,10 @@ import { circleBrain } from '@marque/bot/brains/circle.ts';
 import { fighterBrain } from '@marque/bot/brains/fighter.ts';
 import { exploiterBrain } from '@marque/bot/brains/exploiter.ts';
 import { investorBrain } from '@marque/bot/brains/investor.ts';
+import { factorBrain } from '@marque/bot/brains/factor.ts';
 import { traderBrain } from '@marque/bot/brains/trader.ts';
 import { wanderBrain } from '@marque/bot/brains/wander.ts';
-import { TICK_RATE } from '@marque/shared';
+import { TICK_RATE, content } from '@marque/shared';
 
 import { requirePortFree } from '@marque/harness';
 
@@ -50,6 +51,8 @@ interface Options {
   fight: boolean;
   trade: boolean;
   invest: boolean;
+  /** Bots that work the Factor's board instead of trading on their own account. */
+  factor: boolean;
   economyTimeScale: number;
   warmupSeconds: number;
   startingSystem: string;
@@ -82,6 +85,7 @@ function parseOptions(): Options {
       // Honest traders, honest investors and exploiters in one run, so the
       // three can be compared at the end.
       invest: { type: 'boolean', default: false },
+      factor: { type: 'boolean', default: false },
       // A month of world time in a couple of minutes.
       'economy-scale': { type: 'string', default: '900' },
       // Seconds to let the world drift before the bots arrive. A brand-new
@@ -113,6 +117,7 @@ function parseOptions(): Options {
     fight: values.fight === true,
     trade: values.trade === true,
     invest: values.invest === true,
+    factor: values.factor === true,
     economyTimeScale: Number(values['economy-scale']),
     warmupSeconds: Number(values.warmup),
     startingSystem: values['start-system'],
@@ -211,7 +216,7 @@ async function main(): Promise<void> {
               callsign: old.telemetry.callsign,
               brain,
               deviceToken,
-              account: options.trade || options.invest,
+              account: options.trade || options.invest || options.factor,
               systemId,
               onJumped: follow(index, brain),
             });
@@ -229,7 +234,12 @@ async function main(): Promise<void> {
       // end is the point — spec section 15's invariant 6 says the exploiters
       // must not come out ahead.
       const role = options.invest ? (i % 3 === 2 ? 'exploiter' : i % 3 === 1 ? 'investor' : 'trader') : 'trader';
-      const brain = options.invest
+      // Each one leans toward a different kind of work, so a run covers the
+      // board rather than every bot queueing for the same best-paying line.
+      const LEANS = ['delivery', 'passengers', 'smuggling', 'escort'] as const;
+      const brain = options.factor
+        ? factorBrain({ seed: `soak-${i}`, leans: LEANS[i % LEANS.length] })
+        : options.invest
         ? role === 'exploiter'
           ? exploiterBrain(`soak-${i}`)
           : role === 'investor'
@@ -249,13 +259,13 @@ async function main(): Promise<void> {
           // A trading bot opens an account, and the Register refuses a
           // callsign it already holds, so the run stamps its own.
           callsign:
-            options.trade || options.invest
+            options.trade || options.invest || options.factor
               ? `Soak ${stamp}-${String(i + 1).padStart(2, '0')}`
               : `Soak-${String(i + 1).padStart(2, '0')}`,
           brain,
-          account: options.trade || options.invest,
-          systemId: options.trade ? options.startingSystem : 'parity',
-          ...(options.trade ? { onJumped: follow(i, brain) } : {}),
+          account: options.trade || options.invest || options.factor,
+          systemId: options.trade || options.factor ? options.startingSystem : 'parity',
+          ...(options.trade || options.factor ? { onJumped: follow(i, brain) } : {}),
         }),
       );
     }
@@ -272,7 +282,7 @@ async function main(): Promise<void> {
         atSeconds,
         server: await fetchMetrics(options.port),
         bots: bots.map((bot) => bot.telemetry),
-        ...(options.trade || options.invest
+        ...(options.trade || options.invest || options.factor
           ? { economy: await fetchEconomy(options.port) }
           : {}),
       });
@@ -563,6 +573,68 @@ ${traderRows}
  * captain pays there climbs across the run and the margin that drew them
  * closes behind them.
  */
+/**
+ * What the Factor's board actually paid out, by template.
+ *
+ * Milestone 7 asks that every commission template completes end to end under
+ * bots. The unit tests prove the content at the service level; this says
+ * which of them went all the way through the real protocol in this run, and
+ * which never came up — a template that is never offered is as broken as one
+ * that cannot be answered, and only a run says which.
+ */
+function commissionSection(options: Options, samples: readonly Sample[]): string {
+  if (!options.factor) return '';
+
+  const rows = samples.at(-1)?.economy?.commissions ?? [];
+  if (rows.length === 0) {
+    return `## Commissions
+
+Nothing was taken off a board this run.
+
+`;
+  }
+
+  const byTemplate = new Map<string, { kind: string; done: number; failed: number; open: number }>();
+  for (const row of rows) {
+    const entry = byTemplate.get(row.templateId) ?? {
+      kind: row.kind,
+      done: 0,
+      failed: 0,
+      open: 0,
+    };
+    if (row.state === 'done') entry.done += row.count;
+    else if (row.state === 'failed') entry.failed += row.count;
+    else entry.open += row.count;
+    byTemplate.set(row.templateId, entry);
+  }
+
+  const { commissions } = content();
+  const everyTemplate = commissions.templates.map((template) => template.id).sort();
+  const answered = everyTemplate.filter((id) => (byTemplate.get(id)?.done ?? 0) > 0);
+  const untouched = everyTemplate.filter((id) => !byTemplate.has(id));
+
+  const lines = [...byTemplate]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(
+      ([id, entry]) =>
+        `| ${id} | ${entry.kind} | ${entry.done} | ${entry.failed} | ${entry.open} |`,
+    )
+    .join('\n');
+
+  return `## Commissions
+
+| Template | Kind | Answered | Failed | In hand |
+|---|---|---:|---:|---:|
+${lines}
+
+| Measure | Value |
+|---|---|
+| Templates answered end to end | ${answered.length} of ${everyTemplate.length} |
+| Never offered to a bot | ${untouched.length === 0 ? 'none' : untouched.join(', ')} |
+
+`;
+}
+
 function decaySection(options: Options, samples: readonly Sample[]): string {
   const traded = samples.filter((sample) => sample.economy !== undefined);
   const first = traded.at(0)?.economy;
@@ -726,7 +798,7 @@ system, and treats any frame-time spike over 33 ms as a bug.
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
 ${tickRows}
 
-${economy}## Clients at the end of the run
+${economy}${commissionSection(options, samples)}## Clients at the end of the run
 
 Drift is the SDK's own reconcile-correction telemetry, classified by the SDK's
 own \`classifyDrift\`. A persistent EMA means the client and server simulations

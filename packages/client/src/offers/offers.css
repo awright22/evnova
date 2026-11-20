@@ -1,0 +1,642 @@
+/**
+ * Offers alongside. Two halves of one counter: the ticket on the left, where
+ * an offer is written up, and what is open either way on the right.
+ *
+ * The one amber fill is the button that sends an offer across. Everything
+ * else amber touches is the captain's own position: their marks, a hold row
+ * they have put a parcel on, an offer standing on their answer, and the focus
+ * ring. The answers on a docket are plain buttons — a column of amber down a
+ * list is the same dilution as using it decoratively.
+ */
+
+.offers {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  outline: none;
+}
+
+.offers__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  max-height: 100%;
+  padding: var(--space-2);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+/*
+ * The panel is the width of the regions it is carrying.
+ *
+ * A panel sizes to what it holds: a wide box with a sentence in it reads as a
+ * screen that failed to load rather than as the ordinary answer to standing
+ * at a quiet berth, and a ticket with an empty column beside it reads the
+ * same way.
+ */
+.offers__panel--both {
+  width: min(920px, 100%);
+}
+
+.offers__panel--ticket {
+  width: min(660px, 100%);
+}
+
+.offers__panel--open {
+  width: min(520px, 100%);
+}
+
+.offers__panel--alone {
+  width: min(600px, 100%);
+}
+
+/*
+ * The header wraps rather than spills.
+ *
+ * At the narrow shapes, and again at the largest interface scale, the title,
+ * the figures and Close want more width than the panel has; without this the
+ * button ran out past the panel's clip and was cut in half by the chamfer.
+ */
+.offers__panel .panel-header {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+/* The berth belongs to the title, not to the row of figures beside it. */
+.offers__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+}
+
+.offers__title h2 {
+  white-space: nowrap;
+}
+
+.offers__head-right {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.offers__purse {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.offers__purse div {
+  display: grid;
+  gap: 0;
+  justify-items: end;
+}
+
+.offers__purse dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.offers__marks {
+  color: var(--amber);
+}
+
+/*
+ * With no ticket on the screen there is nothing to pack a hold against, so
+ * the header carries the purse alone: answering an offer is paid for in
+ * marks, and the other two figures are there for the picker.
+ */
+.offers__panel--open .offers__purse div:not(:first-child) {
+  display: none;
+}
+
+.offers__notice {
+  margin: 0;
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-secondary);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}
+
+/* The quiet-berth statement. Prose, so it sets at a readable measure. */
+.offers__lede {
+  max-width: 58ch;
+  margin: 0;
+  padding: var(--space-1) 0 var(--space-0-5);
+  color: var(--text-secondary);
+}
+
+.offers__columns {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.offers__panel--both .offers__columns {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.offers__make,
+.offers__open {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1-5);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The rule divides the two halves; with nothing to divide it is not drawn. */
+.offers__panel--both .offers__open {
+  padding-left: var(--space-2);
+  border-left: var(--border-width) solid var(--rule-faint);
+}
+
+/*
+ * Nothing open, said at the foot rather than as an empty column.
+ *
+ * The label sits on the line with the sentence: a heading over one sentence
+ * of its own is the sparse panel again, in miniature.
+ */
+.offers__quiet {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.offers__quiet .label {
+  white-space: nowrap;
+}
+
+/* --- Writing one up ------------------------------------------------------ */
+
+.offers__field {
+  display: grid;
+  gap: var(--space-0-5);
+}
+
+.offers__field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.offers__chips {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+/* A captain may hold a shelf of draughts; the strip wraps rather than runs. */
+.offers__chips--wrap {
+  flex-wrap: wrap;
+  max-height: 84px;
+  overflow-y: auto;
+}
+
+/*
+ * The small segmented control the Bourse's ticket and the Staple's lots use:
+ * washed and ruled when it is on, never filled, so the screen's one amber
+ * fill stays on the button that commits the offer.
+ */
+.offers__chip {
+  min-height: 24px;
+  padding: 0 var(--space-1-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition:
+    background var(--motion-instant) var(--ease-standard),
+    border-color var(--motion-instant) var(--ease-standard),
+    color var(--motion-instant) var(--ease-standard);
+}
+
+.offers__chip:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--hover);
+  border-color: var(--amber-dim);
+}
+
+.offers__chip:active:not(:disabled) {
+  background: var(--active);
+}
+
+.offers__chip:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.offers__chip--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+/* --- The hold, as a picker ----------------------------------------------- */
+
+.offers__hold {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+.offers__hold th {
+  color: var(--text-muted);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-align: left;
+}
+
+/*
+ * The good's name takes every spare pixel and the figures keep a tight block
+ * at the right. Left to divide the column evenly, the table put sixty pixels
+ * of nothing between a commodity and the units of it aboard, which is a form
+ * to fill in rather than a manifest to read.
+ */
+.offers__hold th:first-child {
+  width: 100%;
+}
+
+.offers__hold thead th {
+  padding: 0 var(--space-1) var(--space-0-5);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.offers__hold tbody tr {
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.offers__hold td {
+  padding: 2px var(--space-1);
+  vertical-align: middle;
+}
+
+/*
+ * A good's name is a row heading, so it is set as data and not as a label.
+ *
+ * Written as `.offers__good` alone it lost to `.offers__hold th` on
+ * specificity and every commodity came out as "LEAF" in condensed caps,
+ * which is a sign over a door rather than a line on a manifest.
+ */
+.offers__hold th.offers__good {
+  padding: 2px var(--space-1);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.offers__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A row with a parcel on it. The captain's own position, which is what amber
+ * is for: a wash and a rule down the edge, as the Factor's board marks the
+ * offer being read.
+ */
+.offers__row--on {
+  background: var(--amber-wash);
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.offers__units {
+  width: 64px;
+  min-height: 24px;
+  padding: 0 var(--space-0-5);
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-strong);
+}
+
+/* An empty well reads as a hole; a muted nought reads as nothing offered. */
+.offers__units::placeholder,
+.offers__figure::placeholder {
+  color: var(--text-disabled);
+}
+
+.offers__units:focus-visible {
+  border-color: var(--amber);
+}
+
+/* The control acts on its row, so it stays inside the cell: no flex on the td. */
+.offers__all {
+  min-width: 42px;
+  padding: 0 var(--space-1);
+}
+
+/* --- The price ----------------------------------------------------------- */
+
+.offers__pricing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.offers__figure {
+  width: 148px;
+  min-height: 28px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--size-data-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-strong);
+}
+
+.offers__figure:focus-visible {
+  border-color: var(--amber);
+}
+
+/* --- What the offer will do ---------------------------------------------- */
+
+.offers__preview {
+  display: grid;
+  /* Two by two in the ticket's column, rather than three across and one adrift. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-1-5);
+  background: var(--raised);
+  border-left: 2px solid var(--rule-strong);
+}
+
+.offers__preview div {
+  display: grid;
+  gap: 0;
+}
+
+.offers__preview dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.offers__total {
+  font-size: var(--size-data-lg);
+  line-height: var(--leading-h2);
+  font-weight: 600;
+}
+
+/* Colour never carries it alone: the label above says which way it goes. */
+.offers__total--gain {
+  color: var(--gain);
+}
+
+.offers__total--loss {
+  color: var(--danger);
+}
+
+.offers__manifest {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.offers__aside,
+.offers__why,
+.offers__none {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+.offers__aside,
+.offers__none {
+  max-width: 62ch;
+}
+
+.offers__confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+/* A control that wraps to "Send it to / Prudent Return" reads as a fault. */
+.offers__confirm .button {
+  white-space: nowrap;
+}
+
+/* --- What is open either way -------------------------------------------- */
+
+.offers__groups {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.offers__group {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.offers__group-head {
+  padding-bottom: var(--space-0-5);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+/* An offer standing on this captain's answer is their position to settle. */
+.offers__group-head--on {
+  color: var(--amber);
+  border-bottom-color: var(--amber-dim);
+}
+
+.offers__list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offers__docket {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1-5);
+  background: var(--raised);
+  border-left: 2px solid var(--rule-strong);
+  animation: offers-arrive 400ms var(--ease-emphasis) both;
+}
+
+.offers__docket--inbound {
+  border-left-color: var(--amber);
+}
+
+/*
+ * An offer arrives moving, then settles.
+ *
+ * The art direction rests a confirmed line by fading it from the amber wash
+ * back to its resting surface, so the wash is a beat and not a state: a
+ * docket that stayed washed would put a column of amber down the list and
+ * leave nothing to distinguish the one that just landed.
+ */
+@keyframes offers-arrive {
+  from {
+    opacity: 0;
+    background: var(--amber-wash);
+    transform: translateY(-4px);
+  }
+
+  40% {
+    opacity: 1;
+    background: var(--amber-wash);
+    transform: none;
+  }
+
+  to {
+    opacity: 1;
+    background: var(--raised);
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes offers-arrive {
+    from {
+      opacity: 0;
+      background: var(--amber-wash);
+    }
+
+    40% {
+      opacity: 1;
+      background: var(--amber-wash);
+    }
+
+    to {
+      opacity: 1;
+      background: var(--raised);
+    }
+  }
+}
+
+.offers__docket-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1-5);
+}
+
+.offers__docket-head .micro {
+  white-space: nowrap;
+}
+
+.offers__reading {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+/*
+ * What is in the offer, as a manifest: one line each, ruled, so two parcels
+ * and a draught can be counted rather than read as a sentence.
+ */
+.offers__goods {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.offers__goods li {
+  padding: 2px 0;
+  color: var(--text-primary);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.offers__goods li:last-child {
+  border-bottom: none;
+}
+
+.offers__goods-none {
+  color: var(--text-muted);
+}
+
+.offers__docket-figures {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1-5);
+  margin: 0;
+}
+
+.offers__docket-figures div {
+  display: grid;
+  gap: 0;
+}
+
+.offers__docket-figures div:last-child {
+  justify-items: end;
+}
+
+.offers__docket-figures dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.offers__short {
+  margin: 0;
+  padding: var(--space-0-5) var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  font-variant-numeric: tabular-nums;
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}
+
+.offers__docket-actions {
+  display: flex;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.offers__docket-actions .button {
+  min-height: 24px;
+  padding: 0 var(--space-1-5);
+  font-size: var(--size-body-sm);
+  white-space: nowrap;
+}

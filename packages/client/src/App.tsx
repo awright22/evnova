@@ -25,6 +25,8 @@ import { Editor } from './yard/Editor.tsx';
 import { Moorings } from './yard/Moorings.tsx';
 import { Bourse } from './bourse/Bourse.tsx';
 import { Board } from './commissions/Board.tsx';
+import { Convoy } from './convoy/Convoy.tsx';
+import { Offers } from './offers/Offers.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -46,6 +48,8 @@ export function App(): React.JSX.Element {
   const [mooringsOpen, setMooringsOpen] = useState(false);
   const [bourseOpen, setBourseOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [offersOpen, setOffersOpen] = useState(false);
+  const [convoyOpen, setConvoyOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -170,6 +174,11 @@ export function App(): React.JSX.Element {
                 (hull) => hull.portId === port.id,
               ).length,
               posted: snapshot.commissions?.board.length ?? 0,
+              alongside: snapshot.offers?.alongside.length ?? 0,
+              convoy: (snapshot.convoy?.members ?? []).filter(
+                (member) => member.state === 'member' && !member.isSelf,
+              ).length,
+              convoyAsks: snapshot.convoy?.invitations.length ?? 0,
               busy: false,
               notice: snapshot.notice,
             }}
@@ -181,6 +190,8 @@ export function App(): React.JSX.Element {
             onOpenMoorings={() => setMooringsOpen(true)}
             onOpenBourse={() => setBourseOpen(true)}
             onOpenBoard={() => setBoardOpen(true)}
+            onOpenOffers={() => setOffersOpen(true)}
+            onOpenConvoy={() => setConvoyOpen(true)}
             hasYard={port.services.includes('yard')}
             hasMoorings={port.services.includes('moorings')}
             hasBourse={port.services.includes('bourse')}
@@ -205,6 +216,41 @@ export function App(): React.JSX.Element {
                 void client.chooseChainEnding(chain, choice, name)
               }
               onClose={() => setBoardOpen(false)}
+            />
+          )}
+          {offersOpen && (
+            <Offers
+              state={snapshot.offers ?? { offers: [], alongside: [], hold: [], designs: [] }}
+              hold={snapshot.offers?.hold ?? []}
+              designs={snapshot.offers?.designs ?? []}
+              marks={purse.marks}
+              berthName={port.name}
+              busy={false}
+              notice={snapshot.notice}
+              onOffer={(offer) => void client.offerTrade(offer)}
+              onAnswer={(id, accept) => void client.answerOffer(id, accept)}
+              onClose={() => setOffersOpen(false)}
+            />
+          )}
+          {convoyOpen && (
+            <Convoy
+              convoy={
+                snapshot.convoy ?? {
+                  id: '',
+                  name: '',
+                  isLeader: false,
+                  members: [],
+                  invitations: [],
+                  limit: 8,
+                }
+              }
+              busy={false}
+              notice={snapshot.notice}
+              onInvite={(callsign) => void client.inviteToConvoy(callsign)}
+              onAnswer={(fleetId, accept) => void client.answerConvoy(fleetId, accept)}
+              onLeave={() => void client.leaveConvoy()}
+              onRemove={(callsign) => void client.leaveConvoy(callsign)}
+              onClose={() => setConvoyOpen(false)}
             />
           )}
           {bourseOpen && (

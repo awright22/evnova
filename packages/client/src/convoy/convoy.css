@@ -1,0 +1,439 @@
+/**
+ * The convoy. A ship's register of who is sailing with you: one row per
+ * captain, where they are read down a single column, and your own line
+ * marked out.
+ *
+ * Same idiom as the Moorings, because both are a page of records a captain
+ * reads rather than a shop they browse. The panel sizes to what it holds:
+ * sailing alone it is a paragraph and a field, and it should look like a
+ * paragraph and a field rather than a wide box with a sentence adrift in it.
+ */
+
+.convoy {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  outline: none;
+}
+
+.convoy__panel {
+  display: grid;
+  gap: var(--space-2);
+  width: fit-content;
+  min-width: min(440px, 100%);
+  max-width: min(740px, 100%);
+  max-height: 100%;
+  padding: var(--space-2);
+  overflow: hidden;
+  background: var(--panel);
+  animation: convoy-in var(--motion-base) var(--ease-emphasis);
+}
+
+@keyframes convoy-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.convoy__head-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.convoy__body {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* --- Sailing alone --------------------------------------------------- */
+
+.convoy__alone {
+  display: grid;
+  gap: var(--space-0-5);
+}
+
+/*
+ * What a convoy is, for the captain who has never been in one.
+ *
+ * Interface prose, so Plex Sans: nobody issued this and a serif would read
+ * as a document somebody signed.
+ */
+.convoy__lede {
+  max-width: 62ch;
+  color: var(--text-secondary);
+}
+
+/* --- Who is sailing -------------------------------------------------- */
+
+.convoy__table {
+  width: 100%;
+  font-size: var(--size-body-sm);
+  border-collapse: collapse;
+}
+
+.convoy__table thead th {
+  padding: 0 var(--space-1) var(--space-0-5);
+  color: var(--text-muted);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.convoy__table tbody td,
+.convoy__table tbody th {
+  padding: var(--space-0-5) var(--space-1);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+/* The last row's rule and the next section's would read as a seam. */
+.convoy__table tbody tr:last-child td,
+.convoy__table tbody tr:last-child th {
+  border-bottom: none;
+}
+
+.convoy__table tbody tr:hover td,
+.convoy__table tbody tr:hover th {
+  background: color-mix(in srgb, var(--hover) 55%, transparent);
+}
+
+.convoy__who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.convoy__callsign {
+  color: var(--text-primary);
+}
+
+/* The marks under a callsign, and the convoy's name under an ask. */
+.convoy__marks {
+  display: block;
+  color: var(--text-muted);
+}
+
+.convoy__where {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/*
+ * Connected, or not.
+ *
+ * The dot is the one filled glyph the art direction allows, and it only
+ * repeats what the where column already says in words: a captain who cannot
+ * tell these two apart by colour still reads "Not on the link".
+ */
+.convoy__dot--on {
+  color: var(--hull);
+}
+
+.convoy__dot--off {
+  color: var(--text-disabled);
+}
+
+.convoy__dot--asked {
+  color: var(--amber-dim);
+}
+
+/*
+ * The captain reading it. A rule down the left rather than a fill: it marks
+ * their position in the list, not a warning.
+ */
+.convoy__row--self th {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.convoy__row--self .convoy__callsign {
+  color: var(--amber);
+}
+
+.convoy__row--self .convoy__dot--on,
+.convoy__row--self .convoy__dot--off {
+  color: var(--amber);
+}
+
+/* Asked, not yet aboard: the row is held back until they answer. */
+.convoy__row--asked .convoy__callsign,
+.convoy__row--asked .convoy__where {
+  color: var(--text-muted);
+}
+
+/*
+ * A control that acts on a row sits inside it, so the cell keeps the table's
+ * layout and the row's rule runs the whole width behind it.
+ */
+.convoy__act {
+  text-align: right !important;
+}
+
+.convoy__put-out {
+  min-height: 24px;
+  padding: 0 var(--space-1);
+  font-size: var(--size-label);
+  white-space: nowrap;
+}
+
+/* --- Asks waiting on this captain ------------------------------------ */
+
+.convoy__asks {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-1-5);
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+.convoy__asks-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.convoy__ask-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.convoy__ask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1-5);
+  font-size: var(--size-body-sm);
+  background: var(--raised);
+  border-left: 2px solid var(--rule-strong);
+}
+
+.convoy__ask-who {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.convoy__ask-acts {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.convoy__ask-acts .button {
+  min-height: 24px;
+  padding: 0 var(--space-1-5);
+  font-size: var(--size-label);
+  white-space: nowrap;
+}
+
+/* Turning an ask down is the quieter of the two answers, and reads as it. */
+.convoy__decline {
+  color: var(--text-secondary);
+  background: none;
+  border-color: var(--rule-strong);
+}
+
+.convoy__decline:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--hover);
+  border-color: var(--rule-strong);
+}
+
+.convoy__decline:active:not(:disabled) {
+  background: var(--active);
+}
+
+.convoy__decline:disabled {
+  color: var(--text-disabled);
+  border-color: var(--rule-faint);
+}
+
+/* --- Asking somebody along ------------------------------------------- */
+
+.convoy__form {
+  display: grid;
+  gap: var(--space-0-5);
+  padding-top: var(--space-1-5);
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+.convoy__form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-0-5);
+}
+
+/*
+ * Sized to a callsign, not to the panel. The Register will not take more
+ * than twenty characters, and a field running the width of the screen for
+ * twenty characters reads as a web form.
+ */
+.convoy__field {
+  width: 24ch;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 var(--space-1-5);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--size-body);
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-strong);
+  clip-path: polygon(
+    var(--chamfer-sm) 0,
+    100% 0,
+    100% calc(100% - var(--chamfer-sm)),
+    calc(100% - var(--chamfer-sm)) 100%,
+    0 100%,
+    0 var(--chamfer-sm)
+  );
+  transition: border-color var(--motion-instant) var(--ease-standard);
+}
+
+.convoy__field::placeholder {
+  color: var(--text-disabled);
+}
+
+.convoy__field:hover:not(:disabled) {
+  border-color: var(--amber-dim);
+}
+
+/*
+ * Focus is the amber ring from base.css, and only that: suppressing the
+ * outline for a border of the same colour trades the house's focus state for
+ * a weaker one, and a captain moving by keyboard alone reads the ring.
+ */
+
+.convoy__field:disabled {
+  color: var(--text-disabled);
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+/*
+ * The sentence under a control.
+ *
+ * Not `.micro`: that is uppercase and letter-spaced, which is right for a
+ * stamp of two or three words and wrong for a sentence — "ASKING OPENS THE
+ * CONVOY" over two lines shouts an aside. Labels shout; hints are read.
+ */
+.convoy__hint {
+  max-width: 62ch;
+  color: var(--text-muted);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+}
+
+/* --- Leaving ---------------------------------------------------------- */
+
+.convoy__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-1-5);
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+.convoy__foot .button {
+  white-space: nowrap;
+}
+
+/*
+ * The consequence, stated before it happens.
+ *
+ * Dissolving a convoy reaches every other captain in it, so it is confirmed
+ * in place rather than on the first press, and the sentence says what it does
+ * rather than asking whether the captain is sure.
+ */
+.convoy__confirm {
+  display: grid;
+  gap: var(--space-1-5);
+  padding: var(--space-1-5);
+  background: var(--raised);
+  border: var(--border-width) solid var(--danger-dim);
+  animation: convoy-confirm-in var(--motion-base) var(--ease-emphasis);
+}
+
+@keyframes convoy-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.convoy__consequence {
+  max-width: 62ch;
+  color: var(--text-primary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+.convoy__confirm-acts {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.convoy__dissolve {
+  border-color: var(--danger-dim);
+}
+
+.convoy__dissolve:hover:not(:disabled) {
+  background: var(--danger-wash);
+  border-color: var(--danger);
+}
+
+.convoy__dissolve:active:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 22%, var(--active));
+}
+
+.convoy__notice {
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-secondary);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .convoy__panel,
+  .convoy__confirm {
+    animation: convoy-fade var(--motion-instant) var(--ease-standard);
+  }
+
+  @keyframes convoy-fade {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+}

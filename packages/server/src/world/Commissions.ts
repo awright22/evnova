@@ -14,7 +14,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, gt, inArray, lte, ne, or } from 'drizzle-orm';
 
 import {
 
@@ -189,6 +189,73 @@ export class Commissions {
       .map((row) => toHeld(row));
 
     return [...mine, ...theirs];
+  }
+
+  /**
+   * Every escort these captains may discharge whose watch is over.
+   *
+   * Two queries for a whole room, rather than `workingOn` per captain per
+   * economy tick: that was three queries each against a table that grows all
+   * run, and it took the p99 over the 4ms budget by itself. Nearly every
+   * tick there is nothing to find, so the right shape is one question about
+   * everybody.
+   *
+   * Returns the captain who may answer each one, which for a shared
+   * commission is whichever member of the convoy is actually here.
+   */
+  escortsDue(
+    accountIds: readonly string[],
+    now: number,
+  ): { accountId: string; held: HeldCommission }[] {
+    if (accountIds.length === 0) return [];
+    const ids = [...new Set(accountIds)];
+
+    // Which convoy each of them sails in, so a shared escort is found too.
+    const memberships = this.store.db
+      .select({
+        accountId: schema.fleetMembers.accountId,
+        fleetId: schema.fleetMembers.fleetId,
+      })
+      .from(schema.fleetMembers)
+      .where(
+        and(
+          inArray(schema.fleetMembers.accountId, ids),
+          eq(schema.fleetMembers.state, 'member'),
+        ),
+      )
+      .all();
+
+    const fleetOf = new Map(memberships.map((row) => [row.accountId, row.fleetId]));
+    const fleetIds = [...new Set(memberships.map((row) => row.fleetId))];
+
+    const rows = this.store.db
+      .select()
+      .from(schema.commissions)
+      .where(
+        and(
+          eq(schema.commissions.state, 'taken'),
+          eq(schema.commissions.kind, 'escort'),
+          gt(schema.commissions.dueAt, 0),
+          lte(schema.commissions.dueAt, now),
+          fleetIds.length > 0
+            ? or(
+                inArray(schema.commissions.accountId, ids),
+                inArray(schema.commissions.sharedFleetId, fleetIds),
+              )
+            : inArray(schema.commissions.accountId, ids),
+        ),
+      )
+      .all();
+
+    const out: { accountId: string; held: HeldCommission }[] = [];
+    for (const row of rows) {
+      // Its own captain, if they are here; otherwise whoever in the convoy is.
+      const answerer = ids.includes(row.accountId)
+        ? row.accountId
+        : ids.find((id) => fleetOf.get(id) === row.sharedFleetId);
+      if (answerer !== undefined) out.push({ accountId: answerer, held: toHeld(row) });
+    }
+    return out;
   }
 
   /** The captain whose name is on a commission, for paying the right one. */

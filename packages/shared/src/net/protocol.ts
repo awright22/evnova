@@ -329,6 +329,20 @@ export interface OffersState {
   readonly offers: readonly TradeOfferLine[];
   /** Other captains landed at this berth right now, by callsign. */
   readonly alongside: readonly string[];
+  /**
+   * What this captain is carrying, and what is on their books.
+   *
+   * Carried here rather than read off the Staple and the Yard, because a
+   * captain can hand something over at any berth and plenty of berths keep
+   * neither: taking them from the other screens meant an empty picker at
+   * exactly the berths where two captains are most likely to meet.
+   */
+  readonly hold: readonly {
+    readonly commodityId: string;
+    readonly name: string;
+    readonly units: number;
+  }[];
+  readonly designs: readonly { readonly id: string; readonly name: string }[];
 }
 
 /** A line on the leaderboard. */

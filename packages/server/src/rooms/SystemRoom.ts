@@ -2465,21 +2465,33 @@ export class SystemRoom extends Room<{
    * somewhere to be told so.
    */
   private settleEscorts(): void {
+    if (this.pilotsBySession.size === 0) return;
     const now = Date.now();
+
+    // One question about everybody, because nearly every pass there is
+    // nothing to find. Asking per captain cost three queries each against a
+    // table that grows all run, and that alone took the p99 over budget.
+    const byAccount = new Map<string, string>();
     for (const [sessionId, pilot] of this.pilotsBySession) {
-      for (const held of world().commissions.workingOn(pilot.accountId)) {
-        if (held.kind !== 'escort' || held.dueAt === 0 || now < held.dueAt) continue;
-        const said = world().commissions.settle(pilot, held, now);
-        this.clients.get(sessionId)?.send('commission', {
-          id: held.id,
-          title: held.title,
-          outcome: 'done',
-          text: said.text,
-          pay: said.pay,
-        });
-        this.sendPurse(sessionId);
-        this.sendCommissions(sessionId);
-      }
+      byAccount.set(pilot.accountId, sessionId);
+    }
+
+    const due = world().commissions.escortsDue([...byAccount.keys()], now);
+    for (const { accountId, held } of due) {
+      const sessionId = byAccount.get(accountId);
+      const pilot = sessionId === undefined ? undefined : this.pilotsBySession.get(sessionId);
+      if (!pilot || sessionId === undefined) continue;
+
+      const said = world().commissions.settle(pilot, held, now);
+      this.clients.get(sessionId)?.send('commission', {
+        id: held.id,
+        title: held.title,
+        outcome: 'done',
+        text: said.text,
+        pay: said.pay,
+      });
+      this.sendPurse(sessionId);
+      this.sendCommissions(sessionId);
     }
   }
 
@@ -2816,6 +2828,17 @@ export class SystemRoom extends Room<{
           offeredAt: offer.offeredAt,
         })),
       alongside: alongside.sort((a, b) => a.localeCompare(b)),
+      hold: [...world().market.cargoOf(pilot.accountId)]
+        .filter(([, units]) => units > 0)
+        .map(([commodityId, units]) => ({
+          commodityId,
+          name: content().commodities.get(commodityId)?.name ?? commodityId,
+          units,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      designs: world()
+        .yard.designsOf(pilot.accountId)
+        .map((design) => ({ id: design.id, name: design.name })),
     });
   }
 

@@ -164,6 +164,14 @@ export interface ListingReport {
   readonly period: number;
 }
 
+/** Commissions grouped by template and outcome, as `/economy` reports them. */
+export interface CommissionReport {
+  readonly templateId: string;
+  readonly kind: string;
+  readonly state: string;
+  readonly count: number;
+}
+
 export interface EconomyReport {
   /** Every listing's pool, for invariant 3 over a whole run. */
   readonly listings?: readonly ListingReport[];
@@ -171,6 +179,8 @@ export interface EconomyReport {
   readonly sharesHeld?: { readonly total: number };
   commodities: CommodityReport[];
   berths: BerthReport[];
+  /** Every commission taken this run, by template and outcome. */
+  commissions?: readonly CommissionReport[];
   ledger: {
     categories: { category: string; total: number; count: number }[];
     net: number;

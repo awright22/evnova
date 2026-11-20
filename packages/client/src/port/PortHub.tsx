@@ -62,6 +62,11 @@ export interface PortHubState {
   readonly hasStaple: boolean;
   /** How many of the captain's hulls are tied up at this berth. */
   readonly mooredHere: number;
+  /** Other captains standing at this berth, for the offers row to say so. */
+  readonly alongside: number;
+  /** How many sail with this captain, and how many asks are unanswered. */
+  readonly convoy: number;
+  readonly convoyAsks: number;
   /** How many commissions are posted here, for the row to say so. */
   readonly posted: number;
   /**
@@ -89,6 +94,8 @@ export interface PortHubProps {
   onOpenMoorings: () => void;
   onOpenBourse: () => void;
   onOpenBoard: () => void;
+  onOpenOffers: () => void;
+  onOpenConvoy: () => void;
   /** True while this berth keeps a Yard. */
   readonly hasYard: boolean;
   readonly hasMoorings: boolean;
@@ -108,6 +115,8 @@ export function PortHub({
   onOpenMoorings,
   onOpenBourse,
   onOpenBoard,
+  onOpenOffers,
+  onOpenConvoy,
   hasYard,
   hasMoorings,
   hasBourse,
@@ -261,6 +270,36 @@ export function PortHub({
                 onAction={onOpenBoard}
               />
             )}
+
+            {/*
+              Always here, not a berth service: anybody alongside can hand
+              something to anybody else alongside, and a berth has no say in
+              it. The row says who is standing here so a captain alone does
+              not open an empty counter.
+            */}
+            <ServiceRow
+              name="Alongside"
+              detail={
+                state.alongside > 0
+                  ? `${state.alongside} other ${state.alongside === 1 ? 'captain' : 'captains'} at this berth`
+                  : 'Hand marks, cargo or a draught to another captain'
+              }
+              action="Offers"
+              disabled={state.busy}
+              onAction={onOpenOffers}
+            />
+
+            <ServiceRow
+              name="Convoy"
+              detail={
+                state.convoy > 0
+                  ? `${state.convoy} sailing with you`
+                  : 'Sail with other captains, and share what a Factor gives you'
+              }
+              action={state.convoyAsks > 0 ? `${state.convoyAsks} waiting` : 'Open it'}
+              disabled={state.busy}
+              onAction={onOpenConvoy}
+            />
 
             {hasBourse && (
               <ServiceRow
