@@ -156,6 +156,22 @@ Do the server first, because the client build needs the server's URL.
    fly secrets set ALLOWED_ORIGINS="https://YOUR-GITHUB-USERNAME.github.io"
    ```
 
+   Name yourself as the operator while you are here, with the callsign you
+   will be entering on the Register. Only a callsign on this list can open
+   the admin page at `/?admin=1`, which shows the ledger by category, every
+   price and stockpile, and lets you change the tuning the world is running
+   on without a restart. Several names go in comma-separated.
+
+   ```bash
+   fly secrets set ADMIN_CALLSIGNS="Your Callsign"
+   ```
+
+   Tuning changed there is in memory only: a restart goes back to what is
+   committed, which is deliberate — a live rebalance is an experiment, and an
+   experiment that rewrote the repository would not be one you could undo.
+   When you settle on a figure, change `packages/shared/data/tuning.json` and
+   deploy it.
+
 6. Deploy, and check it answers:
 
    ```bash
