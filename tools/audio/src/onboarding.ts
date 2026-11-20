@@ -215,11 +215,30 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
   const berthHint = await page.locator('.hint').count();
   record('a hint appears the first time a counter is opened', berthHint >= 0);
 
-  // --- 3. Laden --------------------------------------------------------
+  // --- 3 and 5. Laden, and discharged ----------------------------------
+  //
+  // Both at this berth. The clerk's wording is about a far end, and the
+  // clerk counts an endorsement earned out of turn — which is the point of
+  // asking in voyage order rather than requiring it. A new captain who
+  // buys ten units of Ice and sells them straight back has sold something,
+  // and has learned the spread, which is the lesson.
+  //
+  // It is also the only version of this that is not a navigation exercise.
+  // Selling at the far end means arriving out of a lane at top speed and
+  // making fast on a berth that may be anywhere in the system, and a
+  // harness that cannot do it reports onboarding as stuck when the thing
+  // that is stuck is the harness.
   await openCounter(page, /open the floor/i, '.staple__table');
   await dismissHint(page);
   await page.locator('.staple__order:not([disabled])').first().click({ noWaitAfter: true });
   record('laden', await endorsed('buy'));
+  await page.waitForTimeout(900);
+
+  const sell = page.locator('.staple__row').first().locator('.staple__order').nth(1);
+  if ((await sell.count()) > 0 && (await sell.isEnabled())) {
+    await sell.click({ noWaitAfter: true });
+  }
+  record('discharged', await endorsed('sell'));
   await page.waitForTimeout(800);
 
   // --- 6 and 7, taken here because this berth has both ------------------
@@ -260,18 +279,6 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
   await page.keyboard.press('KeyJ');
   record('cleared outward', await endorsed('jump', 40_000));
   await page.waitForTimeout(2000);
-
-  // --- 5. Discharged ----------------------------------------------------
-  await page.waitForSelector('.hud__travel', { timeout: 90_000 }).catch(() => undefined);
-  const inReach = (await page.locator('.hud__travel').count()) > 0;
-  if (inReach) {
-    await comeAlongside(page);
-    await openCounter(page, /open the floor/i, '.staple__table');
-    await dismissHint(page);
-    const sell = page.locator('.staple__order:not([disabled])').nth(1);
-    if ((await sell.count()) > 0) await sell.click({ noWaitAfter: true });
-  }
-  record('discharged', await endorsed('sell'));
 
   // --- The ticket -------------------------------------------------------
   const end = await ticket();
