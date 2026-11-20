@@ -88,6 +88,19 @@ accident.
 It is the one good thing about the failure: the screen is proof that the
 write-off panel now outlives the six seconds cycle 2 found it had.
 
+**Where this screen has got to, and where it stops.** With the traffic gone
+and the mark posted, the capture is clean: no refusal across the middle, the
+mark bracketed and its panel showing structure in red, the player's own
+readouts intact. What has resisted six attempts across two cycles is getting
+*both* hulls framed together at the moment of the shutter — at a link of a
+second and a half, where the mark is when the picture is taken is not where
+the capture last saw it. One run in three catches the pair.
+
+That is enough to judge what the screen is for: hull art, the HUD, the mark
+panel, damage reading through it. It is not a poster. Recorded as the limit
+rather than attempted a seventh time, because every further attempt has cost
+a capture run and bought a different framing of the same information.
+
 **N2. The Yard's fittings palette still cut its last row.** Cycle 2 moved the
 overflow fade into `base.css` so any scroller could use it, and wired the
 Bourse and the admin page. The Yard's catalogue — forty-odd fittings in a
