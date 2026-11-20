@@ -188,19 +188,27 @@ async function main(): Promise<void> {
       room2.onMessage(type, () => undefined);
     }
     const ship2 = await waitForShip(room2);
-    await sleep(600);
+    // Long enough for the state to settle. The hull is flying while this
+    // runs, and it keeps the velocity it was persisted with, so this time
+    // counts toward what the check allows.
+    const settleMs = 600;
+    await sleep(settleMs);
 
     const drift = Math.hypot(ship2.x - before.x, ship2.y - before.y);
 
-    // What a hard kill can cost is exactly one flush interval of travel, so
-    // the bound is computed from the interval and the draught's own top speed
-    // rather than written out as a number that drifts away from the truth.
-    // The margin covers the moment between the last flush and the kill.
+    // What a hard kill costs is a flush interval of travel — the hull's row
+    // is at most that old — plus the travel since it came back, because it
+    // is restored under way and the settle above is time in flight. Both are
+    // computed from the real interval and the draught's own top speed rather
+    // than written out as a number that drifts away from the truth.
+    //
+    // The settle used to be left out, which made this check pass on a hull
+    // that happened to be turning and fail on one flying straight.
     const topSpeed = deriveStats(
       placeAll(content().blueprints.get(content().tuning.start.draught)!.placements, content().modules),
       content().tuning,
     ).profile.topSpeed;
-    const allowed = (flushIntervalMs / 1000) * topSpeed * 1.5;
+    const allowed = ((flushIntervalMs + settleMs) / 1000) * topSpeed * 1.5;
 
     record(
       'the hull comes back where it was, within a few seconds of travel',
