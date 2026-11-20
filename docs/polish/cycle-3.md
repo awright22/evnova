@@ -90,7 +90,20 @@ the way a line from somebody else is, so the thing this screen exists for
 had never been captured in three milestones. It gets a companion who says
 one line now.
 
-**N5. Two of the three required browsers have never been run.** Spec section
+**N5. My own fix for the combat capture stopped `posted` being captured.**
+The sweep captured 38 of 39, up from 34 — the one miss is `posted`, which
+fires on lawful traffic for sixty seconds and waits to be posted for it. It
+timed out because the shorter closing pulses I gave `engageNearest` earlier
+in this cycle, to stop it overshooting to point-blank, also made it slower
+to arrive from a long way off. The burn is proportional to the gap now:
+long while the mark is far, short once it is near enough to overshoot. The
+engagement gets ninety seconds rather than sixty.
+
+A fix that trades one failure for another is worth naming as such. The only
+reason this one was caught in the same cycle is that the sweep runs every
+screen, not the ones I happened to be thinking about.
+
+**N6. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So

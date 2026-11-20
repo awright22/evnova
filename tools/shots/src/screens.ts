@@ -442,15 +442,17 @@ async function engageNearest(
 
       if (aim.range > GUN_REACH) {
         await page.keyboard.down('ArrowUp');
-        // Short pulses, not one long burn.
+        // A burn as long as the gap deserves.
         //
-        // A 2500ms burn carries a hull about five hundred units before the
-        // loop can look again, and at this latency the look is itself a
-        // couple of seconds stale — so a gunner told to stop at 672 arrived
-        // at 71, nose to nose with its mark, where the bearing swings faster
-        // than it can turn. Closing in short steps costs a few more round
-        // trips and stops where it is told.
-        const closeUntil = Date.now() + 900;
+        // One flat 2500ms burn carries a hull about five hundred units before
+        // the loop can look again, and at this latency the look is itself a
+        // couple of seconds stale — so a gunner told to stop at 672 arrived at
+        // 71, nose to nose, where the bearing swings faster than it can turn.
+        // A flat 900ms fixed that and broke something else: `posted` has
+        // sixty seconds to close and get itself posted, and in short steps it
+        // never arrived. Long burns while the mark is far off, short ones
+        // once it is near enough to overshoot.
+        const closeUntil = Date.now() + (aim.range > GUN_REACH * 2 ? 2200 : 900);
         while (Date.now() < closeUntil) {
           const now = await read();
           if (!now) break;
@@ -1577,8 +1579,8 @@ export const SCREENS: readonly Screen[] = [
       // A generous window: this runs after a dozen other captures, with bot
       // traffic in the system and software rasterisation under it all, so the
       // frame loop and every round trip to the page are slower than they look.
-      await engageNearest(page, 60);
-      await page.waitForSelector('.hud__posted', { timeout: 20_000 });
+      await engageNearest(page, 90);
+      await page.waitForSelector('.hud__posted', { timeout: 30_000 });
       await page.waitForTimeout(800);
     },
   },
