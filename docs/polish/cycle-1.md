@@ -129,6 +129,14 @@ everything else:
 
 ## Open after this cycle
 
+> **Settled in cycle 2.** M5 took twenty-four runs in all. Five of the
+> explanations below are wrong, and wrong in the same way: they are theories
+> about the game built on a harness that was doing nothing and saying
+> nothing. The claim here that "the panel itself is verified by
+> `pnpm verify:loss`" is also wrong — that harness has no browser and checks
+> the server's messages, not the rendered panel, which until cycle 2 had
+> never been seen. See `docs/polish/cycle-2.md`.
+
 **M5 is not fixed.** Twelve runs. A patrol hunts a posted captain by rule
 but holds station, so it never comes looking. A bot gunner reports itself
 in the same system with the same hulls around it and never sees its mark. A
