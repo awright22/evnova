@@ -277,8 +277,27 @@ async function engageNearest(
       return { delta, range: nearest.range, markShield: nearest.shield };
     }, [options.patrolsOnly === true, options.mark ?? ''] as [boolean, string]);
 
-  const first = await read();
-  if (!first) return false;
+  // A named mark may not be in the sky yet, and asking once is not asking.
+  //
+  // Companions are brought up *before* the page a screen is about, so a
+  // gunner told to hold one callsign asked for it, read nothing, and
+  // returned without firing a round. Run nineteen is what that looks like
+  // from outside: 717 structure down to 448 and then flat for a minute, the
+  // 269 being patrols answering the victim's own fire and the gunner never
+  // having started. Same fault as `harness=1`: a gunner that does nothing
+  // and says nothing.
+  let first = await read();
+  while (!first && Date.now() < deadline) {
+    await page.waitForTimeout(500);
+    first = await read();
+  }
+  if (!first) {
+    const which = options.mark !== undefined && options.mark !== ''
+      ? `a mark called ${options.mark}`
+      : options.patrolsOnly === true ? 'a patrol' : 'anything to fire on';
+    console.log(`    gunner waited ${seconds}s and never saw ${which}`);
+    return false;
+  }
   const shieldAtStart = first.markShield;
 
   // The trigger stays down for the whole engagement, so every pass through
@@ -541,7 +560,7 @@ export const SCREENS: readonly Screen[] = [
           // Started and not awaited: the capture has to get on and open
           // its own page, and this drives the gunner alongside it for as
           // long as the screen takes.
-          void engageNearest(page, 220, { mark: 'Act of God' }).catch(() => undefined);
+          void engageNearest(page, 300, { mark: 'Act of God' }).catch(() => undefined);
         },
       },
     ],
@@ -600,7 +619,7 @@ export const SCREENS: readonly Screen[] = [
       // will not come looking for a posted captain across a system; fire on
       // one and it answers, and so does every other one in the sky. Four
       // minutes of waiting for a patrol to wander past taught this.
-      await engageNearest(page, 120, { patrolsOnly: true });
+      await engageNearest(page, 40, { patrolsOnly: true });
 
       // Watch this hull's own structure while it is being shot at. Fourteen
       // runs have ended with "the write-off never happened" and no way to

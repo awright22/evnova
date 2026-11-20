@@ -25,7 +25,55 @@ export function spawnGroup(
   args: readonly string[],
   options: SpawnOptions,
 ): ChildProcess {
-  return spawn(command, args, { ...options, detached: true });
+  const child = spawn(command, args, { ...options, detached: true });
+  watch(child);
+  return child;
+}
+
+/**
+ * Every group this process has started and not yet stopped.
+ *
+ * A group signalled by `stopGroup` is cleaned up by its own `finally`. This
+ * set is for the other ending: the tool itself being killed. A detached group
+ * does not die with its parent — that is the point of detaching it — so a
+ * capture run stopped with SIGTERM, or cut short by `timeout`, leaves a game
+ * server listening and the next run refuses to start. Two runs of the
+ * write-off capture were lost to exactly that before the port guard existed
+ * to name it, and one more after.
+ */
+const groups = new Set<ChildProcess>();
+
+function watch(child: ChildProcess): void {
+  groups.add(child);
+  child.once('exit', () => groups.delete(child));
+  reap();
+}
+
+/** Installed once, on first use, so a tool that starts nothing pays nothing. */
+let reaping = false;
+
+function reap(): void {
+  if (reaping) return;
+  reaping = true;
+
+  // No awaiting here. A signal handler gets one synchronous pass before the
+  // process goes, so this asks for nothing politely: every group is killed
+  // outright. They are servers, previews and bots with no state worth
+  // flushing, and the alternative is leaving one listening.
+  const sweep = (): void => {
+    for (const child of groups) signalGroup(child, 'SIGKILL');
+    groups.clear();
+  };
+
+  process.on('exit', sweep);
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+    process.on(signal, () => {
+      sweep();
+      // Having handled it, this process still has to go, and with the status
+      // the signal means rather than a clean zero.
+      process.exit(signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 129);
+    });
+  }
 }
 
 /** Signal a whole process group, falling back to the child alone. */

@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M7 — Living world**
+**Current milestone: M10 — Polish cycles**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
