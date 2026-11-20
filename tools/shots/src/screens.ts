@@ -97,6 +97,23 @@ export interface Screen {
  * imported because this file is typechecked for Node, and the code that uses
  * it runs in the page.
  */
+/**
+ * The slice of the browser a page-side script here needs.
+ *
+ * Named structurally because this file is typechecked for Node: pulling in
+ * the DOM lib for two calls would also let every other `evaluate` in here
+ * reach for browser globals that the typechecker cannot see the page define.
+ */
+interface PageDom {
+  readonly document: {
+    querySelector(selector: string): unknown;
+    readonly body: unknown;
+  };
+  readonly MutationObserver: new (seen: () => void) => {
+    observe(target: unknown, options: { subtree: boolean; childList: boolean }): void;
+  };
+}
+
 interface HarnessWindow {
   __marqueHarness?: {
     room: {
@@ -243,7 +260,14 @@ async function engageNearest(
   const deadline = Date.now() + seconds * 1000;
 
   /** Where the nearest hull is, relative to the nose, and how it is holding up. */
-  const read = (): Promise<{ delta: number; range: number; markShield: number } | null> =>
+  const read = (): Promise<{
+    delta: number;
+    range: number;
+    markShield: number;
+    markHp: number;
+    ownHp: number;
+    focus: string;
+  } | null> =>
     page.evaluate(([patrolsOnly, wanted]: [boolean, string]) => {
       // This runs in the page, not in Node, so the browser globals are named
       // through globalThis rather than typed from the DOM lib.
@@ -253,7 +277,9 @@ async function engageNearest(
       const self = room.state.ships.get(room.sessionId);
       if (!self) return null;
 
-      let nearest: { range: number; bearing: number; shield: number } | undefined;
+      let nearest:
+        | { range: number; bearing: number; shield: number; hp: number }
+        | undefined;
       for (const [id, ship] of room.state.ships) {
         if (id === room.sessionId || ship.destroyedAt > 0) continue;
         // A patrol holds station, so it will not come looking. Firing on one
@@ -262,10 +288,13 @@ async function engageNearest(
         if (wanted !== '' && ship.callsign !== wanted) continue;
         const range = Math.hypot(ship.x - self.x, ship.y - self.y);
         if (!nearest || range < nearest.range) {
+          let hp = 0;
+          for (const point of ship.moduleHp) hp += point;
           nearest = {
             range,
             bearing: Math.atan2(ship.y - self.y, ship.x - self.x),
             shield: ship.shield,
+            hp,
           };
         }
       }
@@ -274,7 +303,21 @@ async function engageNearest(
       let delta = nearest.bearing - self.angle;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      return { delta, range: nearest.range, markShield: nearest.shield };
+      let ownHp = 0;
+      for (const point of self.moduleHp) ownHp += point;
+      // What has the keyboard. A gunner holds Space to fire; Space on a
+      // focused button presses the button instead, and from outside that is
+      // indistinguishable from a gun that does not reach.
+      const active = (globalThis as unknown as { document?: { activeElement?: { tagName?: string } } })
+        .document?.activeElement;
+      return {
+        delta,
+        range: nearest.range,
+        markShield: nearest.shield,
+        markHp: nearest.hp,
+        ownHp,
+        focus: active?.tagName ?? '?',
+      };
     }, [options.patrolsOnly === true, options.mark ?? ''] as [boolean, string]);
 
   // A named mark may not be in the sky yet, and asking once is not asking.
@@ -307,9 +350,23 @@ async function engageNearest(
   await page.keyboard.down('Space');
 
   try {
+    let said = 0;
     while (Date.now() < deadline) {
       const aim = await read();
       if (!aim) break;
+
+      // Say what the gunner can see, every few seconds. Twenty runs of this
+      // capture have been theorised about from the victim's side alone; this
+      // is the gunner's own account of whether it has a mark, whether it is
+      // on it, whether it is in reach, and what has the keyboard.
+      if (options.mark !== undefined && options.mark !== '' && Date.now() - said > 8000) {
+        said = Date.now();
+        console.log(
+          `    gunner: range ${Math.round(aim.range)}, off ${aim.delta.toFixed(2)}rad, `
+          + `mark ${aim.markHp} (shield ${Math.round(aim.markShield)}), `
+          + `self ${aim.ownHp}, focus ${aim.focus}`,
+        );
+      }
 
       // How wide the mark is from here. Close in, almost any facing hits, and
       // holding out for a tight bearing just saws the nose back and forth.
@@ -586,7 +643,45 @@ export const SCREENS: readonly Screen[] = [
       crippled: true,
     },
     act: async (page) => {
+      // Anything the page itself complains about, as it happens. The run
+      // collects console errors and prints them at the end, which is too
+      // late to tell whether an exception landed in the write-off handler.
+      page.on('pageerror', (error) => console.log(`    victim threw: ${error.message.split('\n')[0] ?? ''}`));
+      page.on('console', (line) => {
+        if (line.type() === 'error') console.log(`    victim logged: ${line.text().slice(0, 160)}`);
+      });
+
       await page.waitForSelector('.hud', { timeout: 60_000 });
+
+      // Did the panel ever exist?
+      //
+      // Twenty-one runs have asked why it is not on screen without first
+      // establishing whether it appeared and went. `waitForSelector` cannot
+      // answer that: it fails the same way whether the panel never rendered
+      // or rendered for six seconds and was taken down before the first
+      // poll. This records the moment it first appears, whatever happens
+      // afterwards, and the moment it goes.
+      //
+      // Every function in here is anonymous and inline. A named one — even
+      // `const look = () => {}` — is compiled by tsx into `__name(look,
+      // 'look')`, and `__name` is a helper that exists in this process and
+      // not in the page: the whole evaluate dies with `__name is not
+      // defined`, which is what run twenty-two reported instead of a
+      // screenshot.
+      await page.evaluate(() => {
+        const log: string[] = [];
+        (globalThis as unknown as { __panel?: string[] }).__panel = log;
+        const dom = globalThis as unknown as PageDom;
+        const started = Date.now();
+        let up = false;
+        new dom.MutationObserver(() => {
+          const now = dom.document.querySelector('.flight__written-off') !== null;
+          if (now === up) return;
+          up = now;
+          log.push(`${now ? 'up' : 'down'} at +${Math.round((Date.now() - started) / 1000)}s`);
+        }).observe(dom.document.body, { subtree: true, childList: true });
+      });
+
       // The gunner has to be in the sky before there is anything to lose to.
       await page.waitForFunction(
         () => {
@@ -609,6 +704,17 @@ export const SCREENS: readonly Screen[] = [
       });
       console.log(`    page is in ${String(sky)}`);
 
+      // Armed before a shot is fired, because the panel is not patient.
+      //
+      // `respawn` takes the wreck off the books six seconds after it is made
+      // and stands the captain on their berth, which unmounts the flight
+      // view and the panel with it. So there is a six-second window and no
+      // more. Runs nineteen to twenty-one each lost their hull while this
+      // page was still inside `engageNearest`, and by the time they asked
+      // for the panel the captain had been alongside a berth for a minute —
+      // which reads from outside exactly like a panel that never rendered.
+      const panel = page.waitForSelector('.flight__written-off', { timeout: 240_000 });
+
       // Nothing to do but be answered for. The hull carries a gun and fires
       // it, because a capture of a captain sitting still while they are shot
       // to pieces is a capture of the wrong thing; this is not a fight it is
@@ -618,13 +724,20 @@ export const SCREENS: readonly Screen[] = [
       // At a patrol, not at whatever is nearest. A patrol holds station and
       // will not come looking for a posted captain across a system; fire on
       // one and it answers, and so does every other one in the sky. Four
-      // minutes of waiting for a patrol to wander past taught this.
-      await engageNearest(page, 40, { patrolsOnly: true });
+      // minutes of waiting for a patrol to wander past taught this. Started
+      // and not awaited: the gunner alongside is what finishes the hull, and
+      // waiting out this engagement is what lost the window three times.
+      void engageNearest(page, 40, { patrolsOnly: true }).catch(() => undefined);
 
       // Watch this hull's own structure while it is being shot at. Fourteen
       // runs have ended with "the write-off never happened" and no way to
       // tell whether the gunner was missing, out of range, or the hull was
       // simply taking a very long time to die. This says which.
+      // Caught, not just voided: `void` on a rejecting promise is an
+      // unhandled rejection, and an unhandled rejection takes Node down. Run
+      // twenty-one died that way — the loop's own timeout rejects the moment
+      // the page closes, which is every run, and it would have taken a whole
+      // sweep with it.
       const watch = (async () => {
         for (let i = 0; i < 24; i += 1) {
           await page.waitForTimeout(10_000);
@@ -639,11 +752,15 @@ export const SCREENS: readonly Screen[] = [
               return `structure ${hp}, shield ${Math.round(self.shield)}`;
             })
             .catch(() => 'unreadable');
-          console.log(`    t+${(i + 1) * 10}s: ${String(mine)}`);
+          const panel = await page
+            .evaluate(() => (globalThis as unknown as { __panel?: string[] }).__panel ?? [])
+            .catch(() => ['unreadable']);
+          const says = panel.length > 0 ? `, panel ${panel.join(' then ')}` : ', panel never';
+          console.log(`    t+${(i + 1) * 10}s: ${String(mine)}${says}`);
         }
-      })();
+      })().catch(() => undefined);
 
-      await page.waitForSelector('.flight__written-off', { timeout: 240_000 });
+      await panel;
       void watch;
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
