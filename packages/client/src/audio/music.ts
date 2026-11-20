@@ -34,6 +34,7 @@
 
 import { Rng } from '@marque/shared';
 
+import { musicIs } from './log.ts';
 import type { AudioMix } from './mix.ts';
 
 /** How far ahead notes are scheduled, and how often the scheduler looks. */
@@ -242,6 +243,7 @@ export class Music {
 
     this.timer = window.setInterval(() => this.schedule(), TICK_MS);
     this.schedule();
+    musicIs({ started: true, region, fighting: false });
   }
 
   /**
@@ -270,6 +272,7 @@ export class Music {
     this.droneFilter.frequency.cancelScheduledValues(now);
     this.droneFilter.frequency.setTargetAtTime(this.voice.cutoff, now, 1.4);
     this.combatOscillator.frequency.setTargetAtTime(step(this.voice.root, 13), now, 1.4);
+    musicIs({ region });
   }
 
   /**
@@ -281,6 +284,7 @@ export class Music {
   setFighting(fighting: boolean): void {
     if (fighting === this.fighting || this.stopped) return;
     this.fighting = fighting;
+    musicIs({ fighting });
     const now = this.context.currentTime;
 
     // Equal-power would be the textbook crossfade; this is two layers of one
@@ -319,6 +323,7 @@ export class Music {
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    musicIs({ started: false, fighting: false });
     if (this.timer !== undefined) window.clearInterval(this.timer);
     this.timer = undefined;
     const now = this.context.currentTime;

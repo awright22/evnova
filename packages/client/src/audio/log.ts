@@ -74,7 +74,26 @@ declare global {
     __marqueAudio?: {
       heard: Heard[];
       counts: Record<string, number>;
+      /** What the music is doing, which is a state rather than an event. */
+      music: { started: boolean; region: string; fighting: boolean };
     };
+  }
+}
+
+/**
+ * What the bed is doing.
+ *
+ * Music is not in `SoundName` and not in the feedback table, because it is
+ * not feedback: nothing a captain does causes it, and no row of that table
+ * is answered by it. The audit still has to be able to say whether it ever
+ * started, so it lives here beside the log rather than in it.
+ */
+const music = { started: false, region: '', fighting: false };
+
+export function musicIs(state: Partial<typeof music>): void {
+  Object.assign(music, state);
+  if (typeof window !== 'undefined' && window.__marqueAudio) {
+    window.__marqueAudio.music = music;
   }
 }
 
@@ -87,7 +106,7 @@ function recording(): boolean {
   if (typeof window === 'undefined') return false;
   if (new URLSearchParams(window.location.search).get('harness') !== '1') return false;
   heard = [];
-  window.__marqueAudio = { heard, counts };
+  window.__marqueAudio = { heard, counts, music };
   return true;
 }
 

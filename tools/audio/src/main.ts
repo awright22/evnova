@@ -408,6 +408,18 @@ async function listen(
     return audio?.heard ?? [];
   });
 
+  // The bed is a state, not an event, so it is read rather than counted.
+  const bed = await page.evaluate(() => {
+    const audio = (
+      globalThis as { __marqueAudio?: { music?: { started: boolean; region: string } } }
+    ).__marqueAudio;
+    return audio?.music ?? { started: false, region: '' };
+  });
+  record(
+    `the region's bed is playing (${bed.region === '' ? 'nowhere' : bed.region})`,
+    bed.started,
+  );
+
   if (problems.length > 0) {
     console.warn(`  page errors:\n    ${problems.slice(0, 5).join('\n    ')}`);
   }
