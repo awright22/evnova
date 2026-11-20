@@ -23,6 +23,7 @@ import type * as Playwright from 'playwright';
 import { findChromium, LAUNCH_ARGS } from './browser.ts';
 import { SCREENS, type Screen } from './screens.ts';
 import { sleep, start, waitForHttp, type ManagedProcess } from './processes.ts';
+import type { SeedSpec } from './seed.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -139,30 +140,48 @@ async function main(): Promise<void> {
       if (code !== 0) throw new Error(`client build failed:\n${build.output()}`);
     }
 
-    // 2. Game server, on its own port so a running dev server is untouched,
-    // and on a throwaway database so a capture never depends on what an
-    // earlier run left behind. Accounts opened here are gone when it exits.
-    console.log('Starting game server...');
+    // A throwaway database, so a capture never depends on what an earlier
+    // run left behind. Accounts opened here are gone when the server exits.
     const scratchDb = resolve(options.outDir, 'capture.db');
     await rm(scratchDb, { force: true });
     await rm(`${scratchDb}-wal`, { force: true });
     await rm(`${scratchDb}-shm`, { force: true });
+    const worldEnv = {
+      PORT: String(options.serverPort),
+      NODE_ENV: 'development',
+      DATABASE_URL: scratchDb,
+      // Enough to build with. Several screens are of the Yard and the
+      // Moorings, and a captain on a new captain's float can only ever be
+      // photographed looking at a bill they cannot pay.
+      STARTING_MARKS: '4000000',
+    };
+
+    // 2. Captains with a history, for the screens that only exist once
+    //    something has already happened — a chain's last choice is not
+    //    posted to anybody who has not run six beats of it. Written before
+    //    the server opens the file, with the environment the server will
+    //    read, so the seeded world is the one the game would have made.
+    const specs = screens.flatMap((screen) => (screen.seed ? [screen.seed] : []));
+    const tokens = new Map<string, string>();
+    if (specs.length > 0) {
+      console.log(`Seeding ${specs.length} captain(s)...`);
+      for (const [callsign, token] of Object.entries(await runSeed(specs, worldEnv))) {
+        tokens.set(callsign, token);
+      }
+    }
+
+    // 3. Game server, on its own port so a running dev server is untouched,
+    // and on a throwaway database so a capture never depends on what an
+    // earlier run left behind. Accounts opened here are gone when it exits.
+    console.log('Starting game server...');
     const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {
       cwd: resolve(REPO_ROOT, 'packages/server'),
-      env: {
-        PORT: String(options.serverPort),
-        NODE_ENV: 'development',
-        DATABASE_URL: scratchDb,
-        // Enough to build with. Several screens are of the Yard and the
-        // Moorings, and a captain on a new captain's float can only ever be
-        // photographed looking at a bill they cannot pay.
-        STARTING_MARKS: '4000000',
-      },
+      env: worldEnv,
     });
     processes.push(server);
     await waitForHttp(server, `http://127.0.0.1:${options.serverPort}/matchmake/`);
 
-    // 3. Static preview of the built client.
+    // 4. Static preview of the built client.
     console.log('Starting client preview...');
     const preview = start(
       'client preview',
@@ -174,7 +193,7 @@ async function main(): Promise<void> {
     const baseUrl = `http://127.0.0.1:${options.previewPort}`;
     await waitForHttp(preview, baseUrl);
 
-    // 4. Capture.
+    // 5. Capture.
     const executablePath = findChromium();
     const browser = await playwright.chromium.launch({
       args: [...LAUNCH_ARGS],
@@ -209,7 +228,11 @@ async function main(): Promise<void> {
 
     try {
       for (const screen of screens) {
-        const file = await capture(browser, baseUrl, screen, options);
+        const token = screen.seed ? tokens.get(screen.seed.callsign) : undefined;
+        if (screen.seed && token === undefined) {
+          throw new Error(`no device token was seeded for "${screen.seed.callsign}"`);
+        }
+        const file = await capture(browser, baseUrl, screen, options, token);
         captured.push({ name: screen.name, file, description: screen.description });
         console.log(`  captured ${screen.name}`);
       }
@@ -234,11 +257,45 @@ async function main(): Promise<void> {
   }
 }
 
+/**
+ * Write the seeded captains, in a process of their own.
+ *
+ * Its own process because `config` is read once at import: the seeder has to
+ * see the environment the server will see, and the harness cannot change its
+ * own after it has imported anything. Returns callsign to device token.
+ */
+async function runSeed(
+  specs: readonly SeedSpec[],
+  env: Record<string, string>,
+): Promise<Record<string, string>> {
+  const seeder = start(
+    'seed',
+    'pnpm',
+    ['exec', 'tsx', 'src/seed.ts', JSON.stringify(specs)],
+    { cwd: resolve(HERE, '..'), env },
+  );
+  const code = await new Promise<number>((done) =>
+    seeder.child.on('exit', (exit) => done(exit ?? 1)),
+  );
+  if (code !== 0) throw new Error(`seeding failed:\n${seeder.output()}`);
+
+  // The tokens are the last line; migration notices come out above them.
+  const lines = seeder.output().trim().split('\n');
+  const last = lines.at(-1) ?? '{}';
+  try {
+    return JSON.parse(last) as Record<string, string>;
+  } catch {
+    throw new Error(`seeding printed no tokens:\n${seeder.output()}`);
+  }
+}
+
 async function capture(
   browser: Playwright.Browser,
   baseUrl: string,
   screen: Screen,
   options: Options,
+  /** A seeded captain's device token, for a screen that joins as one. */
+  deviceToken?: string,
 ): Promise<string> {
   const context = await browser.newContext({
     viewport: options.viewport,
@@ -255,6 +312,24 @@ async function capture(
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   try {
+    // A seeded captain's credentials, put where the client keeps its own, so
+    // the page joins as them rather than opening a new account. Set before
+    // the first navigation, because the client reads storage as it boots.
+    if (deviceToken !== undefined && screen.seed) {
+      const callsign = screen.seed.callsign;
+      await page.addInitScript(
+        ([name, token]: [string, string]) => {
+          try {
+            localStorage.setItem('marque.callsign', name);
+            localStorage.setItem('marque.deviceToken', token);
+          } catch {
+            // Storage disabled: the capture lands on the Register and says so.
+          }
+        },
+        [callsign, deviceToken] as [string, string],
+      );
+    }
+
     if (screen.setup) await screen.setup(page);
 
     await page.goto(`${baseUrl}${screen.path ?? '/'}`, { waitUntil: 'networkidle' });

@@ -21,6 +21,7 @@ import {
   boardFor,
   content,
   fillText,
+  type Spoken,
   isCharter,
   type ChainDef,
   type CommissionKind,
@@ -49,6 +50,42 @@ export class CommissionRefused extends Error {
     super(reason);
     this.name = 'CommissionRefused';
   }
+}
+
+/**
+ * What a commission's placeholders stand for, in the words a captain reads.
+ *
+ * Ports and systems are named here rather than carried as ids, because a
+ * Factor's board is player-facing: a line that says "to tare" is a row from
+ * a table, and a line that says "to Tare" is a shipping instruction.
+ */
+function spokenWords(terms: CommissionTerms): Spoken {
+  const { commodities, systems } = content();
+
+  let toPort = terms.toPortId;
+  for (const system of systems.values()) {
+    const port = system.ports.find((candidate) => candidate.id === terms.toPortId);
+    if (port) {
+      toPort = port.name;
+      break;
+    }
+  }
+
+  let fromPort = terms.fromPortId;
+  for (const system of systems.values()) {
+    const port = system.ports.find((candidate) => candidate.id === terms.fromPortId);
+    if (port) {
+      fromPort = port.name;
+      break;
+    }
+  }
+
+  return {
+    commodity: commodities.get(terms.commodityId)?.name ?? terms.commodityId,
+    toPort,
+    fromPort,
+    toSystem: systems.get(terms.toSystemId)?.name ?? terms.toSystemId,
+  };
 }
 
 /** A commission in hand, as the interface and the room both read it. */
@@ -154,12 +191,13 @@ export class Commissions {
 
   /** Put a template's words through its own placeholders. */
   private spoken(offer: CommissionOffer): CommissionOffer {
-    const { commodities } = content();
-    const name = commodities.get(offer.commodityId)?.name ?? offer.commodityId;
+    const words = spokenWords(offer);
     return {
       ...offer,
-      title: fillText(offer.title, offer, name),
-      brief: fillText(offer.brief, offer, name),
+      title: fillText(offer.title, offer, words),
+      brief: fillText(offer.brief, offer, words),
+      toPortName: words.toPort,
+      toSystemName: words.toSystem,
     };
   }
 
@@ -245,7 +283,7 @@ export class Commissions {
    * the wording.
    */
   settle(pilot: Pilot, commission: HeldCommission, now: number): { text: string; pay: number } {
-    const { commissions, commodities, tuning } = content();
+    const { commissions, tuning } = content();
 
     this.store.db
       .update(schema.commissions)
@@ -279,14 +317,12 @@ export class Commissions {
     const chain = commissions.chains.find((candidate) => candidate.id === commission.chainId);
     const step = chain?.steps[commission.step];
     const said = step?.onDone ?? template?.onDone ?? 'Received, and paid.';
-    const name = commodities.get(commission.terms.commodityId)?.name ?? '';
-
-    return { text: fillText(said, commission.terms, name), pay };
+    return { text: fillText(said, commission.terms, spokenWords(commission.terms)), pay };
   }
 
   /** And the other way: nothing paid, and the poster remembers. */
   fail(pilot: Pilot, commission: HeldCommission, now: number): { text: string } {
-    const { commissions, commodities, tuning } = content();
+    const { commissions, tuning } = content();
 
     this.store.db
       .update(schema.commissions)
@@ -307,9 +343,7 @@ export class Commissions {
     const chain = commissions.chains.find((candidate) => candidate.id === commission.chainId);
     const step = chain?.steps[commission.step];
     const said = step?.onFailed ?? template?.onFailed ?? 'The Factor has noted it.';
-    const name = commodities.get(commission.terms.commodityId)?.name ?? '';
-
-    return { text: fillText(said, commission.terms, name) };
+    return { text: fillText(said, commission.terms, spokenWords(commission.terms)) };
   }
 
   /**

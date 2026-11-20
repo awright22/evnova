@@ -2294,7 +2294,18 @@ export class SystemRoom extends Room<{
 
     this.clients.get(sessionId)?.send('commissions', {
       board: port ? world().commissions.board(pilot, port, this.system, now) : [],
-      held: world().commissions.held(pilot.accountId),
+      // Flattened: a row in hand reads on the screen exactly like a row on
+      // the board, with the clock it is against. Sending the nested terms
+      // instead left every figure in the "in hand" column undefined, which
+      // nothing noticed until a capture put a commission in it.
+      held: world().commissions.held(pilot.accountId).map((row) => ({
+        ...row.terms,
+        id: row.id,
+        title: row.title,
+        brief: row.brief,
+        takenAt: row.takenAt,
+        dueAt: row.dueAt,
+      })),
       berthName: port?.name ?? '',
       ...(chain !== undefined && port?.seat === true && port.owner === chain.charter
         ? {

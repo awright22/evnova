@@ -44,6 +44,15 @@ export interface CommissionTerms {
   readonly toSystemId: string;
   /** The named Unlettered captain, for a bounty. */
   readonly target: string;
+  /**
+   * Where it is going, in the words the berth is called by.
+   *
+   * Carried beside the id rather than looked up by the interface, because
+   * the server has the catalogue and the screen should not need it. Empty
+   * on terms that have not been through `fillText` yet.
+   */
+  readonly toPortName?: string;
+  readonly toSystemName?: string;
 }
 
 /** An offer on a board, which is terms plus the id a captain takes it by. */
@@ -58,13 +67,26 @@ export interface CommissionOffer extends CommissionTerms {
  * left alone, so a stray brace in authored prose reads as a brace rather
  * than vanishing.
  */
-export function fillText(text: string, terms: CommissionTerms, commodityName: string): string {
+/**
+ * What a placeholder stands for, in the words a captain reads.
+ *
+ * Names, not ids: a Factor's board is player-facing text, and "14 units of
+ * Alloy to tare" is a line from a database, not from a shipping clerk.
+ */
+export interface Spoken {
+  readonly commodity: string;
+  readonly toPort: string;
+  readonly toSystem: string;
+  readonly fromPort: string;
+}
+
+export function fillText(text: string, terms: CommissionTerms, spoken: Spoken): string {
   const values: Record<string, string> = {
     units: String(terms.units),
-    commodity: commodityName,
-    toPort: terms.toPortId,
-    toSystem: terms.toSystemId,
-    fromPort: terms.fromPortId,
+    commodity: spoken.commodity,
+    toPort: spoken.toPort,
+    toSystem: spoken.toSystem,
+    fromPort: spoken.fromPort,
     pay: terms.pay.toLocaleString(),
     hours: String(Math.round(terms.hours)),
     target: terms.target,

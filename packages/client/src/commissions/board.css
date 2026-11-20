@@ -154,6 +154,11 @@
   gap: var(--space-1-5);
 }
 
+/* A control that wraps to "Take it / on" reads as a fault, not a button. */
+.board__actions .button {
+  white-space: nowrap;
+}
+
 .board__actions .micro {
   color: var(--text-muted);
 }
@@ -168,6 +173,17 @@
 }
 
 .board__carried .micro {
+  color: var(--text-muted);
+}
+
+/*
+ * Where it is going, in sentence case.
+ *
+ * `.micro` shouts, which is right for a label and wrong for a berth's name:
+ * "TO DEMURRAGE" is a sign over a door, and this is a line on a docket.
+ */
+.board__carried-to {
+  font-size: var(--size-label);
   color: var(--text-muted);
 }
 
@@ -267,10 +283,24 @@
   border-color: var(--rule-strong);
 }
 
-/* Chosen, not yet sworn to: the amber says which way the hand is going. */
+/*
+ * Chosen, not yet sworn to.
+ *
+ * A 12% wash on a raised panel was not a state: in a capture the two cards
+ * read as the same card. The hand going one way is the whole screen, so it
+ * is a full amber rule, a rule down the chosen edge, and the text brought up
+ * to primary — legible at a glance and from across a desk.
+ */
 .board__choice--on {
+  color: var(--text-primary);
   background: var(--amber-wash);
   border-color: var(--amber);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.board__choice--on:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--amber) 18%, var(--raised));
+  border-color: var(--amber-bright);
 }
 
 .board__choice:disabled {
@@ -282,6 +312,14 @@
   font-family: var(--font-document);
   font-size: var(--size-doc);
   line-height: var(--leading-doc);
+}
+
+.board__choice--on .board__choice-text {
+  color: var(--amber-bright);
+}
+
+.board__choice--on .data {
+  color: var(--text-secondary);
 }
 
 .board__choice-foot {

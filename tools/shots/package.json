@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "@marque/harness": "workspace:*",
-    "@marque/shared": "workspace:*"
+    "@marque/shared": "workspace:*",
+    "@marque/server": "workspace:*"
   },
   "devDependencies": {
     "playwright": "1.63.0"

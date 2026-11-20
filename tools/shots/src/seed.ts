@@ -1,0 +1,164 @@
+/**
+ * Captains with a history, for the capture session.
+ *
+ * Some screens only exist for a captain who has already done something: a
+ * chain's last choice is not posted to anybody who has not run six beats of
+ * it, and no reasonable amount of flying inside a screenshot run will get
+ * there. So this writes those captains before the server starts, using the
+ * server's own services rather than raw SQL — a seeded world that the real
+ * code would also have produced, and nothing in the game has to know that
+ * the capture harness exists.
+ *
+ * It runs as its own process, with the same environment the game server is
+ * given, so `config` reads the same values it will read in a moment. It
+ * prints one JSON object on stdout: callsign to device token, which the
+ * harness puts in the browser's storage so the client joins as that captain
+ * instead of opening a new account.
+ *
+ *   tsx src/seed.ts '[{"callsign":"Audit","chainDone":"daughters-audit"}]'
+ */
+
+import { randomUUID } from 'node:crypto';
+
+import { CHARTERS, content, type Charter } from '@marque/shared';
+
+import { Accounts } from '@marque/server/src/accounts.ts';
+import { openStore, schema } from '@marque/server/src/db/index.ts';
+import { Ledger } from '@marque/server/src/world/Ledger.ts';
+import { PilotStore } from '@marque/server/src/world/PilotStore.ts';
+import { Standings } from '@marque/server/src/world/Standings.ts';
+
+/** A captain to write, and what they should already have behind them. */
+export interface SeedSpec {
+  readonly callsign: string;
+  /** Standing with each charter. Applied directly, not through a shift. */
+  readonly standing?: Partial<Record<Charter, number>>;
+  /** Park them at this berth's coordinates, so landing lands here. */
+  readonly at?: string;
+  /** Mark every beat of this chain answered, so its ending is waiting. */
+  readonly chainDone?: string;
+}
+
+/** Where a berth is, and which system it is in. */
+function berth(portId: string): { systemId: string; x: number; y: number } {
+  for (const system of content().systems.values()) {
+    const port = system.ports.find((candidate) => candidate.id === portId);
+    if (port) return { systemId: system.id, x: port.x, y: port.y };
+  }
+  throw new Error(`no berth called "${portId}"`);
+}
+
+export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<string, string> {
+  const store = openStore(databaseUrl);
+  const accounts = new Accounts(store);
+  const pilots = new PilotStore(store);
+  const standings = new Standings(store);
+  // Constructed so a seeded captain's marks go through the same ledger the
+  // game uses; nothing here posts, but the services expect it to exist.
+  void new Ledger(store);
+
+  const tokens: Record<string, string> = {};
+  const now = Date.now();
+
+  for (const spec of specs) {
+    const opened = accounts.signUp({ callsign: spec.callsign, inviteCode: '' });
+    tokens[opened.account.callsign] = opened.deviceToken;
+    const accountId = opened.account.id;
+
+    if (spec.standing) {
+      // Written as a set rather than shifted: a shift is zero-sum, and a
+      // seeded captain is a starting condition, not a career.
+      store.transaction(() => {
+        for (const charter of CHARTERS) {
+          const value = spec.standing?.[charter];
+          if (value === undefined) continue;
+          store.db
+            .insert(schema.standings)
+            .values({ accountId, charter, value, updatedAt: now })
+            .onConflictDoUpdate({
+              target: [schema.standings.accountId, schema.standings.charter],
+              set: { value, updatedAt: now },
+            })
+            .run();
+        }
+      });
+      void standings.of(accountId);
+    }
+
+    if (spec.at !== undefined) {
+      const where = berth(spec.at);
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      pilot.systemId = where.systemId;
+      // A little off the berth, so the hull is alongside rather than inside
+      // it and the landing prompt reads the way it does in play.
+      pilot.x = where.x + 90;
+      pilot.y = where.y + 60;
+      pilots.touch(accountId);
+      pilots.flush();
+    }
+
+    if (spec.chainDone !== undefined) {
+      const chain = content().commissions.chains.find(
+        (candidate) => candidate.id === spec.chainDone,
+      );
+      if (!chain) throw new Error(`no chain called "${spec.chainDone}"`);
+
+      store.transaction(() => {
+        chain.steps.forEach((step, index) => {
+          store.db
+            .insert(schema.commissions)
+            .values({
+              id: randomUUID(),
+              accountId,
+              templateId: chain.id,
+              chainId: chain.id,
+              step: index,
+              kind: step.kind,
+              state: 'done',
+              terms: JSON.stringify({
+                templateId: chain.id,
+                kind: step.kind,
+                charter: chain.charter,
+                title: step.title,
+                brief: step.brief,
+                pay: step.basePay,
+                standing: 0,
+                hours: step.hours,
+                units: step.units,
+                commodityId: step.commodity ?? '',
+                fromPortId: '',
+                toPortId: step.toPort ?? '',
+                toSystemId: step.toSystem ?? '',
+                target: '',
+              }),
+              takenAt: now - (chain.steps.length - index) * 3_600_000,
+              dueAt: 0,
+              settledAt: now - (chain.steps.length - index - 1) * 3_600_000,
+            })
+            .run();
+        });
+      });
+    }
+  }
+
+  store.close();
+  return tokens;
+}
+
+// Run as a script: the specs arrive as one JSON argument, the tokens leave as
+// one JSON line, and anything else goes to stderr so stdout stays parseable.
+if (process.argv[1]?.endsWith('seed.ts')) {
+  const [, , json] = process.argv;
+  if (!json) {
+    console.error('usage: tsx src/seed.ts \'[{"callsign":"..."}]\'');
+    process.exit(2);
+  }
+  const specs = JSON.parse(json) as SeedSpec[];
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error('DATABASE_URL is not set');
+    process.exit(2);
+  }
+  process.stdout.write(`${JSON.stringify(seed(url, specs))}\n`);
+}

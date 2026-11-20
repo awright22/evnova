@@ -151,6 +151,9 @@ importers:
       '@marque/harness':
         specifier: workspace:*
         version: link:../harness
+      '@marque/server':
+        specifier: workspace:*
+        version: link:../../packages/server
       '@marque/shared':
         specifier: workspace:*
         version: link:../../packages/shared

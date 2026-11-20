@@ -13,26 +13,22 @@
 
 import { useMemo, useState } from 'react';
 
+import type { CommissionOffer } from '@marque/shared';
+
 import './board.css';
 
-/** An offer as the server posts it. */
-export interface BoardOffer {
-  readonly id: string;
-  readonly kind: string;
-  readonly charter: string | undefined;
-  readonly title: string;
-  readonly brief: string;
-  readonly pay: number;
-  readonly hours: number;
-  readonly units: number;
-  readonly commodityId: string;
-  readonly toPortId: string;
-  readonly toSystemId: string;
-  readonly target: string;
-}
+/**
+ * An offer as the server posts it.
+ *
+ * The server's own type, not a copy of it. A copy drifted once already: the
+ * rows in hand were pushed with their terms nested and every figure in the
+ * third column came out undefined, which typechecked perfectly and only
+ * showed up in a capture with a commission in it.
+ */
+export type BoardOffer = CommissionOffer;
 
 /** One in hand, with the clock it is against. */
-export interface HeldOffer extends BoardOffer {
+export interface HeldOffer extends CommissionOffer {
   readonly takenAt: number;
   readonly dueAt: number;
 }
@@ -233,7 +229,7 @@ export function Board({
                   {chosen.toSystemId !== '' && (
                     <div>
                       <dt className="label">To</dt>
-                      <dd>{chosen.toPortId}</dd>
+                      <dd>{chosen.toPortName ?? chosen.toPortId}</dd>
                     </div>
                   )}
                   <div>
@@ -275,7 +271,11 @@ export function Board({
                       <span>{KINDS[row.kind] ?? row.kind}</span>
                       <span className="data">{row.pay.toLocaleString()}</span>
                     </span>
-                    {row.toSystemId !== '' && <span className="micro">to {row.toPortId}</span>}
+                    {row.toSystemId !== '' && (
+                      <span className="board__carried-to">
+                        to {row.toPortName ?? row.toPortId}
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="button board__give-up"

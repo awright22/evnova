@@ -7,11 +7,19 @@
 
 import type { Page } from 'playwright';
 
+import type { SeedSpec } from './seed.ts';
+
 export interface Screen {
   readonly name: string;
   readonly description: string;
   /** Path appended to the client's base URL. */
   readonly path?: string;
+  /**
+   * A captain written into the world before the server starts, for a screen
+   * that only exists once something has already happened. The capture joins
+   * as them instead of opening a new account. See `seed.ts`.
+   */
+  readonly seed?: SeedSpec;
   /** Prepare the page before it loads, e.g. block the server to force a state. */
   readonly setup?: (page: Page) => Promise<void>;
   /** Wait for this selector before capturing. */
@@ -502,6 +510,59 @@ export const SCREENS: readonly Screen[] = [
       const field = page.locator('.bourse input[inputmode="numeric"]').first();
       await field.fill('500');
       await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'board',
+    description:
+      "The Factor's board: what this berth is paying for, the one being read with its "
+      + 'terms, and what the captain is already carrying.',
+    path: '/?callsign=Supercargo%20Two',
+    settle: '.hud',
+    settleMs: 900,
+    seed: {
+      callsign: 'Supercargo Two',
+      // Well enough thought of by Kessler to be offered its own work, and
+      // alongside a counting-house, which is where that work is posted.
+      standing: { kessler: 420, thirty: -210, reprisal: -210 },
+      at: 'countinghouse',
+    },
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Read the board")');
+      await page.waitForSelector('.board__columns', { timeout: 20_000 });
+      // Take one, so the third column is a captain's day rather than empty.
+      await page.click('.board__actions button:text("Take it on")');
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'board-ending',
+    description:
+      "A chain's last choice: both ways out of The Daughters' Audit, what each pays, and "
+      + 'which way the house will remember it. One is chosen and not yet sworn to.',
+    path: '/?callsign=Discreet%20Courier',
+    settle: '.hud',
+    settleMs: 900,
+    seed: {
+      callsign: 'Discreet Courier',
+      standing: { kessler: 560, thirty: -280, reprisal: -280 },
+      at: 'countinghouse',
+      chainDone: 'daughters-audit',
+    },
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Read the board")');
+      await page.waitForSelector('.board__ending', { timeout: 20_000 });
+      // The second choice, which is the one that pays and costs nothing yet.
+      await page.click('.board__choices li:nth-child(2) .board__choice');
+      await page.waitForTimeout(600);
     },
   },
   {
