@@ -57,6 +57,13 @@ Run servers as background processes and stop them when you're done with them. A 
   game's state wrongly, and its silence gets written up as a finding about the game. When a
   harness result is surprising, make it print what it can actually see before theorising about
   what is acting on it.
+- Nothing in `tools/` may assert a fact about this container: a path that exists here, an
+  address that resolves here, a speed this box happens to reach. Check it and fall back, or
+  measure it and report the measurement. Cycle 3's blocker was this same mistake four times
+  over — an SSH remote, an IPv6 preview, a Chromium path, and a verdict about a slow runner
+  reported as a verdict about the netcode.
+- Read the component before filing a finding about what a screen does. Cycle 3 wrote up two
+  screens' intended behaviour as a fault and then wrote a fix that asked them to undo it.
 - Keep written docs as long as their content needs. No filler sections or repeated summaries.
 
 ## Assets
