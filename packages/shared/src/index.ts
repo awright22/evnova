@@ -17,6 +17,7 @@ export * from './sim/law.ts';
 export * from './sim/standing.ts';
 export * from './sim/letters.ts';
 export * from './sim/commissions.ts';
+export * from './sim/belt.ts';
 export * from './economy/price.ts';
 export * from './economy/market.ts';
 export * from './economy/pool.ts';

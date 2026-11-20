@@ -11,7 +11,12 @@ import { world } from './world/World.ts';
 
 import { config } from './config.ts';
 import { routes } from './routes.ts';
-import { SystemRoom, refreshEveryBourse, scanEveryLane } from './rooms/SystemRoom.ts';
+import {
+  SystemRoom,
+  refreshEveryBourse,
+  regrowEveryBelt,
+  scanEveryLane,
+} from './rooms/SystemRoom.ts';
 
 // The Bourse moves on the world's own clock, not on a captain's action, so
 // the rooms are told when it has. Registered here because the World does not
@@ -20,9 +25,11 @@ world().onBourseTick = () => {
   refreshEveryBourse();
 };
 
-// Patrols look at the traffic on the same cadence the world moves on.
-world().onEconomyTick = () => {
+// Patrols look at the traffic, and worked rock comes back, on the same
+// cadence the world moves on.
+world().onEconomyTick = (hours) => {
   scanEveryLane();
+  regrowEveryBelt(hours);
 };
 
 export const server = defineServer({

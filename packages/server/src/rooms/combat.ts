@@ -23,6 +23,7 @@ import {
   applyDamage,
   leadPoint,
   muzzleOf,
+  rockAlong,
   steerMissile,
   sweepHit,
   type HitResult,
@@ -69,6 +70,14 @@ export interface CombatWorld {
   onWrittenOff(id: string, killedBy: string): void;
   /** Presentation events the room broadcasts; never authoritative. */
   onImpact(event: ImpactEvent): void;
+  /**
+   * A rig took this much off a rock this step.
+   *
+   * Fractional: a rig cuts at units a second and a step is a fraction of
+   * one, so what to do with a part of a unit is the room's business, not
+   * combat's. Combat says what was cut; the room says who gets it.
+   */
+  onMining?(shooterId: string, rockId: string, units: number): void;
 }
 
 export interface ImpactEvent {
@@ -163,7 +172,8 @@ export class CombatSystem {
     const alive = ship.destroyedAt === 0;
 
     runtime.mounts.forEach((mount, mountIndex) => {
-      if (mount.kind !== PROJECTILE_KIND.beam) return;
+      const isRig = mount.kind === PROJECTILE_KIND.mining;
+      if (mount.kind !== PROJECTILE_KIND.beam && !isRig) return;
       const weapon = mount.def.weapon;
       const key = `${shooterId}:${mountIndex}`;
 
@@ -178,6 +188,19 @@ export class CombatSystem {
       const aim = pose.angle + (runtime.turretAim[mountIndex] ?? 0);
       const reachX = muzzle.x + Math.cos(aim) * weapon.range;
       const reachY = muzzle.y + Math.sin(aim) * weapon.range;
+
+      // A rig cuts rock and does nothing whatever to a hull. That is the
+      // whole difference: the same held line, pointed at something that
+      // cannot be hurt and can be carried away.
+      if (isRig) {
+        const cut = this.cutRock(shooterId, muzzle, aim, weapon.range);
+        const entry = this.beamEntry(key, shooterId, mountIndex);
+        entry.angle = aim;
+        entry.length = cut ? cut.along * weapon.range : weapon.range;
+        entry.hitting = cut !== undefined;
+        if (cut) this.world.onMining?.(shooterId, cut.rockId, weapon.damage * dt);
+        return;
+      }
 
       // The first hull along the line, which is what stops it.
       let struck:
@@ -205,13 +228,7 @@ export class CombatSystem {
 
       const length = struck ? weapon.range * struck.hit.t : weapon.range;
 
-      let entry = this.world.state.beams.get(key);
-      if (!entry) {
-        entry = new BeamState();
-        entry.owner = shooterId;
-        entry.mount = mountIndex;
-        this.world.state.beams.set(key, entry);
-      }
+      const entry = this.beamEntry(key, shooterId, mountIndex);
       entry.angle = aim;
       entry.length = length;
       entry.hitting = struck !== undefined;
@@ -230,10 +247,48 @@ export class CombatSystem {
     });
   }
 
-  /** Take every beam this hull was holding off the wire. */
+  /** The wire entry for a held line, made if this is the first step of it. */
+  private beamEntry(key: string, owner: string, mount: number): BeamState {
+    const existing = this.world.state.beams.get(key);
+    if (existing) return existing;
+
+    const entry = new BeamState();
+    entry.owner = owner;
+    entry.mount = mount;
+    this.world.state.beams.set(key, entry);
+    return entry;
+  }
+
+  /**
+   * The nearest rock a held line reaches, and how far along it that is.
+   *
+   * A rock at nothing is not cut: it is bare, and a rig sitting on it would
+   * be a captain being paid for pointing at a stone.
+   */
+  private cutRock(
+    shooterId: string,
+    muzzle: { x: number; y: number },
+    aim: number,
+    range: number,
+  ): { rockId: string; along: number } | undefined {
+    void shooterId;
+    const toX = muzzle.x + Math.cos(aim) * range;
+    const toY = muzzle.y + Math.sin(aim) * range;
+
+    let best: { rockId: string; along: number } | undefined;
+    for (const [id, rock] of this.world.state.asteroids) {
+      if (rock.left <= 0) continue;
+      const along = rockAlong(muzzle.x, muzzle.y, toX, toY, rock);
+      if (along === undefined) continue;
+      if (!best || along < best.along) best = { rockId: id, along };
+    }
+    return best;
+  }
+
+  /** Take every held line this hull had off the wire. */
   dropBeams(shooterId: string, runtime: ShipRuntime): void {
     runtime.mounts.forEach((mount, mountIndex) => {
-      if (mount.kind !== PROJECTILE_KIND.beam) return;
+      if (mount.kind !== PROJECTILE_KIND.beam && mount.kind !== PROJECTILE_KIND.mining) return;
       this.world.state.beams.delete(`${shooterId}:${mountIndex}`);
     });
   }

@@ -482,7 +482,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ice",
+        "rocks": 11,
+        "unitsEach": 220
+      }
     },
     {
       "id": "vane",
@@ -645,7 +650,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ore",
+        "rocks": 16,
+        "unitsEach": 260
+      }
     },
     {
       "id": "adeyemi",
@@ -935,7 +945,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ore",
+        "rocks": 8,
+        "unitsEach": 180
+      }
     },
     {
       "id": "lee-shore",
@@ -1156,7 +1171,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ore",
+        "rocks": 14,
+        "unitsEach": 300
+      }
     },
     {
       "id": "doldrum",
@@ -1259,7 +1279,12 @@
             "SLP": 1
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ice",
+        "rocks": 13,
+        "unitsEach": 280
+      }
     },
     {
       "id": "satos-error",
@@ -1335,7 +1360,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ore",
+        "rocks": 12,
+        "unitsEach": 240
+      }
     },
     {
       "id": "last-entry",
@@ -1386,7 +1416,12 @@
             }
           }
         }
-      ]
+      ],
+      "belt": {
+        "commodity": "ice",
+        "rocks": 10,
+        "unitsEach": 230
+      }
     }
   ]
 }

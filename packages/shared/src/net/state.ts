@@ -140,6 +140,33 @@ export const BeamState = schema(
 );
 export type BeamState = SchemaType<typeof BeamState>;
 
+/**
+ * A rock worth cutting into.
+ *
+ * Placed deterministically from the system's own seed, so a belt is a
+ * landmark: the same rocks in the same places on every client and across
+ * every restart. `left` is what is still in it, which falls as it is worked
+ * and comes back slowly while nobody is.
+ */
+export const AsteroidState = schema(
+  {
+    x: t.float32().default(0),
+    y: t.float32().default(0),
+    /** Its size on the screen and the width of the thing a rig has to hit. */
+    radius: t.float32().default(0),
+    /** What is in it: a raw commodity, always. */
+    commodity: t.string().default(''),
+    /** Units still in it. A rock at nothing is bare and worth nothing. */
+    left: t.uint16().default(0),
+    /** How much it held when it was whole, for drawing how worked it is. */
+    whole: t.uint16().default(0),
+    /** Drives the client's shape, so one rock is not every rock. */
+    seed: t.uint16().default(0),
+  },
+  'AsteroidState',
+);
+export type AsteroidState = SchemaType<typeof AsteroidState>;
+
 /** Cargo spilled by a written-off hull, which anyone can scoop. */
 export const CanisterState = schema(
   {
@@ -165,6 +192,7 @@ export const SystemState = schema(
     ships: t.map(ShipState),
     projectiles: t.map(ProjectileState),
     beams: t.map(BeamState),
+    asteroids: t.map(AsteroidState),
     canisters: t.map(CanisterState),
   },
   'SystemState',

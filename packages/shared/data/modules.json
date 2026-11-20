@@ -1221,6 +1221,65 @@
         "arc": 3.14159
       },
       "description": "All round, and fast enough to take two in a row. The Prize Court's own hulls carry a pair, which is the kind of recommendation that costs money."
+    },
+    {
+      "id": "slp-rig-1",
+      "name": "Slipway Thirty Pattern 1 Cutting Rig",
+      "type": "mining",
+      "manufacturer": "SLP",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 1
+      },
+      "mass": 9,
+      "hitPoints": 60,
+      "cost": 6800,
+      "bom": {
+        "circuitry": 5,
+        "alloy": 9
+      },
+      "power": {
+        "draw": 14
+      },
+      "weapon": {
+        "damage": 1.6,
+        "roundsPerSecond": 1,
+        "projectileSpeed": 1,
+        "range": 420,
+        "spread": 0
+      },
+      "description": "Cuts rock and nothing else: point it at a hull and you have an expensive lamp. Slow, and the bays fill whether or not anybody wanted to buy what is going into them."
+    },
+    {
+      "id": "slp-rig-2",
+      "name": "Slipway Thirty Pattern 5 Cutting Rig",
+      "type": "mining",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 16,
+      "hitPoints": 95,
+      "cost": 18500,
+      "bom": {
+        "circuitry": 13,
+        "machinery": 6,
+        "alloy": 15
+      },
+      "power": {
+        "draw": 27
+      },
+      "weapon": {
+        "damage": 4.1,
+        "roundsPerSecond": 1,
+        "projectileSpeed": 1,
+        "range": 560,
+        "spread": 0
+      },
+      "description": "Three times the cut of the Pattern 1 and rather more than three times the reactor. The Thirty sells it to the concessions by the hundred and does not pretend it is a weapon."
     }
   ]
 }

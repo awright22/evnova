@@ -169,7 +169,9 @@
       "secured": 0,
       "contested": 2,
       "lawless": 4
-    }
+    },
+    "rockPerDay": 40,
+    "$rockComment": "What a worked rock recovers in a day of world time. Slow enough that a belt is a place rather than a tap \u2014 a captain who strips a rock comes back to find it still thin \u2014 and fast enough that a belt somebody worked out a month ago is worth visiting again."
   },
   "exchange": {
     "$comment": "The Bourse. Spec section 10. A market tick is one pass of the house trader and one fold of the period's earnings into the smoothed figure; dividends fall on every dividendEvery-th tick.",

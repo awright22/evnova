@@ -48,6 +48,9 @@ import {
   AbandonCommissionIntent,
   ChainEndingIntent,
   LetterIntent,
+  AsteroidState,
+  beltOf,
+  regrown,
   TakeCommissionIntent,
   ShareCommissionIntent,
   ConvoyInviteIntent,
@@ -211,6 +214,11 @@ export function scanEveryLane(): void {
   for (const room of liveRooms) room.runPatrolScans();
 }
 
+/** Let worked rock come back, everywhere there is any. */
+export function regrowEveryBelt(hours: number): void {
+  for (const room of liveRooms) room.regrowBelt(hours);
+}
+
 /**
  * Where a captain is, across every room.
  *
@@ -327,6 +335,12 @@ export class SystemRoom extends Room<{
   private freighterTarget = 0;
   /** True once the room is going, so deferred work knows not to run. */
   private closing = false;
+  /** Parts of a unit cut but not yet aboard, by captain and rock. */
+  private readonly cutFractions = new Map<string, number>();
+  /** The rock a captain was last told their bays were full on. */
+  private readonly holdFullAt = new Map<string, string>();
+  /** Captains with a purse push already queued for after this step. */
+  private readonly pursePending = new Set<string>();
 
   /**
    * What each freighter is carrying.
@@ -1465,9 +1479,28 @@ export class SystemRoom extends Room<{
         now: () => this.clock.elapsedTime,
         onWrittenOff: (id, killedBy) => this.writeOff(id, killedBy),
         onImpact: (event) => this.broadcastImpact(event),
+        onMining: (shooterId, rockId, units) => this.minedRock(shooterId, rockId, units),
       },
       this.roomId,
     );
+
+    // The belt, if this system has one. Placed from the system's own id, so
+    // the same rocks are in the same places on every client and after every
+    // restart: a captain who learns where the good rock is has learned
+    // something that stays true.
+    if (this.system) {
+      for (const rock of beltOf(this.system)) {
+        const entry = new AsteroidState();
+        entry.x = rock.x;
+        entry.y = rock.y;
+        entry.radius = rock.radius;
+        entry.commodity = rock.commodity;
+        entry.whole = rock.whole;
+        entry.left = rock.whole;
+        entry.seed = rock.seed;
+        this.state.asteroids.set(rock.id, entry);
+      }
+    }
 
     // Every room hears the global channel and passes it to its own captains.
     const onGlobal = (line: ChatLine): void => {
@@ -2460,6 +2493,88 @@ export class SystemRoom extends Room<{
       );
     } catch {
       // Too poor for the fee. They land anyway.
+    }
+  }
+
+  /**
+   * A rig took something off a rock.
+   *
+   * The cut arrives a fraction of a unit at a time, because a rig works at
+   * units a second and a step is a fraction of one. The fractions are kept
+   * per captain and per rock until they add up to something that can go in
+   * a hold: cargo is integers, and rounding each step would either pay a
+   * captain for nothing or lose them most of their afternoon.
+   *
+   * A hold with no room in it stops the cut rather than silently dropping
+   * it: the rock keeps what it has, and the captain is told once.
+   */
+  private minedRock(sessionId: string, rockId: string, units: number): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    const rock = this.state.asteroids.get(rockId);
+    if (!pilot || !rock || rock.left <= 0 || units <= 0) return;
+
+    const key = `${sessionId}:${rockId}`;
+    const carried = (this.cutFractions.get(key) ?? 0) + units;
+    if (carried < 1) {
+      this.cutFractions.set(key, carried);
+      return;
+    }
+
+    const whole = Math.min(Math.floor(carried), rock.left);
+    this.cutFractions.set(key, carried - whole);
+    if (whole <= 0) return;
+
+    // Room aboard. A rig that filled a hold and kept cutting would be a
+    // captain paying power to make gravel.
+    const room = this.holdCapacityOf(pilot) - world().market.cargoUnits(pilot.accountId);
+    if (room <= 0) {
+      this.cutFractions.set(key, 0);
+      if (this.holdFullAt.get(sessionId) !== rockId) {
+        this.holdFullAt.set(sessionId, rockId);
+        this.clients.get(sessionId)?.send('scanned', {
+          kind: 'hold-full',
+          text: 'The bays are full. Nothing more will go aboard.',
+        });
+      }
+      return;
+    }
+    this.holdFullAt.delete(sessionId);
+
+    const taken = Math.min(whole, room);
+    rock.left = Math.max(0, rock.left - taken);
+    world().market.adjustCargo(pilot.accountId, rock.commodity, taken);
+    this.sendPurseSoon(sessionId);
+  }
+
+  /**
+   * Tell a captain what they have, but not more than once a moment.
+   *
+   * A rig fires a cut every step, and a purse push a step would be thirty a
+   * second of a message nothing is waiting on.
+   */
+  private sendPurseSoon(sessionId: string): void {
+    if (this.pursePending.has(sessionId)) return;
+    this.pursePending.add(sessionId);
+    this.afterStep(() => {
+      this.pursePending.delete(sessionId);
+      this.sendPurse(sessionId);
+    });
+  }
+
+  /**
+   * Rock comes back, slowly, while nobody is working it.
+   *
+   * On the economy's cadence, like everything else that happens to the world
+   * rather than to a captain. A belt that refilled while a captain turned
+   * around would be a tap; one that never refilled would be stripped by the
+   * first captain to find it and worth nothing to anybody after.
+   */
+  regrowBelt(hours: number): void {
+    if (hours <= 0 || this.state.asteroids.size === 0) return;
+    const perDay = content().tuning.world.rockPerDay;
+    for (const rock of this.state.asteroids.values()) {
+      if (rock.left >= rock.whole) continue;
+      rock.left = Math.round(regrown(rock.left, rock.whole, hours, perDay));
     }
   }
 

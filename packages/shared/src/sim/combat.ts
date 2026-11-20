@@ -36,6 +36,8 @@ export const PROJECTILE_KIND = {
   beam: 3,
   /** Point defense, which fires at rounds rather than at hulls. */
   defense: 4,
+  /** A mining rig: a beam pointed at rock, which gives cargo rather than damage. */
+  mining: 5,
 } as const;
 
 export type ProjectileKind = (typeof PROJECTILE_KIND)[keyof typeof PROJECTILE_KIND];
@@ -339,7 +341,9 @@ export function mountsOf(modules: readonly PlacedModule[]): Mount[] {
             ? PROJECTILE_KIND.beam
             : module.def.type === 'defense'
               ? PROJECTILE_KIND.defense
-              : PROJECTILE_KIND.gun;
+              : module.def.type === 'mining'
+                ? PROJECTILE_KIND.mining
+                : PROJECTILE_KIND.gun;
 
     // Rounds leave from the forward face of the mount.
     mounts.push({

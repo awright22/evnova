@@ -41,6 +41,7 @@ export const ModuleType = z.enum([
   'rack',
   'beam',
   'defense',
+  'mining',
   'cargo',
   'tank',
 ]);
@@ -54,12 +55,14 @@ const Footprint = z.object({
 /**
  * What a weapon module does.
  *
- * Only weapon, turret, rack, beam and defense modules carry one. A beam
- * reads `damage` as damage a *second* rather than a round, because it is on
- * the mark continuously; everything else reads it per round.
+ * Carried by anything on a mount: weapons, turrets, racks, beams, point
+ * defense and mining rigs. `damage` is per round for the things that fire
+ * rounds, per second for a beam, which is on its mark continuously — and
+ * for a mining rig it is not damage at all but units of rock a second,
+ * because a rig is a beam pointed at something that cannot be hurt.
  */
 export const WeaponDef = z.object({
-  /** Damage per round, before shields. Per second for a beam. */
+  /** Per round; per second for a beam; units of rock a second for a rig. */
   damage: z.number().positive(),
   roundsPerSecond: z.number().positive(),
   /** Muzzle velocity in units per second. Ignored by a beam, which arrives. */
@@ -144,11 +147,12 @@ export const ModuleDef = z
         m.type === 'turret' ||
         m.type === 'rack' ||
         m.type === 'beam' ||
-        m.type === 'defense') === (m.weapon !== undefined),
+        m.type === 'defense' ||
+        m.type === 'mining') === (m.weapon !== undefined),
     {
       message:
-        'only weapons, turrets, racks, beams and point defense declare weapon stats, ' +
-        'and all of them must',
+        'only weapons, turrets, racks, beams, point defense and mining rigs declare ' +
+        'weapon stats, and all of them must',
       path: ['weapon'],
     },
   )
@@ -168,10 +172,13 @@ export const ModuleDef = z
     message: 'point defense must declare the arc it covers',
     path: ['weapon', 'arc'],
   })
-  .refine((m) => m.type !== 'beam' || (m.power.draw ?? 0) > 0, {
-    message: 'a beam runs on power and must declare its draw',
-    path: ['power', 'draw'],
-  });
+  .refine(
+    (m) => (m.type !== 'beam' && m.type !== 'mining') || (m.power.draw ?? 0) > 0,
+    {
+      message: 'a beam or a mining rig runs on power and must declare its draw',
+      path: ['power', 'draw'],
+    },
+  );
 export type ModuleDef = z.infer<typeof ModuleDef>;
 
 export const ModuleCatalogue = z.object({
@@ -431,6 +438,8 @@ export const Tuning = z.object({
       contested: z.int().nonnegative(),
       lawless: z.int().nonnegative(),
     }),
+    /** Units a rock recovers in a day of world time, while nobody works it. */
+    rockPerDay: z.number().nonnegative().default(40),
     /** And how many of the Prize Court's patrols answer for it. */
     patrolsBySecurity: z.object({
       secured: z.int().nonnegative(),
@@ -721,6 +730,21 @@ export const SystemDef = z.object({
   star: StarDef,
   /** Distance from the centre at which the system ends. */
   radius: z.number().positive(),
+  /**
+   * A belt worth cutting into, if this system has one.
+   *
+   * Only raw goods: a rock is Ore or Ice, and anything else would be a
+   * refinery. The Home Roads have none left worth the trouble, which is
+   * why their Ore comes in on somebody's freighter.
+   */
+  belt: z
+    .object({
+      commodity: CommodityId,
+      rocks: z.int().min(1).max(64),
+      /** Units in a whole rock, before anybody has been at it. */
+      unitsEach: z.int().min(1).max(5000),
+    })
+    .optional(),
   ports: z.array(PortDef),
 });
 export type SystemDef = z.infer<typeof SystemDef>;
