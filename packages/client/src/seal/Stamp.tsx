@@ -31,11 +31,20 @@ import { Seal } from './Seal.tsx';
 import './stamp.css';
 
 /** The four phases, in the order they run. */
-type Phase = 'rest' | 'press' | 'strike' | 'settle' | 'struck';
+type Phase = 'rest' | 'press' | 'strike' | 'settle' | 'struck' | 'lifting';
 
 const PRESS_MS = 70;
 const STRIKE_MS = 50;
 const SETTLE_MS = 80;
+/**
+ * How long a line stamp stays before it lifts.
+ *
+ * A document stays stamped: the mark is the record. A row does not — ten
+ * rows with ten seals on them is a table nobody can read, and the row's own
+ * figures have already moved. Long enough to be seen, and gone.
+ */
+const LINGER_MS = 900;
+const LIFT_MS = 400;
 
 function prefersReducedMotion(): boolean {
   try {
@@ -108,6 +117,14 @@ export function Stamp({
     if (reduced) {
       playStamp();
       setPhase('struck');
+      // A line's mark still lifts: reduced motion asks for less movement,
+      // not for a table that fills up with seals.
+      if (size < 40) {
+        timers.current.push(
+          window.setTimeout(() => setPhase('lifting'), LINGER_MS),
+          window.setTimeout(() => setPhase('rest'), LINGER_MS + LIFT_MS),
+        );
+      }
       return;
     }
 
@@ -127,9 +144,19 @@ export function Stamp({
         setPhase('struck');
       }, PRESS_MS + STRIKE_MS + SETTLE_MS),
     );
-  }, [busy, clear, disabled, onStamp, paper]);
 
-  const showing = phase === 'strike' || phase === 'settle' || phase === 'struck';
+    // A mark on a line lifts; a mark on a document stays.
+    if (size < 40) {
+      const struck = PRESS_MS + STRIKE_MS + SETTLE_MS;
+      timers.current.push(
+        window.setTimeout(() => setPhase('lifting'), struck + LINGER_MS),
+        window.setTimeout(() => setPhase('rest'), struck + LINGER_MS + LIFT_MS),
+      );
+    }
+  }, [busy, clear, disabled, onStamp, paper, size]);
+
+  const showing =
+    phase === 'strike' || phase === 'settle' || phase === 'struck' || phase === 'lifting';
   // A line stamp lands on the corner of its own control, where the row is. A
   // document stamp lands above it, over the paper — and out of the way of
   // the panel edge a ticket's own scroll would otherwise clip it against.

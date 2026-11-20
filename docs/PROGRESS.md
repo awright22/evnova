@@ -769,6 +769,165 @@ bot that swallowed every refusal, a bot that kept predicting in a room it had
 left, and a soak that reused its database so its ledger totals were the sum
 of every run ever made on the machine.
 
+## M8. Depth — 2026-11-20
+
+### What is now playable
+
+The world got deeper in seven places, and two of them change how a captain
+reads a fight.
+
+**Shortages travel.** A refinery makes what its inputs let it make. Starve
+Quorum of Ore and its Alloy line slows in proportion, which starves the
+Ropewalk of Alloy, which starves whoever buys Machinery — so a blockade at
+one end of a chain is felt three berths away a day later, and a captain who
+notices a shortage on the Gazette can haul into it.
+
+**Rock.** Seven systems have a belt: rocks placed from the system's own seed,
+so the same rocks are in the same places on every client and after every
+restart. Fit a rig, sit on one, hold the trigger, and ore comes off it a
+fraction of a unit at a time and goes into the bays. A worked rock is smaller
+and duller than a whole one, and it comes back slowly while nobody is cutting
+it.
+
+**Beams and point defense.** A beam arrives the instant it is pointed and
+does not run out — no leading, no travel time — in exchange for short reach
+and a reactor that notices. Point defense fires itself at anything incoming
+and makes a missile rack a different proposition.
+
+**Boarding.** A hull with every engine shot out is adrift, and adrift is not
+the same as dead: within a hundred and fifty units, with the two hulls
+closing at under sixty, a captain can put a party across and take what is in
+the hold. The biggest lots first, up to what their own bays will hold. A hull
+that could still fly away would fly away, so stopping one is the work.
+
+**Standing orders and selling short.** Leave an order with the Bourse at a
+limit and it is carried out on each market tick as far as that price allows —
+a large one fills in pieces as the house trader walks the price back. Sell
+shares you do not have and you owe them: the Bourse wants half of what you
+owe standing behind it, and buys the position back for you when that falls
+under three tenths, whether or not you are online to watch.
+
+**The range.** At any Yard, draw a hull and take her out: fly her, fight two
+of whatever you choose to put up, lose her and be handed another. Nothing out
+there touches your marks, your cargo, your hull or your standing.
+
+**The books.** An operator named in the server's configuration can read the
+ledger by category, the price and stock of every good, the listings and every
+berth's stockpiles — and change the tuning the world is running on without
+restarting it.
+
+**And the stamp.** Every institution strikes a seal of its own, drawn from a
+seed on its name so it is the same mark every time. Confirming an order at a
+Staple, a bill at a Yard, a ticket at the Bourse or a commission from a
+Factor presses the control, strikes the seal across the document with an
+amber rim at its edge for a frame, spreads the ink, and settles. With a low
+thud, and twelve milliseconds of paper and mechanism ahead of it.
+
+### How to run it
+
+```
+pnpm dev
+```
+
+Then open the client, take a hull out of any berth, and:
+
+- fit a Spoil Heap at a Yard and fly out to a belt — Lindqvist's lies a few
+  thousand units off Respondentia — then hold the trigger on a rock;
+- shoot an engine off something and press `B` when the prompt says it is
+  adrift;
+- at a berth with a Bourse, switch the ticket to **At a limit**, name a
+  price, and leave the order; tick **Sell short** to sell what you do not
+  hold;
+- at any Yard, draw something and press **Take her out**.
+
+The admin page is at `/?admin=1`, for a captain whose callsign is in
+`ADMIN_CALLSIGNS`.
+
+Checks for the new work:
+
+```
+pnpm verify:mining
+```
+
+```
+pnpm verify:boarding
+```
+
+```
+pnpm verify:orders
+```
+
+```
+pnpm verify:range
+```
+
+```
+pnpm verify:admin
+```
+
+```
+pnpm verify:loss
+```
+
+### What the harnesses found
+
+Four faults, none of which a typecheck or a unit test would have caught, and
+two of them were in code this milestone did not touch.
+
+**A hit that found a wrecked module did nothing at all.** Damage was capped at
+the struck module's remaining hit points, so a round landing on a module
+already at zero was absorbed by it. A hull could be made immune to everything
+arriving from one bearing by having its outermost fitting shot off first, and
+no amount of fire would then bring its structure below the threshold that
+writes it off. The boarding harness sat at a fixed bearing and fired for
+seventy seconds at a hull whose structure had stopped falling. A hit now
+carries through to the nearest module still standing.
+
+**The client predicted with the hull it was built as, not the hull it is.**
+The flight profile was derived once, from the whole blueprint, and the server
+steps the simulation with the profile of the modules that still work. From
+the moment anything was disabled the two were running different ships. It was
+invisible until the fix above meant fights actually disabled things, and then
+the reconciler reported it fifty-eight times in a fourteen-minute soak. There
+is one shared rule now and the client re-derives from it as damage lands.
+
+**Death was ticked in M2 without being built.** A dead captain kept their
+cargo, still owned the hull that had just come apart, was paid nothing, and
+woke in the sky where they fell — while the client's panel told them
+Underwriters' Hall had settled a figure it had worked out for itself and
+nobody had paid. Spec section 8's paragraph now holds, clause by clause, and
+`pnpm verify:loss` reads it back.
+
+**A dividend paid to a captain who happened to be online was erased by their
+next landing.** Marks are the ledger's to write, and the captain flush was
+writing its own in-memory copy back over the row. The ledger keeps the
+world's copy in step now, whether or not the caller holds one.
+
+### Known issues
+
+**A margin is measured on what the Bourse can see.** Marks a captain has tied
+up in cargo are not on its books and do not count toward the equity behind a
+short. That is the real decision a short puts in front of them, and it is
+also the only lever the harness has to call one in — but it means a captain
+with a full hold and no marks is closer to a liquidation than their net worth
+suggests.
+
+**A short that cannot be bought back stands.** The Bourse buys back what the
+captain can afford and no more; the rest is tried again on the next tick. A
+captain with nothing left is wiped out rather than in debt, which is the
+intended consequence, but the position can sit there for a long time.
+
+**The reconciler still reports the odd divergence.** Three in a
+fourteen-minute soak against fifty-eight before the profile fix, each a
+one-off just over the tolerance and two of them in the first seconds after a
+hull spawns. The soak's own measure — every client matched or within jitter —
+passes. It is worth another look in M9's performance pass.
+
+**The range puts up two of one draught.** Spec asks for a draught to be flown
+and fought before it is bought, which it can be; it does not ask for a mixed
+flight, and a captain who wants to know how a hull does against a gun and a
+turret at once has to try them in turn.
+
 ## M7. Living world — 2026-11-20
 
 ### What is now playable

@@ -19,7 +19,8 @@
  */
 .stamp--strike,
 .stamp--settle,
-.stamp--struck {
+.stamp--struck,
+.stamp--lifting {
   z-index: 2;
 }
 
@@ -103,9 +104,25 @@
   }
 }
 
+/* A line's mark lifts once it has been seen; a document's stays. */
+.stamp--lifting .stamp__impression {
+  animation: stamp-lift 400ms var(--ease-standard) both;
+}
+
+@keyframes stamp-lift {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 /* 3. Settle: the edge softens as the ink spreads, and the deboss appears. */
 .stamp--settle .stamp__impression,
-.stamp--struck .stamp__impression {
+.stamp--struck .stamp__impression,
+.stamp--lifting .stamp__impression {
   filter: drop-shadow(0 1px 0 rgb(0 0 0 / 55%));
 }
 
