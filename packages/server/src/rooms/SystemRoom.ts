@@ -45,6 +45,8 @@ import {
   GiveDesignIntent,
   ImportDesignIntent,
   BourseIntent,
+  PlaceOrderIntent,
+  CancelOrderIntent,
   AbandonCommissionIntent,
   ChainEndingIntent,
   LetterIntent,
@@ -95,6 +97,7 @@ import {
 import { registerRoom, TickMetrics } from '../metrics.ts';
 import { AuthError, type Account } from '../accounts.ts';
 import { BourseRefused } from '../world/Exchange.ts';
+import { OrderRefused, type TickReport } from '../world/Orders.ts';
 import { CommissionRefused } from '../world/Commissions.ts';
 import { CONVOY_LIMIT, ConvoyRefused } from '../world/Convoys.ts';
 import { OfferRefused } from '../world/Trades.ts';
@@ -203,8 +206,8 @@ const GLOBAL_CHAT_TOPIC = 'chat:global';
 const liveRooms = new Set<SystemRoom>();
 
 /** Tell every room the Bourse has moved. */
-export function refreshEveryBourse(): void {
-  for (const room of liveRooms) room.refreshBourse();
+export function refreshEveryBourse(book?: TickReport): void {
+  for (const room of liveRooms) room.refreshBourse(book);
 }
 
 /**
@@ -1322,6 +1325,64 @@ export class SystemRoom extends Room<{
     }),
 
     /**
+     * Leave a standing order with the Bourse.
+     *
+     * Nothing is charged and nothing is held back: the order is an
+     * instruction the market tick carries out, as far as the limit allows,
+     * until it is filled or withdrawn. A captain can leave one and go flying.
+     */
+    'place-order': validate(PlaceOrderIntent, (client: Client, message: PlaceOrderIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+      if (!port.services.includes('bourse')) return ctx.reject('no-bourse');
+
+      try {
+        const order = world().orders.place(
+          pilot,
+          {
+            ticker: message.ticker,
+            side: message.side,
+            shares: message.shares,
+            limit: message.limit,
+            short: message.short,
+          },
+          Date.now(),
+        );
+        this.sendBourse(client.sessionId);
+        return order;
+      } catch (error) {
+        if (error instanceof OrderRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /** Withdraw a standing order. Only the captain who placed it may. */
+    'cancel-order': validate(
+      CancelOrderIntent,
+      (client: Client, message: CancelOrderIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          const order = world().orders.cancel(pilot.accountId, message.id, Date.now());
+          this.sendBourse(client.sessionId);
+          return order;
+        } catch (error) {
+          if (error instanceof OrderRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /**
      * Trade at the berth's Staple.
      *
      * The market owns the transaction; the room's job is to establish that
@@ -2182,9 +2243,45 @@ export class SystemRoom extends Room<{
     return true;
   }
 
-  refreshBourse(): void {
+  refreshBourse(book?: TickReport): void {
     for (const [sessionId, pilot] of this.pilotsBySession) {
       if (pilot.landedPortId === undefined) continue;
+      this.sendBourse(sessionId);
+    }
+
+    if (!book) return;
+
+    // What the tick did on their behalf, to whoever is here to hear it. A
+    // captain who left an order and went flying is told in the same breath
+    // as one standing at the Bourse: the order was carried out either way,
+    // and a fill a captain only discovers later is a fill they cannot act on.
+    for (const fill of book.fills) {
+      const sessionId = this.sessionOf(fill.accountId);
+      if (sessionId === undefined) continue;
+      this.clients.get(sessionId)?.send('order', {
+        kind: fill.shares > 0 ? 'filled' : 'closed',
+        ticker: fill.ticker,
+        side: fill.side,
+        shares: fill.shares,
+        total: fill.total,
+        done: fill.done,
+      });
+      this.sendPurseSoon(sessionId);
+      this.sendBourse(sessionId);
+    }
+
+    for (const closed of book.liquidations) {
+      const sessionId = this.sessionOf(closed.accountId);
+      if (sessionId === undefined) continue;
+      this.clients.get(sessionId)?.send('order', {
+        kind: 'liquidated',
+        ticker: closed.ticker,
+        side: 'buy' as const,
+        shares: closed.shares,
+        total: closed.total,
+        done: closed.left === 0,
+      });
+      this.sendPurseSoon(sessionId);
       this.sendBourse(sessionId);
     }
   }
@@ -2203,10 +2300,21 @@ export class SystemRoom extends Room<{
     if (!client) return;
 
     const { exchange } = content().tuning;
+    const standing = world().exchange.standing(pilot.accountId, pilot.marks);
     client.send('bourse', {
       listings: world().exchange.listingsFor(pilot.accountId),
       feeRate: exchange.feeRate,
       maxPoolFraction: exchange.maxPoolFraction,
+      // The captain's standing orders and where they stand against what they
+      // have borrowed. Sent with the listings because they are one screen: an
+      // order is only readable beside the price it is waiting for.
+      orders: world().orders.of(pilot.accountId),
+      margin: {
+        equity: standing.equity,
+        owed: standing.owed,
+        initial: exchange.marginRate,
+        maintenance: exchange.maintenanceRate,
+      },
     });
     client.send('news', { headlines: world().gazette.recent() });
     client.send('standings', { standings: this.standingsFor(pilot.accountId) });

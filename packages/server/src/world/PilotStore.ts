@@ -94,6 +94,17 @@ export class PilotStore {
     return pilot;
   }
 
+  /**
+   * The in-memory copy, if this captain is loaded, without loading them.
+   *
+   * For code that has to keep a loaded captain in step after writing their
+   * row — the ledger — but must not pull every offline captain it touches
+   * into memory to do it.
+   */
+  cached(accountId: string): Pilot | undefined {
+    return this.loaded.get(accountId);
+  }
+
   /** Mark a captain as changed, so the next flush writes them. */
   touch(accountId: string): void {
     this.dirty.add(accountId);
@@ -155,7 +166,12 @@ export class PilotStore {
         this.store.db
           .update(schema.pilots)
           .set({
-            marks: Math.max(0, Math.round(pilot.marks)),
+            // Marks are deliberately not written here. Every mark a captain
+            // gains or loses goes through the ledger, which writes the row
+            // itself and updates this copy when it has one. A dividend or a
+            // liquidation settled for a captain who happens to be online
+            // touches the row and not the copy — and a flush that wrote this
+            // copy's figure back would quietly erase it.
             systemId: pilot.systemId,
             x: Math.round(pilot.x),
             y: Math.round(pilot.y),

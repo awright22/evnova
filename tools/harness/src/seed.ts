@@ -44,6 +44,14 @@ const HERE = fileURLToPath(import.meta.url);
 /** A captain to write, and what they should already have behind them. */
 export interface SeedSpec {
   readonly callsign: string;
+  /**
+   * Set the purse to exactly this, through the ledger.
+   *
+   * For checks where the size of a captain's purse is the subject — margin,
+   * affordability — and the server's one starting figure cannot give two
+   * captains different ones.
+   */
+  readonly marks?: number;
   /** Standing with each charter. Applied directly, not through a shift. */
   readonly standing?: Partial<Record<Charter, number>>;
   /** Park them at this berth's coordinates, so landing lands here. */
@@ -138,6 +146,23 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
     const opened = accounts.signUp({ callsign: spec.callsign, inviteCode: '' });
     tokens[opened.account.callsign] = opened.deviceToken;
     const accountId = opened.account.id;
+
+    if (spec.marks !== undefined) {
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      const delta = Math.round(spec.marks) - pilot.marks;
+      if (delta !== 0) {
+        ledger.post(
+          {
+            accountId,
+            delta,
+            category: delta > 0 ? 'starting-balance' : 'trade-fee',
+            reason: 'Seeded purse',
+          },
+          pilot,
+        );
+      }
+    }
 
     if (spec.standing) {
       // Written as a set rather than shifted: a shift is zero-sum, and a

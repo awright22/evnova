@@ -32,7 +32,8 @@
     "verify:standing": "tsx tools/verify/src/standing.ts",
     "verify:mining": "tsx tools/verify/src/mining.ts",
     "verify:boarding": "tsx tools/verify/src/boarding.ts",
-    "verify:loss": "tsx tools/verify/src/loss.ts"
+    "verify:loss": "tsx tools/verify/src/loss.ts",
+    "verify:orders": "tsx tools/verify/src/orders.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

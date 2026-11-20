@@ -63,6 +63,12 @@ export const REJECTIONS = {
   'holding-capped': 'You may not hold more of one company than that.',
   'not-holding': 'You do not hold that many shares.',
   'market-too-thin': 'The pool will not take an order that size. Try a smaller parcel.',
+  'limit-not-reached': 'The price has not come to your limit.',
+  'short-capped': 'You may not be short more of one company than that.',
+  'margin-short': 'There is not enough behind that to sell short.',
+  'no-such-order': 'That order is no longer open.',
+  'too-many-orders': 'You have as many orders standing as the Bourse will keep.',
+  'limit-out-of-range': 'A limit has to be a price somebody might pay.',
   'barred-here': 'This company will not have you alongside.',
   'not-a-seat': 'Letters are issued at a company seat, not here.',
   'standing-too-low': 'This company does not trust you with that.',
@@ -207,6 +213,66 @@ export const BourseIntent = z.object({
   shares: z.int().min(1).max(100_000_000),
 });
 export type BourseIntent = z.infer<typeof BourseIntent>;
+
+/**
+ * Leave a standing order with the Bourse.
+ *
+ * There is no book to rest on: a listing trades against a pool, so a limit is
+ * an instruction to walk the curve on each market tick as far as the price
+ * allows and no further. `short` lets a sell go past what the captain holds,
+ * which is borrowing and is held to a margin.
+ */
+export const PlaceOrderIntent = z.object({
+  side: z.enum(['buy', 'sell']),
+  ticker: z.string().max(8),
+  shares: z.int().min(1).max(100_000_000),
+  /** Marks a share. A buy will not pay above it; a sell will not take below it. */
+  limit: z.number().positive().max(1_000_000),
+  short: z.boolean().optional(),
+});
+export type PlaceOrderIntent = z.infer<typeof PlaceOrderIntent>;
+
+/** Withdraw a standing order. */
+export const CancelOrderIntent = z.object({
+  id: z.string().max(64),
+});
+export type CancelOrderIntent = z.infer<typeof CancelOrderIntent>;
+
+/** A standing order as the interface draws it. */
+export interface OrderLine {
+  readonly id: string;
+  readonly ticker: string;
+  readonly side: 'buy' | 'sell';
+  /** Shares still wanted. */
+  readonly shares: number;
+  /** Shares filled so far, and what they came to. */
+  readonly filled: number;
+  readonly settled: number;
+  /** Marks a share it will not trade past. */
+  readonly limit: number;
+  readonly short: boolean;
+  readonly state: 'open' | 'filled' | 'cancelled';
+  /** Why it closed, where it closed for a reason worth reading. */
+  readonly reason: string;
+  readonly placedAt: number;
+}
+
+/**
+ * Where a captain stands against what they have borrowed.
+ *
+ * `equity` is what would be left if the whole account were closed out now;
+ * `owed` is the market value of the shares they are short. A captain whose
+ * equity falls below `maintenance` of what they owe has the position bought
+ * back for them, whether or not they are online to see it.
+ */
+export interface MarginState {
+  readonly equity: number;
+  readonly owed: number;
+  /** Equity needed to open or add to a short, as a share of what is owed. */
+  readonly initial: number;
+  /** And the level it may fall to before the Bourse closes it out. */
+  readonly maintenance: number;
+}
 
 /** A listing as the interface draws it. */
 export interface Listing {
@@ -548,6 +614,7 @@ export const SERVER_MESSAGES = [
   'written-off',
   'claim',
   'respawned',
+  'order',
   'posted',
   'chat',
   'chat-backlog',

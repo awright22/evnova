@@ -672,3 +672,46 @@ books, the hold being cleared, the claim and the canisters are a transaction
 and a dozen queries. They run on the same deferral a landing uses, against
 the wreck that lingers for six seconds afterwards, so nothing in the flight
 loop waits for the paperwork.
+
+**2026-11-20 — A limit order is an instruction, not a resting order.** There
+is no book on the Bourse: a listing trades against a pool. So a limit means
+"walk the curve on each market tick as far as this price allows and no
+further", which fills a large order in pieces as the house trader walks the
+price back toward fair value. A captain is never filled past the price they
+named, and nothing is held back from their purse while an order waits —
+whether they can settle it is decided when it fills, and an order they cannot
+settle is closed with a reason they can read.
+
+**2026-11-20 — A short is a holding of less than nothing.** One signed
+column rather than a second table: a captain is long or short a listing and
+never both, and every rule that caps a position should cap it either way
+round. The cost basis of a short is what the sale brought in, which is the
+figure its gain is measured against the other way up.
+
+**2026-11-20 — Margin is a level of equity, not marks in escrow.** Nothing
+is moved into a separate balance, so invariant 4 needs no new category and
+no new kind of money: the Bourse simply refuses a short unless marks plus
+holdings less what is owed clears a share of the position, and closes one out
+when it falls below a lower share. Marks a captain has tied up in cargo are
+not on the Bourse's books and do not count — which is the real decision a
+short puts in front of them.
+
+**2026-11-20 — A position is measured at what it would cost to close.** Not
+at shares times the quote. The quote is the price of the next share; a
+position is many, and on a pool of this size one order moves the price by
+half. Measuring at the quote let a captain open a short large enough to crush
+the price and then be margined against the price they had just crushed — the
+bigger the short, the less it appeared to be worth.
+
+**2026-11-20 — A captain is never left owing marks.** A liquidation buys back
+what the captain can afford and no more; the rest of the position stands and
+is tried again on the next tick. A short that cannot be closed leaves a
+captain wiped out, which is the intended consequence, rather than in debt to
+a Bourse that could never collect.
+
+**2026-11-20 — Marks are not written by the captain flush.** Every mark goes
+through the ledger, which writes the row itself. The flush used to write its
+in-memory copy back, so a dividend — or now a fill or a liquidation — settled
+for a captain who happened to be online was erased by their next landing. The
+ledger keeps the world's copy in step instead, whether or not the caller
+holds one.

@@ -135,6 +135,43 @@ describe('the book', () => {
     expect(row?.gainFraction).toBeCloseTo(0.25, 6);
   });
 
+  it('carries a short as a position owed, and gains as the price falls', () => {
+    // Sold 100 short for 6,000 when the quote was 60; it stands at 50 now.
+    const rows = holdingsOf([
+      listed(pool, { ticker: 'KSC', held: -100, costBasis: 6_000, dividends: 0 }),
+    ]);
+
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    expect(row?.shares).toBe(-100);
+    // What it would cost to buy back, which is what is owed.
+    expect(row?.value).toBe(-5_000);
+    // The proceeds less the buy-back: a thousand marks to the good.
+    expect(row?.gain).toBe(1_000);
+    // And the average is what it was sold at, not a negative.
+    expect(row?.averageCost).toBe(60);
+  });
+
+  it('and loses on a short as the price rises', () => {
+    const rows = holdingsOf([
+      listed(pool, { ticker: 'KSC', held: -100, costBasis: 4_000, dividends: 0 }),
+    ]);
+    expect(rows[0]?.gain).toBe(-1_000);
+  });
+
+  it('nets a short against what is held elsewhere', () => {
+    const book = bookOf(
+      holdingsOf([
+        listed(pool, { ticker: 'KSC', held: 100, costBasis: 4_000, dividends: 0 }),
+        listed(pool, { ticker: 'TLY', held: -100, costBasis: 6_000, dividends: 0 }),
+      ]),
+    );
+    // Five thousand held and five thousand owed.
+    expect(book.value).toBe(0);
+    // A thousand up on each.
+    expect(book.gain).toBe(2_000);
+  });
+
   it('keeps a company sold out of but paid by', () => {
     const rows = holdingsOf([
       listed(pool, { ticker: 'UWH', held: 0, costBasis: 0, dividends: 300 }),

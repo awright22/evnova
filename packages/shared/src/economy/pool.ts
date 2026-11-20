@@ -163,6 +163,58 @@ export function affordableShares(
 }
 
 /**
+ * How many shares a pool will take before its price passes a limit.
+ *
+ * A limit order on a constant-product pool is not a resting order somebody
+ * else crosses: there is no book and no counterparty, only the curve. What a
+ * limit means here is "trade along the curve until the quoted price reaches
+ * this, and no further" — so an order never fills at a price worse than the
+ * one it named, and a large order fills in pieces across several ticks as the
+ * house trader walks the price back toward fair value.
+ *
+ * Buying raises the price and selling lowers it, so a buy limit is a ceiling
+ * and a sell limit is a floor.
+ *
+ * Bisected against the same quote the trade will use, for the same reason
+ * `affordableShares` is: the closed form has two ceilings and a fee rate in
+ * it, and a subtly wrong one would fill an order at a price its captain
+ * refused.
+ */
+export function sharesToPrice(
+  pool: Pool,
+  side: 'buy' | 'sell',
+  limit: number,
+  feeRate: number,
+  maxFraction: number,
+): number {
+  if (limit <= 0 || pool.shares <= 0) return 0;
+
+  const within = (shares: number): boolean =>
+    side === 'buy'
+      ? quoteBuy(pool, shares, feeRate, maxFraction).priceAfter <= limit
+      : quoteSell(pool, shares, feeRate).priceAfter >= limit;
+
+  // The price has already passed the limit, so not one share of it fills.
+  if (!within(1)) return 0;
+
+  // A sale can be any size — the pool takes shares all day — so the search
+  // needs a ceiling of its own. The same fraction a purchase is capped at,
+  // because an order that moves a quarter of the pool is already the largest
+  // thing this market allows anybody to do at once.
+  let low = 1;
+  let high = sellableShares(pool, maxFraction);
+  if (high < 1) return 0;
+  if (within(high)) return high;
+
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (within(mid)) low = mid;
+    else high = mid - 1;
+  }
+  return low;
+}
+
+/**
  * Where the house trader moves a pool this tick.
  *
  * It trades along the curve toward fair value, covering `rate` of the gap, so

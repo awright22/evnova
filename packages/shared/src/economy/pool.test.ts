@@ -10,6 +10,7 @@ import {
   price,
   product,
   quoteBuy,
+  sharesToPrice,
   quoteSell,
   selfDealingReturn,
   sellableShares,
@@ -215,5 +216,66 @@ describe('share pools', () => {
     value = smooth(value, 10_000, 0.25);
     for (let i = 0; i < 40; i++) value = smooth(value, 100, 0.25);
     expect(value).toBeCloseTo(100, 1);
+  });
+});
+
+describe('filling to a limit', () => {
+  const { tuning } = content();
+  const { feeRate, maxPoolFraction } = tuning.exchange;
+  /** A round pool, so the arithmetic in the expectations is readable. */
+  const pool = { shares: 10_000, marks: 1_000_000 };
+
+  it('fills nothing when the price has already passed a buy limit', () => {
+    // The pool quotes a hundred; a captain willing to pay ninety gets nothing.
+    expect(price(pool)).toBe(100);
+    expect(sharesToPrice(pool, 'buy', 90, feeRate, maxPoolFraction)).toBe(0);
+  });
+
+  it('and nothing when it has passed a sell limit', () => {
+    expect(sharesToPrice(pool, 'sell', 110, feeRate, maxPoolFraction)).toBe(0);
+  });
+
+  it('buys up to the limit and not one share past it', () => {
+    const shares = sharesToPrice(pool, 'buy', 110, feeRate, maxPoolFraction);
+    expect(shares).toBeGreaterThan(0);
+    expect(quoteBuy(pool, shares, feeRate, maxPoolFraction).priceAfter).toBeLessThanOrEqual(110);
+    expect(quoteBuy(pool, shares + 1, feeRate, maxPoolFraction).priceAfter).toBeGreaterThan(110);
+  });
+
+  it('sells down to the limit and not one share past it', () => {
+    const shares = sharesToPrice(pool, 'sell', 90, feeRate, maxPoolFraction);
+    expect(shares).toBeGreaterThan(0);
+    expect(quoteSell(pool, shares, feeRate).priceAfter).toBeGreaterThanOrEqual(90);
+    expect(quoteSell(pool, shares + 1, feeRate).priceAfter).toBeLessThan(90);
+  });
+
+  it('never takes more of a pool than one order is allowed to', () => {
+    // A limit far above the price would fill for ever if the cap did not hold.
+    const shares = sharesToPrice(pool, 'buy', 1_000_000, feeRate, maxPoolFraction);
+    expect(shares).toBe(Math.floor(pool.shares * maxPoolFraction));
+  });
+
+  it('and the same on the sell side', () => {
+    const shares = sharesToPrice(pool, 'sell', 0.0001, feeRate, maxPoolFraction);
+    expect(shares).toBe(Math.floor(pool.shares * maxPoolFraction));
+  });
+
+  it('is monotone: a looser limit never fills less', () => {
+    let last = 0;
+    for (const limit of [101, 103, 106, 110, 120, 140]) {
+      const shares = sharesToPrice(pool, 'buy', limit, feeRate, maxPoolFraction);
+      expect(shares).toBeGreaterThanOrEqual(last);
+      last = shares;
+    }
+    expect(last).toBeGreaterThan(0);
+  });
+
+  it('refuses a limit of nothing rather than dividing by it', () => {
+    expect(sharesToPrice(pool, 'buy', 0, feeRate, maxPoolFraction)).toBe(0);
+    expect(sharesToPrice(pool, 'sell', -5, feeRate, maxPoolFraction)).toBe(0);
+  });
+
+  it('fills nothing out of a pool with no shares in it', () => {
+    expect(sharesToPrice({ shares: 0, marks: 500 }, 'buy', 1000, feeRate, maxPoolFraction)).toBe(0);
   });
 });

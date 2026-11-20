@@ -235,7 +235,7 @@ Done when:
 - [x] Asteroid mining with a mining module
 - [x] Beam weapons and point defense
 - [x] Boarding disabled ships for cargo
-- [ ] Limit orders, and short selling with margin and liquidation, without breaking any invariant
+- [x] Limit orders, and short selling with margin and liquidation, without breaking any invariant
 - [ ] A test range where a draught can be flown and fought before buying it
 - [ ] The admin page
 

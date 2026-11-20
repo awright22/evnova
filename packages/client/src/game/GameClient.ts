@@ -15,7 +15,9 @@ import type {
   ConvoyState,
   Headline,
   Listing,
+  MarginState,
   OffersState,
+  OrderLine,
   Placement,
   Problem,
   Standing,
@@ -154,6 +156,10 @@ export interface BourseState {
   readonly standings: readonly Standing[];
   readonly feeRate: number;
   readonly maxPoolFraction: number;
+  /** Standing orders the Bourse is carrying out, open ones first. */
+  readonly orders: readonly OrderLine[];
+  /** Where this captain stands against what they have borrowed. */
+  readonly margin: MarginState | undefined;
 }
 
 /** What a captain has on their books and at their moorings. */
@@ -538,13 +544,21 @@ export class GameClient {
     });
 
     room.onMessage('bourse', (payload) => {
-      const board = payload as { listings: Listing[]; feeRate: number; maxPoolFraction: number };
+      const board = payload as {
+        listings: Listing[];
+        feeRate: number;
+        maxPoolFraction: number;
+        orders?: OrderLine[];
+        margin?: MarginState;
+      };
       this.bourse = {
         listings: board.listings,
         news: this.bourse?.news ?? [],
         standings: this.bourse?.standings ?? [],
         feeRate: board.feeRate,
         maxPoolFraction: board.maxPoolFraction,
+        orders: board.orders ?? [],
+        margin: board.margin,
       };
       this.emit();
     });
@@ -856,6 +870,34 @@ export class GameClient {
   async deal(side: 'buy' | 'sell', ticker: string, shares: number): Promise<boolean> {
     if (shares < 1) return false;
     return this.requestOk('bourse', { side, ticker, shares: Math.trunc(shares) });
+  }
+
+  /**
+   * Leave a standing order with the Bourse.
+   *
+   * Nothing is charged now: the order waits for the price to come to it, and
+   * the market tick carries it out as far as the limit allows.
+   */
+  async placeOrder(
+    side: 'buy' | 'sell',
+    ticker: string,
+    shares: number,
+    limit: number,
+    short: boolean,
+  ): Promise<boolean> {
+    if (shares < 1 || !(limit > 0)) return false;
+    return this.requestOk('place-order', {
+      side,
+      ticker,
+      shares: Math.trunc(shares),
+      limit,
+      short,
+    });
+  }
+
+  /** Withdraw a standing order. */
+  async cancelOrder(id: string): Promise<boolean> {
+    return this.requestOk('cancel-order', { id });
   }
 
   /** Trade at the berth's Staple. The server answers with fresh prices. */

@@ -28,6 +28,7 @@ import {
   affordableShares,
   content,
   fairValue,
+  sharesToPrice,
   houseTrade,
   price,
   quoteBuy,
@@ -43,6 +44,15 @@ import { schema, type Store } from '../db/index.ts';
 import { InsufficientMarks, type Ledger } from './Ledger.ts';
 import type { Pilot } from './PilotStore.ts';
 
+/**
+ * Whoever the trade is for.
+ *
+ * A captain in memory satisfies this, and so does an account read off the
+ * database: the Bourse closes positions out on the market tick for captains
+ * who are not online to watch it happen.
+ */
+export type Trader = Pick<Pilot, 'accountId' | 'marks'>;
+
 /** Why a share trade was refused. */
 export type BourseRefusal =
   | 'no-such-listing'
@@ -50,7 +60,10 @@ export type BourseRefusal =
   | 'not-holding'
   | 'holding-capped'
   | 'market-too-thin'
-  | 'nothing-to-trade';
+  | 'nothing-to-trade'
+  | 'limit-not-reached'
+  | 'short-capped'
+  | 'margin-short';
 
 export class BourseRefused extends Error {
   constructor(readonly reason: BourseRefusal) {
@@ -407,10 +420,20 @@ export class Exchange {
    * last showed.
    */
   trade(options: {
-    pilot: Pilot;
+    pilot: Trader;
     side: 'buy' | 'sell';
     ticker: string;
     shares: number;
+    /**
+     * Marks a share this order will not trade past, or nothing for at-market.
+     *
+     * A buy limit is a ceiling and a sell limit a floor. The parcel is cut
+     * down to whatever reaches the limit and no further, so a captain is
+     * never filled at a price they refused.
+     */
+    limit?: number;
+    /** A sell that may take the captain short, rather than only selling what they hold. */
+    short?: boolean;
   }): Fill {
     const { companies, tuning } = content();
     const { exchange } = tuning;
@@ -426,11 +449,25 @@ export class Exchange {
       const pool: Pool = { shares: row.poolShares, marks: row.poolMarks };
       const holding = this.holdingOf(options.pilot.accountId, options.ticker);
 
+      // What the limit allows, if there is one. Checked before anything is
+      // charged, so an order the curve cannot serve costs nothing.
+      const toLimit =
+        options.limit === undefined
+          ? Number.POSITIVE_INFINITY
+          : sharesToPrice(
+              pool,
+              options.side,
+              options.limit,
+              exchange.feeRate,
+              exchange.maxPoolFraction,
+            );
+      if (toLimit < 1) throw new BourseRefused('limit-not-reached');
+
       if (options.side === 'buy') {
         const cap = Math.floor(company.float * exchange.holdingCap);
         if (holding.shares >= cap) throw new BourseRefused('holding-capped');
 
-        const wanted = Math.min(options.shares, cap - holding.shares);
+        const wanted = Math.min(options.shares, cap - holding.shares, toLimit);
         const affordable = affordableShares(
           pool,
           options.pilot.marks,
@@ -478,7 +515,7 @@ export class Exchange {
         this.writePool(options.ticker, quote.after);
         this.writeHolding(options.pilot.accountId, options.ticker, {
           shares: holding.shares + quote.shares,
-          costBasis: holding.costBasis + quote.total,
+          costBasis: basisAfterBuy(holding, quote.shares, quote.total),
           dividends: holding.dividends,
         });
 
@@ -498,10 +535,41 @@ export class Exchange {
       }
 
       // --- Selling ---------------------------------------------------------
-      if (holding.shares < 1) throw new BourseRefused('not-holding');
-      const shares = Math.min(options.shares, holding.shares);
+
+      // Selling what is held, or selling what is not: a short is a holding of
+      // less than nothing, and a captain who is already short and sells again
+      // is adding to the same position.
+      const cap = Math.floor(company.float * exchange.holdingCap);
+      if (options.short !== true && holding.shares < 1) throw new BourseRefused('not-holding');
+      if (options.short === true && -holding.shares >= cap) {
+        throw new BourseRefused('short-capped');
+      }
+
+      const room =
+        options.short === true ? holding.shares + cap : holding.shares;
+      const shares = Math.min(options.shares, room, toLimit);
+      if (shares < 1) {
+        throw new BourseRefused(options.short === true ? 'short-capped' : 'not-holding');
+      }
+
       const quote = quoteSell(pool, shares, exchange.feeRate);
       if (quote.total <= 0) throw new BourseRefused('market-too-thin');
+
+      // Going short is borrowing, and the Bourse wants to see the captain
+      // could buy their way out of it. Reckoned on the position as it would
+      // stand after this sale, at the price this sale would leave behind, so
+      // the proceeds of a short never pay for the short: they raise the marks
+      // and the debt together.
+      if (options.short === true && holding.shares - shares < 0) {
+        const after = this.standing(options.pilot.accountId, options.pilot.marks + quote.total, {
+          ticker: options.ticker,
+          shares: holding.shares - shares,
+          pool: quote.after,
+        });
+        if (after.equity < Math.ceil(after.owed * exchange.marginRate)) {
+          throw new BourseRefused('margin-short');
+        }
+      }
 
       // The proceeds and the fee are posted separately rather than netted:
       // the fee is destroyed, not paid to anyone, and a ledger that showed
@@ -529,14 +597,10 @@ export class Exchange {
       }
 
       this.writePool(options.ticker, quote.after);
-      // The basis falls with the shares, not with the proceeds, so what is
-      // left is still what the remaining shares cost.
       const remaining = holding.shares - quote.shares;
       this.writeHolding(options.pilot.accountId, options.ticker, {
         shares: remaining,
-        costBasis: remaining === 0
-          ? 0
-          : Math.round((holding.costBasis * remaining) / holding.shares),
+        costBasis: basisAfterSell(holding, quote.shares, quote.total),
         dividends: holding.dividends,
       });
 
@@ -625,6 +689,101 @@ export class Exchange {
   }
 
   /** What a captain's shares are worth at the quoted price, for the standings. */
+  /**
+   * Where a captain stands against what they have borrowed.
+   *
+   * `equity` is marks plus everything held at the quoted price, less
+   * everything owed at it — what would be left if the whole account were
+   * closed out right now. `owed` is the market value of the short positions
+   * alone, which is what the margin is measured against.
+   *
+   * `override` re-reckons one listing as it would stand after a trade that
+   * has not been written yet, which is how a short is checked before it is
+   * allowed rather than after it has happened.
+   */
+  standing(
+    accountId: string,
+    marks: number,
+    override?: { ticker: string; shares: number; pool: Pool },
+  ): { equity: number; owed: number } {
+    const { exchange } = content().tuning;
+    let equity = marks;
+    let owed = 0;
+    let sawOverride = false;
+
+    /**
+     * What a position is worth to close.
+     *
+     * Not shares times the quoted price. The quote is the price of the next
+     * share, and a position is many: what a holding is worth is what the
+     * pool would actually pay for it, and what a short costs is what the
+     * pool would actually charge to buy it back. Measuring at the quote let
+     * a captain open a short so large it crushed the price, and then be
+     * margined against the price they had just crushed — the bigger the
+     * short, the less it appeared to be worth.
+     */
+    const count = (shares: number, pool: Pool): void => {
+      if (shares === 0) return;
+      if (shares > 0) {
+        equity += quoteSell(pool, shares, exchange.feeRate).total;
+        return;
+      }
+
+      const wanted = -shares;
+      const quote = quoteBuy(pool, wanted, exchange.feeRate, exchange.maxPoolFraction);
+      // A position bigger than one order may take still has to be bought
+      // back, in pieces and at a worse price each time. Scaled up from what
+      // the pool will quote, which understates it — and understating what a
+      // captain owes is the safe direction only for the captain, so this is
+      // the floor of the figure rather than the truth of it.
+      const cost =
+        quote.shares > 0 && quote.shares < wanted
+          ? Math.ceil((quote.total * wanted) / quote.shares)
+          : quote.total;
+      equity -= cost;
+      owed += cost;
+    };
+
+    for (const row of this.store.db
+      .select()
+      .from(schema.holdings)
+      .where(eq(schema.holdings.accountId, accountId))
+      .all()) {
+      if (override && row.ticker === override.ticker) {
+        sawOverride = true;
+        count(override.shares, override.pool);
+        continue;
+      }
+      const listing = this.rowFor(row.ticker);
+      if (!listing) continue;
+      count(row.shares, { shares: listing.poolShares, marks: listing.poolMarks });
+    }
+
+    // A listing the captain has no row for yet, which is every first short.
+    if (override && !sawOverride) count(override.shares, override.pool);
+
+    return { equity, owed };
+  }
+
+  /**
+   * Every captain carrying a short position, with where they stand.
+   *
+   * One query rather than one per captain: this runs on the market tick, and
+   * most ticks it finds nobody at all.
+   */
+  shortSellers(): { accountId: string; equity: number; owed: number }[] {
+    const accounts = this.store.db
+      .selectDistinct({ accountId: schema.holdings.accountId })
+      .from(schema.holdings)
+      .where(sql`${schema.holdings.shares} < 0`)
+      .all();
+
+    return accounts.map((row) => ({
+      accountId: row.accountId,
+      ...this.standing(row.accountId, this.ledger.balanceOf(row.accountId)),
+    }));
+  }
+
   portfolioValue(accountId: string): number {
     let total = 0;
     for (const row of this.store.db
@@ -707,4 +866,53 @@ export class Exchange {
       })
       .run();
   }
+}
+
+/**
+ * What a holding has cost after a purchase.
+ *
+ * A plain purchase adds what it cost. A purchase that covers a short is the
+ * other way round: the basis of a short is what its sale brought in, so
+ * buying back part of one leaves the proceeds of the part still owed, and
+ * buying back all of it and going long leaves what was paid for the shares
+ * beyond the cover.
+ */
+function basisAfterBuy(
+  holding: { shares: number; costBasis: number },
+  bought: number,
+  paid: number,
+): number {
+  if (holding.shares >= 0) return holding.costBasis + paid;
+
+  const after = holding.shares + bought;
+  if (after < 0) return Math.round((holding.costBasis * after) / holding.shares);
+  if (after === 0) return 0;
+  return Math.round((paid * after) / bought);
+}
+
+/**
+ * And after a sale.
+ *
+ * Selling what is held takes the basis down with the shares rather than with
+ * the proceeds, so what is left is still what the remaining shares cost.
+ * Selling what is not held opens or adds to a short, whose basis is what the
+ * sale brought in.
+ */
+function basisAfterSell(
+  holding: { shares: number; costBasis: number },
+  sold: number,
+  received: number,
+): number {
+  const remaining = holding.shares - sold;
+  if (remaining > 0) {
+    return holding.shares > 0 ? Math.round((holding.costBasis * remaining) / holding.shares) : 0;
+  }
+  if (remaining === 0) return 0;
+
+  // Short, or further short. Only the part of the sale that was not covered
+  // by shares actually held counts toward what is owed.
+  const wasLong = Math.max(0, holding.shares);
+  const shorted = sold - Math.min(sold, wasLong);
+  const proceeds = shorted > 0 ? Math.round((received * shorted) / sold) : 0;
+  return (holding.shares < 0 ? holding.costBasis : 0) + proceeds;
 }

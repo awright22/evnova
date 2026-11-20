@@ -21,6 +21,7 @@ import { ChatLog } from './ChatLog.ts';
 import { Exchange } from './Exchange.ts';
 import { Commissions } from './Commissions.ts';
 import { Convoys } from './Convoys.ts';
+import { Orders, type TickReport } from './Orders.ts';
 import { Trades } from './Trades.ts';
 import { Standings } from './Standings.ts';
 import { Gazette } from './Gazette.ts';
@@ -73,6 +74,7 @@ export class World {
   readonly commissions: Commissions;
   readonly convoys: Convoys;
   readonly trades: Trades;
+  readonly orders: Orders;
   readonly gazette = new Gazette();
   readonly chat = new ChatLog();
 
@@ -92,7 +94,9 @@ export class World {
    * to whoever registered, which is the server's wiring rather than this
    * class's business.
    */
-  onBourseTick: ((dividends: { ticker: string; marks: number }[]) => void) | undefined;
+  onBourseTick:
+    | ((dividends: { ticker: string; marks: number }[], book: TickReport) => void)
+    | undefined;
 
   /** Called after the economy moves, for work the rooms own. */
   onEconomyTick: ((hours: number) => void) | undefined;
@@ -105,6 +109,10 @@ export class World {
     this.accounts = new Accounts(this.store);
     this.pilots = new PilotStore(this.store);
     this.ledger = new Ledger(this.store);
+    // So a posting made for a captain the caller does not hold still reaches
+    // their loaded copy: dividends and liquidations are settled on the market
+    // tick, for captains who may be in the middle of a landing.
+    this.ledger.pilots = this.pilots;
     this.market = new Market(this.store, this.ledger);
     this.freight = new Freight(this.market);
     this.yard = new Yard(this.store, this.ledger, this.market);
@@ -113,6 +121,7 @@ export class World {
     this.commissions = new Commissions(this.store, this.ledger, this.standings);
     this.convoys = new Convoys(this.store);
     this.trades = new Trades(this.store, this.ledger, this.market, this.yard);
+    this.orders = new Orders(this.store, this.exchange, this.ledger);
     this.commissions.convoys = this.convoys;
     // The Staple and the Yard credit companies for what actually leaves a
     // stockpile and what is actually spent on fittings, so they need the
@@ -193,6 +202,8 @@ export class World {
 
     this.lastBourseAt = now;
     const paid: { ticker: string; marks: number }[] = [];
+    const fills: TickReport['fills'] = [];
+    const liquidations: TickReport['liquidations'] = [];
     // Capped: a server that was stopped for a week should not run a thousand
     // market ticks in one pass and reprice the whole Bourse in a frame.
     const runs = Math.min(due, 20);
@@ -203,8 +214,16 @@ export class World {
       const result = this.exchange.tick(now, { of: runs - i });
       this.gazette.report(result.events, result.dividends, now);
       paid.push(...result.dividends);
+
+      // Standing orders are carried out against the price the house trader
+      // has just left behind, and shorts are measured against it, so a
+      // catch-up run fills and liquidates tick by tick rather than all at
+      // once at the end of it.
+      const book = this.orders.tick(now);
+      fills.push(...book.fills);
+      liquidations.push(...book.liquidations);
     }
-    this.onBourseTick?.(paid);
+    this.onBourseTick?.(paid, { fills, liquidations });
   }
 
   /**

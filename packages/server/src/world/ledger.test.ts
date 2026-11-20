@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { Accounts } from '../accounts.ts';
 import { openStore, schema, type Store } from '../db/index.ts';
 import { InsufficientMarks, Ledger } from './Ledger.ts';
+import { PilotStore } from './PilotStore.ts';
 
 /**
  * Spec invariant 4: every mark created or destroyed passes through the ledger
@@ -133,5 +134,51 @@ describe('invariant 4: marks reconcile with the ledger', () => {
     const fees = ledger.totals().find((row) => row.category === 'landing-fee');
     expect(fees?.total).toBe(-120);
     expect(fees?.count).toBe(2);
+  });
+});
+
+describe('a captain who is loaded while somebody else moves their marks', () => {
+  it('keeps the loaded copy in step, so a flush cannot erase a dividend', () => {
+    const pilots = new PilotStore(store);
+    ledger.pilots = pilots;
+
+    const account = accounts.signUp({ callsign: 'Shareholder', inviteCode: '' }).account;
+    const pilot = pilots.load(account.id)!;
+    const before = pilot.marks;
+
+    // Posted the way the market tick posts a dividend: for an account, with
+    // no captain in hand, because most of the holders are offline.
+    ledger.post({
+      accountId: account.id,
+      delta: 500,
+      category: 'dividend',
+      reason: 'Test dividend',
+    });
+
+    expect(pilot.marks).toBe(before + 500);
+
+    // And a flush of the loaded captain — which happens on every landing —
+    // does not write the old figure back over it.
+    pilots.touch(account.id);
+    pilots.flush();
+    expect(ledger.balanceOf(account.id)).toBe(before + 500);
+    expect(totalMarks()).toBe(netPosted());
+  });
+
+  it('and does not pull an offline captain into memory to do it', () => {
+    const pilots = new PilotStore(store);
+    ledger.pilots = pilots;
+
+    const account = accounts.signUp({ callsign: 'Absent', inviteCode: '' }).account;
+    const before = ledger.balanceOf(account.id);
+    ledger.post({
+      accountId: account.id,
+      delta: 500,
+      category: 'dividend',
+      reason: 'Test dividend',
+    });
+
+    expect(pilots.online).toBe(0);
+    expect(ledger.balanceOf(account.id)).toBe(before + 500);
   });
 });

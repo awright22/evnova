@@ -459,3 +459,182 @@ describe('freight lost on a lane', () => {
     expect(gazette.recent()).toHaveLength(0);
   });
 });
+
+describe('selling what you do not have', () => {
+  /** The listing every short in these tests is taken in. */
+  const TICKER = 'KSC';
+
+  /** What a captain holds of it, negative when they are short. */
+  function held(pilot: Pilot): number {
+    return bourse.listingsFor(pilot.accountId).find((l) => l.ticker === TICKER)!.held;
+  }
+
+  function basisOf(pilot: Pilot): number {
+    return bourse.listingsFor(pilot.accountId).find((l) => l.ticker === TICKER)!.costBasis;
+  }
+
+  it('refuses a plain sale from a captain who holds nothing', () => {
+    const pilot = captain('Empty');
+    try {
+      bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 10 });
+      expect.unreachable('sold what it did not have');
+    } catch (error) {
+      expect((error as BourseRefused).reason).toBe('not-holding');
+    }
+  });
+
+  it('takes the holding below nothing and pays the proceeds', () => {
+    const pilot = captain('Bear');
+    const before = pilot.marks;
+
+    const fill = bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 200, short: true });
+
+    expect(fill.shares).toBe(200);
+    expect(held(pilot)).toBe(-200);
+    expect(pilot.marks).toBe(before + fill.total);
+    // The basis of a short is what the sale brought in.
+    expect(basisOf(pilot)).toBe(fill.total);
+  });
+
+  it('caps a short at the same share of the float a holding is capped at', () => {
+    const pilot = captain('Greedy');
+    const cap = Math.floor(companies.get(TICKER)!.float * tuning.exchange.holdingCap);
+
+    const fill = bourse.trade({
+      pilot,
+      side: 'sell',
+      ticker: TICKER,
+      shares: cap * 10,
+      short: true,
+    });
+    expect(fill.shares).toBe(cap);
+    expect(held(pilot)).toBe(-cap);
+
+    try {
+      bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 1, short: true });
+      expect.unreachable('went past the cap');
+    } catch (error) {
+      expect((error as BourseRefused).reason).toBe('short-capped');
+    }
+  });
+
+  it('refuses a short the captain could not buy back', () => {
+    // A purse that covers a few shares and nothing like the position asked
+    // for. The margin is measured on what it would cost to close, so the
+    // proceeds of the short do not pay for the short.
+    const pilot = captain('Thin', 400);
+    try {
+      bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 900, short: true });
+      expect.unreachable('shorted on nothing');
+    } catch (error) {
+      expect((error as BourseRefused).reason).toBe('margin-short');
+    }
+    expect(held(pilot)).toBe(0);
+  });
+
+  it('measures a position at what it would cost to close, not at the quote', () => {
+    const pilot = captain('Measured');
+    bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 400, short: true });
+
+    const standing = bourse.standing(pilot.accountId, pilot.marks);
+    // Buying 400 back walks the curve, so it costs more than 400 times the
+    // quote the sale left behind. Measuring at the quote is what let a short
+    // large enough to crush the price be margined against the price it had
+    // just crushed.
+    expect(standing.owed).toBeGreaterThan(400 * quoted(TICKER));
+    expect(standing.equity).toBeLessThan(pilot.marks);
+  });
+
+  it('buys part of a short back and leaves the rest owed', () => {
+    const pilot = captain('Covering');
+    const opened = bourse.trade({
+      pilot,
+      side: 'sell',
+      ticker: TICKER,
+      shares: 400,
+      short: true,
+    });
+
+    bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 150 });
+
+    expect(held(pilot)).toBe(-250);
+    // The basis falls with the shares still owed, not with what was paid.
+    expect(basisOf(pilot)).toBe(Math.round((opened.total * 250) / 400));
+  });
+
+  it('closes a short out exactly, leaving nothing behind', () => {
+    const pilot = captain('Square');
+    bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 300, short: true });
+    bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 300 });
+
+    expect(held(pilot)).toBe(0);
+    expect(basisOf(pilot)).toBe(0);
+  });
+
+  it('and a captain who buys past their short simply ends up long', () => {
+    const pilot = captain('Reversed');
+    bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 200, short: true });
+    const bought = bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 500 });
+
+    expect(held(pilot)).toBe(300);
+    // The basis is what was paid for the 300 beyond the cover, not for all 500.
+    expect(basisOf(pilot)).toBe(Math.round((bought.total * 300) / 500));
+  });
+
+  it('leaves the marks in the world reconciled with the ledger', () => {
+    const pilot = captain('Audited');
+    bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 300, short: true });
+    bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 120 });
+
+    const total = (
+      store.raw.prepare('SELECT COALESCE(SUM(marks), 0) AS t FROM pilots').get() as { t: number }
+    ).t;
+    const posted = (
+      store.raw.prepare('SELECT COALESCE(SUM(delta), 0) AS t FROM ledger').get() as { t: number }
+    ).t;
+    expect(total).toBe(posted);
+  });
+});
+
+describe('an order with a limit on it', () => {
+  const TICKER = 'KSC';
+
+  it('fills nothing when the price is the wrong side of the limit', () => {
+    const pilot = captain('Patient');
+    try {
+      bourse.trade({
+        pilot,
+        side: 'buy',
+        ticker: TICKER,
+        shares: 100,
+        limit: quoted(TICKER) * 0.5,
+      });
+      expect.unreachable('filled below the market');
+    } catch (error) {
+      expect((error as BourseRefused).reason).toBe('limit-not-reached');
+    }
+  });
+
+  it('fills as far as the limit and no further', () => {
+    const pilot = captain('Bounded');
+    const limit = quoted(TICKER) * 1.05;
+
+    const fill = bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 100_000, limit });
+
+    expect(fill.shares).toBeGreaterThan(0);
+    expect(fill.shares).toBeLessThan(100_000);
+    // The quote it left behind is on the right side of the limit.
+    expect(fill.priceAfter).toBeLessThanOrEqual(limit);
+  });
+
+  it('and a sell limit is a floor rather than a ceiling', () => {
+    const pilot = captain('Holder');
+    bourse.trade({ pilot, side: 'buy', ticker: TICKER, shares: 500 });
+
+    const limit = quoted(TICKER) * 0.95;
+    const fill = bourse.trade({ pilot, side: 'sell', ticker: TICKER, shares: 500, limit });
+
+    expect(fill.shares).toBeGreaterThan(0);
+    expect(fill.priceAfter).toBeGreaterThanOrEqual(limit);
+  });
+});

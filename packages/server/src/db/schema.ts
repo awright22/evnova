@@ -272,19 +272,77 @@ export const holdings = sqliteTable(
       .notNull()
       .references(() => accounts.id, { onDelete: 'cascade' }),
     ticker: text('ticker').notNull(),
+    /**
+     * Shares held, or owed where it is negative.
+     *
+     * A short is a holding of less than nothing: the captain sold shares they
+     * did not have and has to buy them back. One column rather than two,
+     * because a captain is long or short a listing and never both, and
+     * because every rule that caps a position should cap it either way round.
+     */
     shares: integer('shares').notNull().default(0),
     /**
      * Total marks paid for the shares still held, fees included.
      *
      * Reduced proportionally on a sale rather than by the sale's proceeds, so
      * it stays the cost of what remains and a partial sale cannot make the
-     * basis negative.
+     * basis negative. On a short it is what the sale brought in, which is the
+     * figure the gain is measured against the other way round.
      */
     costBasis: integer('cost_basis').notNull().default(0),
     /** Dividends received on this listing, all told. */
     dividends: integer('dividends').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.accountId, table.ticker] })],
+);
+
+/**
+ * Standing orders on the Bourse.
+ *
+ * A limit order is not a resting order somebody else crosses: there is no
+ * book here, only the pool's curve. It is an instruction to trade along that
+ * curve on each market tick, as far as the limit allows and no further, until
+ * it is filled or withdrawn. That is why `shares` falls as it fills: what is
+ * left on the row is what is still wanted.
+ */
+export const orders = sqliteTable(
+  'orders',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    ticker: text('ticker').notNull(),
+    /** 'buy' or 'sell'. */
+    side: text('side').notNull(),
+    /** Shares still wanted. */
+    shares: integer('shares').notNull(),
+    /** Shares filled so far, for the interface and the history. */
+    filled: integer('filled').notNull().default(0),
+    /** Marks received or paid so far, fees included. */
+    settled: integer('settled').notNull().default(0),
+    /**
+     * The limit, in hundredths of a mark a share.
+     *
+     * Hundredths because a share can be worth less than a mark — the value
+     * floor is four tenths of one — and a whole-mark limit would be no limit
+     * at all down there. Integers because everything the database holds about
+     * money is an integer.
+     */
+    limitHundredths: integer('limit_hundredths').notNull(),
+    /** A sell that may take the captain short, rather than only selling what they hold. */
+    short: integer('short', { mode: 'boolean' }).notNull().default(false),
+    /** 'open', 'filled', 'cancelled'. */
+    state: text('state').notNull().default('open'),
+    /** Why it closed, in the captain's own words where there are any. */
+    reason: text('reason').notNull().default(''),
+    placedAt: integer('placed_at').notNull(),
+    closedAt: integer('closed_at').notNull().default(0),
+  },
+  (table) => [
+    index('orders_open').on(table.state, table.ticker),
+    index('orders_account').on(table.accountId, table.state),
+  ],
 );
 
 /**
@@ -435,7 +493,7 @@ export const meta = sqliteTable('meta', {
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 /**
  * Migrations, applied in order.
@@ -681,6 +739,48 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
       -- gets it the next time they land, which is before they can be written
       -- off there anyway.
       UPDATE pilots SET last_port_id = landed_port_id WHERE landed_port_id IS NOT NULL;
+    `,
+  },
+  {
+    version: 13,
+    up: `
+      -- A holding may now be less than nothing: a captain who sells shares
+      -- they do not have owes them. SQLite cannot drop a CHECK, so the table
+      -- is rebuilt without the one that said a position is always long.
+      -- \`cost_basis\` keeps its check: for a short it is what the sale
+      -- brought in, which is still a positive number of marks.
+      CREATE TABLE holdings_signed (
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        ticker TEXT NOT NULL,
+        shares INTEGER NOT NULL DEFAULT 0,
+        cost_basis INTEGER NOT NULL DEFAULT 0,
+        dividends INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (account_id, ticker),
+        CHECK (cost_basis >= 0)
+      );
+      INSERT INTO holdings_signed (account_id, ticker, shares, cost_basis, dividends)
+        SELECT account_id, ticker, shares, cost_basis, dividends FROM holdings;
+      DROP TABLE holdings;
+      ALTER TABLE holdings_signed RENAME TO holdings;
+      CREATE INDEX IF NOT EXISTS holdings_ticker ON holdings (ticker);
+
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        ticker TEXT NOT NULL,
+        side TEXT NOT NULL,
+        shares INTEGER NOT NULL,
+        filled INTEGER NOT NULL DEFAULT 0,
+        settled INTEGER NOT NULL DEFAULT 0,
+        limit_hundredths INTEGER NOT NULL,
+        short INTEGER NOT NULL DEFAULT 0,
+        state TEXT NOT NULL DEFAULT 'open',
+        reason TEXT NOT NULL DEFAULT '',
+        placed_at INTEGER NOT NULL,
+        closed_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS orders_open ON orders (state, ticker);
+      CREATE INDEX IF NOT EXISTS orders_account ON orders (account_id, state);
     `,
   },
 ];

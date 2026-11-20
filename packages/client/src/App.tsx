@@ -303,7 +303,13 @@ export function App(): React.JSX.Element {
               notice={snapshot.notice}
               feeRate={snapshot.bourse?.feeRate ?? 0}
               maxPoolFraction={snapshot.bourse?.maxPoolFraction ?? 0}
+              orders={snapshot.bourse?.orders ?? []}
+              margin={snapshot.bourse?.margin}
               onTrade={(side, ticker, shares) => void client.deal(side, ticker, shares)}
+              onPlaceOrder={(side, ticker, shares, limit, short) =>
+                void client.placeOrder(side, ticker, shares, limit, short)
+              }
+              onCancelOrder={(id) => void client.cancelOrder(id)}
               onClose={() => setBourseOpen(false)}
             />
           )}

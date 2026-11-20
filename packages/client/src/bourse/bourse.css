@@ -629,6 +629,7 @@
 .ticket__sides {
   display: flex;
   gap: var(--space-0-5);
+  margin-left: var(--space-1);
 }
 
 /*
@@ -658,6 +659,42 @@
 }
 
 .ticket__side--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+/*
+ * At the quote or at a limit: the same segmented control the sides use, one
+ * rung down in weight, because choosing when is a smaller decision than
+ * choosing which way round.
+ */
+.ticket__when {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+.ticket__mode {
+  min-height: 22px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.ticket__mode:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.ticket__mode--on {
   color: var(--text-primary);
   background: var(--amber-wash);
   border-color: var(--amber-dim);
@@ -727,6 +764,57 @@
 .ticket__parcel:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
+}
+
+/*
+ * A limit is a price, so it is ruled off from the parcel above it rather
+ * than sitting in the same run of fields: the two are different questions
+ * and a captain reading down should feel the step.
+ */
+.ticket__entry--limit {
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+/* Selling what you do not hold is a decision, so it reads as one. */
+.ticket__short {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ticket__short input {
+  accent-color: var(--amber);
+  cursor: pointer;
+}
+
+.ticket__short .micro {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/*
+ * What stands behind a short. Ruled in amber rather than vermilion: it is a
+ * condition of the order, not a refusal of it, and the screen keeps its one
+ * red for things that have actually gone wrong.
+ */
+.ticket__margin {
+  padding: var(--space-0-5) var(--space-1);
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  font-variant-numeric: tabular-nums;
+  background: var(--amber-wash);
+  border-left: 2px solid var(--amber-dim);
 }
 
 .ticket__ceiling {
@@ -941,6 +1029,53 @@
   text-transform: none;
   letter-spacing: normal;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Standing orders, under the holdings in the same column.
+ *
+ * The heading is the only one of its kind on the screen: everything else is
+ * a panel header, and this is a second table inside one panel.
+ */
+.book__heading {
+  margin: var(--space-2) 0 var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* An order that has filled or been withdrawn is history, not a position. */
+.book__row--closed td,
+.book__row--closed th {
+  color: var(--text-muted);
+}
+
+/* First in the column, so it needs no rule above it. */
+.book__heading--first {
+  margin-top: 0;
+}
+
+.book__withdraw {
+  min-height: 22px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.book__withdraw:hover {
+  color: var(--text-primary);
+  background: var(--hover);
 }
 
 /* A dividend that landed while the screen was open. */

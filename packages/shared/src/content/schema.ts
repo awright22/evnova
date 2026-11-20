@@ -398,6 +398,10 @@ export const Tuning = z.object({
     holdingCap: z.number().positive().max(1),
     /** Most of a pool's shares one order may take. */
     maxPoolFraction: z.number().positive().max(1),
+    /** Equity needed against a short position, to open or add to it. */
+    marginRate: z.number().positive().max(4),
+    /** And the level equity may fall to before the position is closed out. */
+    maintenanceRate: z.number().positive().max(4),
     /** Share of earnings paid out when a dividend falls. */
     dividendFraction: z.number().min(0).max(1),
     /** Dividends fall every this many market ticks. */

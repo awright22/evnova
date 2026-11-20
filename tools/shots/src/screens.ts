@@ -706,6 +706,44 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'bourse-orders',
+    description:
+      'A standing order being left at a limit, with one already waiting below it and a '
+      + 'position sold short carried against the captain. The margin line says what '
+      + 'stands behind it and at what level the Bourse closes it out.',
+    path: '/?callsign=Short%20Measure',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Bourse")');
+      await page.waitForSelector('.bourse', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+
+      // One order left to wait, so the table below has something in it.
+      await page.click('.ticket__mode:text("At a limit")');
+      await page.waitForTimeout(200);
+      await page.locator('.bourse input[inputmode="numeric"]').first().fill('400');
+      await page.locator('#ticket-limit').fill('6.40');
+      await page.waitForTimeout(200);
+      await page.click('.ticket__confirm button');
+      await page.waitForTimeout(700);
+
+      // Then a short, which is the other half of what this screen is for:
+      // the sell side, the box ticked, and the margin line under it.
+      await page.click('.ticket__side:text("Sell")');
+      await page.waitForTimeout(200);
+      await page.locator('.ticket__short input').check();
+      await page.waitForTimeout(200);
+      await page.locator('.bourse input[inputmode="numeric"]').first().fill('300');
+      await page.locator('#ticket-limit').fill('7.60');
+      await page.waitForTimeout(600);
+    },
+  },
+  {
     name: 'board',
     description:
       "The Factor's board: what this berth is paying for, the one being read with its "

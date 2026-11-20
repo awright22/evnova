@@ -34,6 +34,16 @@ export interface Posting {
 }
 
 export class Ledger {
+  /**
+   * The captains in memory, once the world has them.
+   *
+   * Set after construction, because the store is built before them. Without
+   * it a posting made for a captain the caller does not hold — a dividend, a
+   * liquidation, anything settled on the market tick — would leave their
+   * loaded copy reading the old balance until something else moved it.
+   */
+  pilots: { cached(accountId: string): Pilot | undefined } | undefined;
+
   constructor(private readonly store: Store) {}
 
   /**
@@ -43,7 +53,7 @@ export class Ledger {
    * A sink that would take a captain below zero is refused rather than
    * clamped, because a balance that silently stops at zero hides a bug.
    */
-  post(posting: Posting, pilot?: Pilot): number {
+  post(posting: Posting, pilot?: { marks: number }): number {
     const delta = Math.trunc(posting.delta);
     if (delta === 0) return pilot?.marks ?? this.balanceOf(posting.accountId);
 
@@ -78,7 +88,16 @@ export class Ledger {
         .run();
 
       // Keep the in-memory captain in step, so the next read is not stale.
+      // The caller's copy if they passed one, and otherwise whichever copy
+      // the world is holding — a dividend paid to somebody who happens to be
+      // flying must reach the captain they are flying as.
       if (pilot) pilot.marks = next;
+      // And the world's own copy, which is usually the same object and is
+      // not when the caller is working from a row rather than a captain —
+      // the market tick settles for whoever is on the other side of an
+      // order, online or not.
+      const loaded = this.pilots?.cached(posting.accountId);
+      if (loaded && loaded !== pilot) loaded.marks = next;
       return next;
     });
   }

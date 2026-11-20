@@ -29,8 +29,11 @@ import {
   affordableShares,
   quoteBuy,
   quoteSell,
+  sharesToPrice,
   type Headline,
   type Listing,
+  type MarginState,
+  type OrderLine,
   type Pool,
   type ShareQuote,
   type Standing,
@@ -54,7 +57,19 @@ export interface BourseProps {
   /** Tuning the ticket needs for its preview. Pass straight to the pool functions. */
   readonly feeRate: number;
   readonly maxPoolFraction: number;
+  /** The captain's standing orders, open ones first. */
+  readonly orders: readonly OrderLine[];
+  /** Where they stand against what they have borrowed, when they have. */
+  readonly margin: MarginState | undefined;
   onTrade: (side: 'buy' | 'sell', ticker: string, shares: number) => void;
+  onPlaceOrder: (
+    side: 'buy' | 'sell',
+    ticker: string,
+    shares: number,
+    limit: number,
+    short: boolean,
+  ) => void;
+  onCancelOrder: (id: string) => void;
   onClose: () => void;
 }
 
@@ -180,16 +195,21 @@ export interface Holding {
  */
 export function holdingsOf(listings: readonly Listing[]): readonly Holding[] {
   return listings
-    .filter((listing) => listing.held > 0 || listing.dividends > 0)
+    .filter((listing) => listing.held !== 0 || listing.dividends > 0)
     .map((listing) => {
       const value = listing.held * listing.price;
-      const gain = value - listing.costBasis;
+      // A short is the trade the other way round: the basis is what the sale
+      // brought in and the position is worth what it would cost to buy back,
+      // so the gain rises as the price falls. `value` is negative there,
+      // which is what makes it net correctly against everything held.
+      const gain = listing.held < 0 ? listing.costBasis + value : value - listing.costBasis;
       return {
         ticker: listing.ticker,
         name: listing.name,
         shares: listing.held,
         costBasis: listing.costBasis,
-        averageCost: listing.held > 0 ? listing.costBasis / listing.held : 0,
+        averageCost:
+          listing.held !== 0 ? listing.costBasis / Math.abs(listing.held) : 0,
         price: listing.price,
         value,
         gain,
@@ -212,11 +232,15 @@ export interface Book {
 export function bookOf(holdings: readonly Holding[]): Book {
   const costBasis = holdings.reduce((sum, row) => sum + row.costBasis, 0);
   const value = holdings.reduce((sum, row) => sum + row.value, 0);
+  // Summed from the rows rather than taken as value less cost: a short gains
+  // as its price falls, so the two run in opposite directions and the
+  // difference of the totals is not the total of the differences.
+  const gain = holdings.reduce((sum, row) => sum + row.gain, 0);
   return {
     costBasis,
     value,
-    gain: value - costBasis,
-    gainFraction: costBasis > 0 ? (value - costBasis) / costBasis : 0,
+    gain,
+    gainFraction: costBasis > 0 ? gain / costBasis : 0,
     dividends: holdings.reduce((sum, row) => sum + row.dividends, 0),
   };
 }
@@ -282,7 +306,11 @@ export function Bourse({
   notice,
   feeRate,
   maxPoolFraction,
+  orders,
+  margin,
   onTrade,
+  onPlaceOrder,
+  onCancelOrder,
   onClose,
 }: BourseProps): React.JSX.Element {
   const floor = useRef<HTMLElement | null>(null);
@@ -293,6 +321,9 @@ export function Bourse({
   });
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [parcel, setParcel] = useState('');
+  const [when, setWhen] = useState<'now' | 'limit'>('now');
+  const [price, setPrice] = useState('');
+  const [short, setShort] = useState(false);
   const [feed, setFeed] = useState<'all' | 'company'>('all');
   const [fill, setFill] = useState<Fill | undefined>(undefined);
   const [settling, setSettling] = useState<string | undefined>(undefined);
@@ -485,6 +516,22 @@ export function Bourse({
     [listings, marks, onTrade, side],
   );
 
+  /**
+   * Leave a standing order rather than dealing now.
+   *
+   * No receipt to wait for: an order that will not fill for an hour has
+   * nothing to say yet, so the ticket clears its parcel and the order
+   * appears in the book below with what it is waiting for.
+   */
+  const leave = useCallback(
+    (ticker: string, shares: number, limit: number, shorting: boolean) => {
+      if (shares < 1 || !(limit > 0)) return;
+      onPlaceOrder(side, ticker, shares, limit, shorting);
+      setParcel('');
+    },
+    [onPlaceOrder, side],
+  );
+
   const gazette = useMemo(() => {
     const ordered = [...news].sort((a, b) => b.at - a.at);
     if (feed === 'all' || !current) return ordered;
@@ -605,9 +652,17 @@ export function Bourse({
               maxPoolFraction={maxPoolFraction}
               side={side}
               parcel={parcel}
+              when={when}
+              price={price}
+              short={short}
+              margin={margin}
               onSide={setSide}
               onParcel={setParcel}
+              onWhen={setWhen}
+              onPrice={setPrice}
+              onShort={setShort}
               onSend={send}
+              onLeave={leave}
             />
           </section>
         </>
@@ -627,12 +682,20 @@ export function Bourse({
         <header className="panel-header">
           <h2>Your book</h2>
           <span className="micro">
-            {holdings.length === 0
-              ? 'Nothing held'
-              : `${holdings.length} ${holdings.length === 1 ? 'company' : 'companies'}`}
+            {margin && margin.owed > 0
+              ? `${formatMarks(margin.equity)} equity against ${formatMarks(margin.owed)} owed`
+              : holdings.length === 0
+                ? 'Nothing held'
+                : `${holdings.length} ${holdings.length === 1 ? 'company' : 'companies'}`}
           </span>
         </header>
         <div className="bourse__scroll bourse__scroll--wide">
+          {/*
+            Orders first: an order is a position the captain has taken that
+            has not happened yet, and the thing they are most likely to have
+            come back to the screen for. Holdings are settled and keep.
+          */}
+          <Standing orders={orders} onCancel={onCancelOrder} onSelect={setSelected} />
           <Portfolio
             holdings={holdings}
             book={book}
@@ -939,9 +1002,20 @@ interface TicketProps {
   readonly maxPoolFraction: number;
   readonly side: 'buy' | 'sell';
   readonly parcel: string;
+  /** 'now' trades against the pool as it stands; 'limit' waits for a price. */
+  readonly when: 'now' | 'limit';
+  /** The limit as typed, in marks a share. */
+  readonly price: string;
+  /** Whether a sell may take the captain short. */
+  readonly short: boolean;
+  readonly margin: MarginState | undefined;
   onSide: (side: 'buy' | 'sell') => void;
   onParcel: (parcel: string) => void;
+  onWhen: (when: 'now' | 'limit') => void;
+  onPrice: (price: string) => void;
+  onShort: (short: boolean) => void;
   onSend: (ticker: string, shares: number) => void;
+  onLeave: (ticker: string, shares: number, limit: number, short: boolean) => void;
 }
 
 function Ticket({
@@ -954,21 +1028,51 @@ function Ticket({
   maxPoolFraction,
   side,
   parcel,
+  when,
+  price,
+  short,
+  margin,
   onSide,
   onParcel,
+  onWhen,
+  onPrice,
+  onShort,
   onSend,
+  onLeave,
 }: TicketProps): React.JSX.Element {
   const pool = poolOf(listing, maxPoolFraction);
   const limit = buyLimit(listing, marks, feeRate, maxPoolFraction);
-  const ceiling = side === 'buy' ? limit.max : listing.held;
+
+  // What may be asked for. A sale is bounded by the holding unless it is a
+  // short, which is bounded by the same cap a holding is — a captain may owe
+  // no more of one company than they may own of it.
+  const shorting = side === 'sell' && short;
+  const owed = Math.max(0, -listing.held);
+  const ceiling =
+    side === 'buy'
+      ? limit.max
+      : shorting
+        ? Math.max(0, listing.held + listing.holdingCap)
+        : Math.max(0, listing.held);
 
   const asked = Number.parseInt(parcel === '' ? '0' : parcel, 10);
   const shares = Math.min(ceiling, Math.max(0, Number.isFinite(asked) ? asked : 0));
 
+  // A limit as typed, and how much of the parcel it would actually take
+  // right now — worked out with the same function the Bourse fills with, so
+  // the ticket's "nothing yet" is the floor's "nothing yet".
+  const typed = Number.parseFloat(price);
+  const wanted = Number.isFinite(typed) && typed > 0 ? typed : 0;
+  const atLimit =
+    when === 'limit' && wanted > 0
+      ? Math.min(shares, sharesToPrice(pool, side, wanted, feeRate, maxPoolFraction))
+      : shares;
+  const previewed = when === 'limit' ? atLimit : shares;
+
   const quote: ShareQuote =
     side === 'buy'
-      ? quoteBuy(pool, shares, feeRate, maxPoolFraction)
-      : quoteSell(pool, shares, feeRate);
+      ? quoteBuy(pool, previewed, feeRate, maxPoolFraction)
+      : quoteSell(pool, previewed, feeRate);
   const impact = moveOf(quote.priceAfter, quote.priceBefore);
   // Nothing asked for yet. A column of zeroes would read as a quote, so the
   // preview waits with dashes until there is a parcel to price.
@@ -982,6 +1086,19 @@ function Ticket({
     <>
       <header className="panel-header">
         <h2>Order</h2>
+        <div className="ticket__when" role="group" aria-label="When">
+          {(['now', 'limit'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`ticket__mode${when === option ? ' ticket__mode--on' : ''}`}
+              aria-pressed={when === option}
+              onClick={() => onWhen(option)}
+            >
+              {option === 'now' ? 'At the quote' : 'At a limit'}
+            </button>
+          ))}
+        </div>
         <div className="ticket__sides" role="group" aria-label="Side">
           {(['buy', 'sell'] as const).map((option) => (
             <button
@@ -1048,15 +1165,94 @@ function Ticket({
           </div>
         </div>
 
+        {when === 'now' && (
         <p id="ticket-ceiling" className="ticket__ceiling micro">
           {side === 'buy'
             ? limit.max < 1
               ? boundNothing(limit, listing)
               : `${formatMarks(limit.max)} at most: ${boundReason(limit, listing)}`
-            : listing.held > 0
-              ? `${formatMarks(listing.held)} at most, which is all you hold`
-              : `You hold no ${listing.ticker} to sell`}
+            : shorting
+              ? `${formatMarks(ceiling)} at most, which is what you may owe of one company`
+              : listing.held > 0
+                ? `${formatMarks(listing.held)} at most, which is all you hold`
+                : `You hold no ${listing.ticker} to sell`}
         </p>
+        )}
+
+        {when === 'limit' && (
+          <div className="ticket__entry ticket__entry--limit">
+            <label className="label" htmlFor="ticket-limit">
+              {side === 'buy' ? 'Pay no more than' : 'Take no less than'}
+            </label>
+            <input
+              id="ticket-limit"
+              className="ticket__field data"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder={formatQuote(listing.price)}
+              value={price}
+              aria-describedby="ticket-limit-note"
+              onChange={(event) => onPrice(event.target.value.replace(/[^0-9.]/g, ''))}
+            />
+            <div className="ticket__parcels">
+              {/*
+                A limit is nearly always set a little away from the quote,
+                so the common cases are a button rather than arithmetic.
+              */}
+              {[-0.1, -0.05, 0.05, 0.1].map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  className="ticket__parcel"
+                  onClick={() => onPrice((listing.price * (1 + step)).toFixed(2))}
+                >
+                  {step > 0 ? '+' : ''}
+                  {Math.round(step * 100)}%
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {when === 'limit' && (
+          <p id="ticket-limit-note" className="ticket__ceiling micro">
+            {formatMarks(ceiling)} at most.{' '}
+            {wanted <= 0
+              ? `The quote is ${formatQuote(listing.price)}; a limit is a price you would deal at.`
+              : atLimit < 1
+                ? `Nothing fills at ${formatQuote(wanted)} yet: it waits for the price to come to it.`
+                : atLimit < shares
+                  ? `${formatMarks(atLimit)} of ${formatMarks(shares)} would fill now; the rest waits.`
+                  : 'The whole parcel would fill at once.'}
+          </p>
+        )}
+
+        {side === 'sell' && (
+          <label className="ticket__short">
+            <input
+              type="checkbox"
+              checked={short}
+              onChange={(event) => onShort(event.target.checked)}
+            />
+            <span>
+              Sell short
+              <span className="micro">
+                {owed > 0
+                  ? ` — you already owe ${formatMarks(owed)} ${listing.ticker}`
+                  : ' — sell what you do not hold, and buy it back later'}
+              </span>
+            </span>
+          </label>
+        )}
+
+        {shorting && margin && (
+          <p className="ticket__margin micro">
+            Equity {formatMarks(margin.equity)} against {formatMarks(margin.owed)} owed.{' '}
+            {formatRate(margin.initial, 0)} of what you owe has to stand behind it, and at{' '}
+            {formatRate(margin.maintenance, 0)} the Bourse buys it back for you.
+          </p>
+        )}
 
         <dl className="ticket__preview">
           <div>
@@ -1117,24 +1313,37 @@ function Ticket({
           <button
             type="button"
             className="button button--primary"
-            disabled={busy || shares < 1 || shares > ceiling}
-            onClick={() => onSend(listing.ticker, shares)}
+            disabled={
+              busy || shares < 1 || shares > ceiling || (when === 'limit' && wanted <= 0)
+            }
+            onClick={() =>
+              when === 'limit'
+                ? onLeave(listing.ticker, shares, wanted, shorting)
+                : onSend(listing.ticker, shares)
+            }
           >
             {/* An order with the floor has a state of its own, so the button
                 is not merely greyed while the answer is coming back. */}
             {busy ? (
               'With the floor'
+            ) : when === 'limit' ? (
+              <>
+                Leave the order
+                {shares > 0 && `: ${formatMarks(shares)} ${listing.ticker}`}
+              </>
             ) : (
               <>
-                {side === 'buy' ? 'Buy' : 'Sell'}{' '}
+                {shorting ? 'Sell short' : side === 'buy' ? 'Buy' : 'Sell'}{' '}
                 {shares > 0 ? `${formatMarks(shares)} ${listing.ticker}` : listing.ticker}
               </>
             )}
           </button>
           <span className="micro">
-            {side === 'buy'
-              ? 'Marks leave your purse when the floor answers.'
-              : 'The fee comes out of the proceeds.'}
+            {when === 'limit'
+              ? 'It stands until it fills or you withdraw it. Nothing is held back meanwhile.'
+              : side === 'buy'
+                ? 'Marks leave your purse when the floor answers.'
+                : 'The fee comes out of the proceeds.'}
           </span>
         </div>
       </div>
@@ -1187,8 +1396,9 @@ function Portfolio({
   if (holdings.length === 0) {
     return (
       <p className="bourse__empty">
-        You hold no shares. A parcel bought on the floor is entered here with
-        what it cost, what it is worth now, and anything it has paid you.
+        You hold no shares and owe none. A parcel bought on the floor is entered
+        here with what it cost and what it is worth now; one sold short is
+        entered against you until it is bought back.
       </p>
     );
   }
@@ -1234,10 +1444,19 @@ function Portfolio({
                 <span className="book__name">{row.name}</span>
               </button>
             </th>
-            <td className="book__figure data">{formatMarks(row.shares)}</td>
+            <td className="book__figure data">
+              {row.shares < 0 ? (
+                <>
+                  {formatMarks(-row.shares)}
+                  <span className="book__note micro">short</span>
+                </>
+              ) : (
+                formatMarks(row.shares)
+              )}
+            </td>
             <td className="book__figure data">{formatMarks(row.costBasis)}</td>
             <td className="book__figure data">
-              {row.shares > 0 ? formatQuote(row.averageCost) : '—'}
+              {row.shares !== 0 ? formatQuote(row.averageCost) : '—'}
             </td>
             <td className="book__figure data">{formatQuote(row.price)}</td>
             <td className="book__figure data">{formatMarks(row.value)}</td>
@@ -1272,6 +1491,107 @@ function Portfolio({
         </tr>
       </tfoot>
     </table>
+  );
+}
+
+// --- Standing orders -----------------------------------------------------
+
+/**
+ * What the Bourse is carrying out on the captain's behalf.
+ *
+ * Under the book rather than beside the ticket: an order is a position the
+ * captain has taken that has not happened yet, which is the same kind of
+ * thing as a holding and reads down the same column. Closed orders stay
+ * until the captain leaves the screen, because "filled" and "withdrawn by
+ * the Bourse, you could not settle it" are both answers worth seeing.
+ */
+function Standing({
+  orders,
+  onCancel,
+  onSelect,
+}: {
+  readonly orders: readonly OrderLine[];
+  onCancel: (id: string) => void;
+  onSelect: (ticker: string) => void;
+}): React.JSX.Element | null {
+  if (orders.length === 0) return null;
+
+  return (
+    <>
+      <h3 className="book__heading book__heading--first">Standing orders</h3>
+      <table className="book book--orders">
+        <thead>
+          <tr>
+            <th scope="col">Company</th>
+            <th scope="col">Order</th>
+            <th scope="col" className="book__figure">
+              Shares
+            </th>
+            <th scope="col" className="book__figure">
+              Limit
+            </th>
+            <th scope="col" className="book__figure">
+              Filled
+            </th>
+            <th scope="col">State</th>
+            <th scope="col" />
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => (
+            <tr
+              key={order.id}
+              className={`book__row${order.state === 'open' ? '' : ' book__row--closed'}`}
+            >
+              <th scope="row">
+                <button
+                  type="button"
+                  className="book__pick"
+                  onClick={() => onSelect(order.ticker)}
+                >
+                  <span className="book__ticker">{order.ticker}</span>
+                </button>
+              </th>
+              <td>
+                {order.short ? 'Sell short' : order.side === 'buy' ? 'Buy' : 'Sell'}
+              </td>
+              <td className="book__figure data">{formatMarks(order.shares)}</td>
+              <td className="book__figure data">{formatQuote(order.limit)}</td>
+              <td className="book__figure data">
+                {order.filled > 0 ? (
+                  <>
+                    {formatMarks(order.filled)}
+                    <span className="book__note micro">
+                      {formatMarks(order.settled)} marks
+                    </span>
+                  </>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td>
+                {order.state === 'open' ? (
+                  <span className="micro">Waiting</span>
+                ) : (
+                  <span className="micro">{order.reason || order.state}</span>
+                )}
+              </td>
+              <td className="book__figure">
+                {order.state === 'open' && (
+                  <button
+                    type="button"
+                    className="book__withdraw"
+                    onClick={() => onCancel(order.id)}
+                  >
+                    Withdraw
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
