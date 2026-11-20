@@ -250,3 +250,15 @@ held by a dead process, a mark that had not arrived, a rejected promise, a
 helper that does not exist in the page. A harness that cannot fail loudly is
 a harness that reports the game's state incorrectly, and four of these were
 originally written up as findings about the *game*.
+
+And one about process. Five screens had stopped being captured, three of
+them since M9 — which means no full `pnpm shots` sweep had been run and read
+since M9, through the whole of cycle 1. Spec section 18 puts "capture every
+screen and all motion sequences" first in the cycle for a reason: it is the
+only step that looks at the thing a player looks at. Cycle 1 ran the soak,
+the tests, the budgets and both play sessions, and found five majors. The
+first sweep of cycle 2 found four more in an afternoon, including the two
+worst in the cycle, and every one of them was a thing you can only see.
+
+The sweep is not the slow optional step at the end. It is the step that
+finds what the others cannot.
