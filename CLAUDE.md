@@ -52,6 +52,11 @@ Run servers as background processes and stop them when you're done with them. A 
 - A milestone marked done contains no placeholder art, lorem ipsum, stub handlers, or TODO comments for anything the spec requires.
 - Look and motion can't be judged from code. For anything visible, run `pnpm shots`, look at the output, and compare it against `docs/ART_DIRECTION.md`.
 - When a look you didn't intend shows up, add it by name to the avoid list in `docs/ART_DIRECTION.md` and fix it.
+- A tool in `tools/` that cannot find what it needs says so and fails. Never return a quiet
+  false, an empty list or a default: a harness that does nothing and says nothing reports the
+  game's state wrongly, and its silence gets written up as a finding about the game. When a
+  harness result is surprising, make it print what it can actually see before theorising about
+  what is acting on it.
 - Keep written docs as long as their content needs. No filler sections or repeated summaries.
 
 ## Assets

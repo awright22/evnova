@@ -50,16 +50,24 @@ export function useScroller(): Scroller {
 
       // Three things change the answer: the captain scrolls, the panel is
       // resized, and the content itself grows or shrinks — a company listed,
-      // a filter narrowing the rows. The last needs the content watched as
-      // well as the box, because a box that has not moved can still have
-      // more in it.
+      // a filter narrowing the rows, the Gazette printing another line.
+      //
+      // The third needs watching in its own right. The scroller's box does
+      // not move when rows are added to it, and nothing scrolls, so neither
+      // of the first two fires: a panel that gained rows would keep whatever
+      // answer it last gave. Rows are also replaced wholesale by a re-render,
+      // so watching the children that happen to be here at mount watches the
+      // wrong elements a moment later — hence the mutation observer rather
+      // than a second `observe` per child.
       node.addEventListener('scroll', again, { passive: true });
       const sizes = new ResizeObserver(again);
       sizes.observe(node);
-      for (const child of node.children) sizes.observe(child);
+      const rows = new MutationObserver(again);
+      rows.observe(node, { childList: true, subtree: true, characterData: true });
       stop.current = () => {
         node.removeEventListener('scroll', again);
         sizes.disconnect();
+        rows.disconnect();
       };
     },
     [measure],
