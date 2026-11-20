@@ -25,7 +25,7 @@ every fix in it, rather than reported from the run that opened it.
 | `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.28 ms**, no spike over 33 ms, 0 of 12 diverging, drift EMA 0.0000, peak 0.0000 |
 | `pnpm play:new` | 14 of 14 |
 | `pnpm play:late` | 27 of 27 |
-| `pnpm audio` | 29 events logged; one check failed on a fixed 14-second wait, which is now waited for rather than timed |
+| `pnpm audio` | **passes outright** — 6 voyage checks, 30 sound events, the bed playing |
 | `pnpm perf` | sim step **0.0073 ms** mean for 30 ships (0.24 µs a ship, p99 is 0.14% of a 60 fps frame); **1.56 MB** to the title screen, interactive in 249 ms, against a 5 MB budget |
 
 The soak holds 2.28 ms against a 4 ms budget with twelve clients fighting at
@@ -318,7 +318,20 @@ The write-off capture photographed "The port declined that" sitting under
 "Written off at Parity". A state that takes over the screen clears the
 smaller notices it has made irrelevant; named on the avoid list.
 
-**N6. The soak still logs one replay-buffer warning in three minutes.** Down
+**N6. A voyage check was timed rather than waited for.** `pnpm audio` gave a
+spool, a lane and an arrival a flat fourteen seconds, which is about right
+on an idle machine. It failed twice as `parity -> parity` on a box that had
+been building clients and driving browsers all evening — the second time
+because a performance capture I had queued badly was running alongside it.
+It waits for the arrival now, up to forty-five seconds, and says which
+system it plotted so the next failure is legible: the run that confirmed the
+fix reported `parity -> fairlead`.
+
+I recorded this as "not a flake, a real finding" after one re-run that also
+failed. It was a flake, with a cause. Reading two failures as proof is the
+same mistake as reading one pass as proof.
+
+**N7. The soak still logs one replay-buffer warning in three minutes.** Down
 from one every run at ten seconds, and the drift telemetry shows nothing:
 every client matched, worst EMA 0.0000. The remaining case looks like a
 client whose hull is written off mid-burst. Noise rather than a fault, and

@@ -260,7 +260,7 @@ Done when:
 ## M10. Polish cycles
 
 - [x] Cycle 1: `docs/polish/cycle-1.md`, every blocker and major fixed — 1 blocker, 5 majors
-- [~] Cycle 2: `docs/polish/cycle-2.md`, every blocker and major fixed — 0 blockers, 2 majors
+- [x] Cycle 2: `docs/polish/cycle-2.md`, every blocker and major fixed — 0 blockers, 5 majors
 - [ ] Cycle 3: `docs/polish/cycle-3.md`, every blocker and major fixed
 - [ ] Cycle 4, if cycle 3 is not clean
 - [ ] Two cycles in a row find no blockers or majors
