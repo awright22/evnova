@@ -258,3 +258,44 @@ not distinguish a hull that is too tough from sparring partners that never
 close. It reports the hull's shield and structure over the window and how
 far off the spars are now. It passed on both re-runs, so the original
 failure was intermittent; the telemetry is there for when it is not.
+
+## What this cycle was
+
+Three of the four things worth fixing here were already true when cycle 3
+closed, and cycle 3 ran the same sweep and the same commands.
+
+| Found | Had been true since | What said it was fine |
+|---|---|---|
+| Every seal is a ship's wheel | M6 | A test called *leaves the centre clear*, asking for 0.02 |
+| `fly deploy` cannot build the image | M0 | Nothing — the image had never been built |
+| `pnpm perf` cannot reach the flight view | ~M9 | "No GPU", which was true and not the cause |
+| A refusal under the write-off panel | cycle 3's fix | The fix, recorded without a capture |
+
+The common shape is not carelessness about testing. There are 619 unit
+tests, fourteen verifiers, a soak, two scripted sessions and a
+thirty-nine-screen sweep, and all of them were passing. It is that **a check
+that passes is only evidence if you know what it checks.**
+
+- The seal test checked that no point of a device sat at dead centre. The
+  rule it is named after is about a seal having an empty middle. Those are
+  different statements, and the weaker one held for four milestones while
+  the stronger one was false.
+- The deploy path had no check at all, and that was invisible because
+  everything *around* it was checked. A green CI badge over a Dockerfile
+  nothing builds reads exactly like a green CI badge over one that works.
+- `pnpm perf` failed with a timeout, on a box with no GPU, in a tool that
+  measures frame rate. Every part of that sentence invites the wrong
+  conclusion, and I drew it three times. The actual cause — a captain called
+  Rate Card already existing in a database the tool should not have opened —
+  was one diagnostic line away, and that line was being truncated by a
+  `.split('\n')[0]` three files from where the error was raised.
+- The refusal fix was recorded as done because the change was right in
+  principle. It cleared the refusal that was there; it could not clear the
+  one that arrived next.
+
+Two of these were found by looking at a picture. One was found by making a
+harness print what it could see. One was found by writing a CI job for the
+only thing in `docs/HUMAN_TODO.md` that costs the owner money, and watching
+it fail on its first run.
+
+None were found by running the tests again.

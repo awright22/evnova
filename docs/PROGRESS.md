@@ -268,9 +268,10 @@ Done when:
 - [x] Cycle 3: `docs/polish/cycle-3.md`, every blocker and minor fixed — 1
   blocker, 0 majors, 10 minors. The blocker was CI, red on every one of 38
   runs since M0; run 39 is green on all four jobs.
-- [~] Cycle 4: `docs/polish/cycle-4.md` — 2 blockers, 2 majors, 4 minors.
-  Both blockers are on the deploy path, which nothing had ever exercised;
-  both majors are things a test said were fine and a picture said were not.
+- [x] Cycle 4: `docs/polish/cycle-4.md`, every blocker, major and minor
+  fixed — 2 blockers, 3 majors, 4 minors. Both blockers were on the deploy
+  path, which nothing had ever exercised; the majors were things a passing
+  test, a plausible environment and a well-reasoned fix all said were fine.
 - [ ] Cycle 5
 - [ ] Cycle 6, if cycle 5 is not clean
 - [ ] Two cycles in a row find no blockers or majors
