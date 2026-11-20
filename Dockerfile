@@ -32,6 +32,20 @@ COPY tools/shots/package.json tools/shots/
 COPY tools/perf/package.json tools/perf/
 COPY tools/verify/package.json tools/verify/
 
+# Fetch the one git dependency over HTTPS rather than SSH.
+#
+# The lockfile pins `uWebSockets.js` to `git@github.com:uNetworking/...`,
+# which needs a key this image has no business carrying. Git's
+# config-through-environment rewrites it, which is the same two lines
+# `.github/workflows/ci.yml` carries and for the same reason. Tried first as
+# a pnpm `overrides` and then as a `packageExtensions` entry, so the fix
+# would live in the lockfile and cover every clone at once: pnpm applies
+# neither to a git-URL dependency, and restored the SSH form each time the
+# entry was re-resolved.
+ENV GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf \
+    GIT_CONFIG_VALUE_0=git@github.com:
+
 RUN pnpm install --frozen-lockfile
 
 COPY . .

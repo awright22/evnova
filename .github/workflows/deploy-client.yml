@@ -29,6 +29,17 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Fetch the one git dependency over HTTPS rather than SSH, as `ci.yml` does.
+#
+# The lockfile pins `uWebSockets.js` to an SSH remote a runner has no key
+# for, so `pnpm install` below would have died before this workflow ever
+# published anything. Cycle 3 fixed this in `ci.yml` alone, which was the
+# only one anybody was watching.
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+  GIT_CONFIG_VALUE_0: 'git@github.com:'
+
 jobs:
   build:
     name: Build

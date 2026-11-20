@@ -59,6 +59,32 @@ and lands in `CREDITS.md` in the same commit as the asset.
 
 ---
 
+## 1b. On your own machine: one git setting before the first install
+
+**Status: blocking, but it is one command.**
+
+`pnpm install` fetches one dependency straight from a git remote —
+`uWebSockets.js`, which Colyseus pulls in as a required peer of a transport
+this project does not use — and the lockfile pins it to the SSH form,
+`git@github.com:uNetworking/uWebSockets.js.git`. If your GitHub SSH keys are
+not set up on that machine, the install dies before anything is built.
+
+Run this once, anywhere, and every clone on that machine fetches it over
+HTTPS instead:
+
+```bash
+git config --global url."https://github.com/".insteadOf "git@github.com:"
+```
+
+CI, the Pages deploy and the Docker build all set the same rewrite through
+the environment, so this is only for your own clone. I tried to fix it in the
+lockfile instead, with a pnpm `overrides` entry and then a
+`packageExtensions` one, so no machine would need the setting: pnpm applies
+neither to a git-URL dependency and restores the SSH form whenever the entry
+is re-resolved.
+
+---
+
 ## 2. Optional: Playwright browser on your own machine
 
 **Status: not blocking.** Already working in this container.
