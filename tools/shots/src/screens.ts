@@ -93,9 +93,17 @@ interface HarnessWindow {
     room: {
       sessionId: string;
       state: {
+        systemId: string;
         ships: Map<
           string,
-          { x: number; y: number; angle: number; shield: number; destroyedAt: number }
+          {
+            x: number;
+            y: number;
+            angle: number;
+            shield: number;
+            destroyedAt: number;
+            callsign: string;
+          }
         >;
         asteroids: Map<string, { x: number; y: number; radius: number; left: number }>;
       };
@@ -457,13 +465,15 @@ export const SCREENS: readonly Screen[] = [
     settleTimeoutMs: 60_000,
     settleMs: 1500,
     bots: 2,
-    // A gunner of its own, which hunts this captain by name and nothing
-    // else. A patrol does answer for a posted captain, and twice it took
-    // longer than any timeout worth having: a patrol is on its own schedule
-    // and the sky it crosses is wide. The gunner is a bot flying the same
-    // protocol a browser does, firing on a captain the Prize Court has
-    // already posted.
-    gunner: { hunt: 'Act of God', system: 'parity', draught: 'short-measure' },
+    // Answered for by the law rather than by a gunner of the harness's own.
+    // A bot hunter was tried for five runs: standing off, closing in, and
+    // flying the draught the loss harness uses. It kept dying — a lawful
+    // captain who fires on a posted one used to be posted in turn, which
+    // put the patrols onto the gunner instead of its mark — and once that
+    // was fixed it still spent two minutes failing to find a hull that
+    // could run. A patrol hunts a posted captain by rule, and a posted
+    // captain who cannot run is a patrol's whole afternoon.
+    //
     // A fragile gunboat with a hold worth dropping, in the Home Roads, with
     // a berth at the far side of the system behind it — so the panel's last
     // line is about somewhere the captain is not.
@@ -478,10 +488,10 @@ export const SCREENS: readonly Screen[] = [
       // not in a full run, where the traffic has moved on by the time this
       // screen comes round.
       composition: 4000,
-      // Engines already gone. The capture is of the claim the Hall
-      // settled, not of the fight that caused it, and a hull that cannot
-      // run is a hull the gunner finishes in seconds rather than one it
-      // chases for two minutes and loses.
+      // Engines gone, so the hull cannot run from what the Court sends.
+      // It still has its gun, and the capture fires it: a photograph of a
+      // captain sitting still while they are shot to pieces is a
+      // photograph of the wrong thing.
       crippled: true,
     },
     act: async (page) => {
@@ -495,6 +505,19 @@ export const SCREENS: readonly Screen[] = [
         undefined,
         { timeout: 60_000 },
       );
+      // Which room this page is actually in, and who is in it with them.
+      // The gunner reports the same from its side, and for three runs the
+      // two lists did not overlap.
+      const sky = await page.evaluate(() => {
+        const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
+        if (!harness) return 'no harness';
+        const names = [...harness.room.state.ships.values()]
+          .map((ship) => (ship as { callsign?: string }).callsign ?? '?')
+          .join(', ');
+        return `${harness.room.state.systemId}: ${names}`;
+      });
+      console.log(`    page is in ${String(sky)}`);
+
       // Nothing to do but be answered for. The hull carries a gun and fires
       // it, because a capture of a captain sitting still while they are shot
       // to pieces is a capture of the wrong thing; this is not a fight it is
@@ -502,7 +525,7 @@ export const SCREENS: readonly Screen[] = [
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
       await engageNearest(page, 90);
-      await page.waitForSelector('.flight__written-off', { timeout: 120_000 });
+      await page.waitForSelector('.flight__written-off', { timeout: 240_000 });
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
       // read rather than photographing the sentence that says it is being.

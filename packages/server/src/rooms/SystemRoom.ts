@@ -3480,8 +3480,10 @@ export class SystemRoom extends Room<{
     this.noteKill(id, ship, killedBy);
     this.combat.retireRoundsOf(id);
 
-    // Writing off lawful traffic is a separate matter from damaging it.
-    if (!ship.hostile) {
+    // Writing off lawful traffic is a separate matter from damaging it —
+    // and a captain the Court has already posted is not lawful traffic,
+    // for the same reason firing on one is not an offence.
+    if (!ship.hostile && !ship.posted) {
       const killer = this.pilotsBySession.get(killedBy);
       const security = this.system?.security;
       if (killer && security) {
@@ -3707,8 +3709,13 @@ export class SystemRoom extends Room<{
    * lightly, the Marque not at all. A posted captain is refused at every berth
    * but the Unlettered's, and patrols answer for them.
    *
-   * It does not apply to the Unlettered, who are nobody's lawful traffic, and
-   * it cannot be run up by shooting a wreck.
+   * It does not apply to the Unlettered, who are nobody's lawful traffic;
+   * it cannot be run up by shooting a wreck; and it does not apply to a
+   * captain the Court has already posted. Posting somebody is the Court
+   * saying they may be answered for, so striking a composition against
+   * whoever does is the Court contradicting itself — and in practice it
+   * meant a lawful captain who fired on a posted one was posted in turn
+   * and killed by the patrols that were supposed to be after the first.
    */
   private postIfUnlawful(shooterId: string, targetId: string, damageDealt: number): void {
     if (damageDealt <= 0) return;
@@ -3724,6 +3731,8 @@ export class SystemRoom extends Room<{
     if (!pilot) return;
     const target = this.state.ships.get(targetId);
     if (!target || target.hostile || target.destroyedAt > 0) return;
+    // Posted: the Court has already said this hull may be answered for.
+    if (target.posted) return;
 
     this.addComposition(pilot, shooterId, struck);
   }

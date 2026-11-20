@@ -256,6 +256,10 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
 
     for (const [ticker, shares] of Object.entries(spec.holdings ?? {})) {
       if (shares < 1) continue;
+      // The Bourse lists its companies when the world opens, and the world
+      // has not opened yet: this is a database with a schema and nothing
+      // in it. Listing them is idempotent, so asking twice costs nothing.
+      exchange.seed();
       const pilot = pilots.load(accountId);
       if (!pilot) throw new Error(`${spec.callsign} has no captain`);
       // A parcel at a time, because the Exchange caps how much of a pool
@@ -265,7 +269,22 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
       while (left > 0 && tries < 40) {
         tries += 1;
         const parcel = Math.min(left, Math.max(1, Math.ceil(shares / 8)));
-        const fill = exchange.trade({ pilot, side: 'buy', ticker, shares: parcel });
+        let fill;
+        try {
+          fill = exchange.trade({ pilot, side: 'buy', ticker, shares: parcel });
+        } catch (error) {
+          // The Bourse refuses what a captain would be refused: no captain
+          // may hold more than a tenth of a float, and the pool will not
+          // sell more than a quarter of itself at once. A seed that asks
+          // for too much gets what the market would actually have given it
+          // and says so, rather than failing the whole run.
+          const why = (error as { reason?: string }).reason ?? String(error);
+          console.warn(
+            `  ${spec.callsign}: the Bourse stopped at ${Math.round(shares) - left} `
+              + `of ${Math.round(shares)} ${ticker} (${why})`,
+          );
+          break;
+        }
         if (fill.shares < 1) break;
         left -= fill.shares;
       }

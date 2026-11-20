@@ -45,7 +45,10 @@ async function main(): Promise<void> {
         flying: 'close-order',
         marks: 2_400_000,
         cargo: { leaf: 18, circuitry: 40, alloy: 60 },
-        holdings: { SLP: 900, TLY: 600, UWH: 400, RPO: 250 },
+        // Inside the Bourse's own caps: no captain may hold more than a
+        // tenth of a float, and these are a little under that in four
+        // companies, which is what a late portfolio looks like.
+        holdings: { SLP: 420, TLY: 2800, UWH: 700, RPO: 640 },
         standing: { thirty: 70, kessler: 25, reprisal: -40 },
         designs: ['Third Dividend', 'Errors and Omissions'],
         parked: [
@@ -113,7 +116,7 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
   await open(page, /open the bourse/i, '.bourse');
   const bourse = await page.locator('.bourse').innerText();
   book.record('the Bourse lists every company', (bourse.match(/\b[A-Z]{3}\b/g) ?? []).length >= 10);
-  book.record('the portfolio shows what is held', /\b900\b/.test(bourse), 'SLP 900');
+  book.record('the portfolio shows what is held', /\b2,?800\b/.test(bourse), 'TLY 2800');
   book.record('the Gazette has something in it', /\./.test(bourse) && bourse.length > 400);
   book.record(
     'the Register ranks captains',
