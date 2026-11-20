@@ -260,5 +260,9 @@ h3 {
  * headers that already cover the top edge.
  */
 [data-more='below'] {
+  /* Prefixed as well: Safari took `mask-image` unprefixed only from 15.4, and
+     this project has never been run on Safari — see `docs/HUMAN_TODO.md`. The
+     prefix costs a line and covers a browser I cannot test here. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
 }

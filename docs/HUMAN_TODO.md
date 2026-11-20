@@ -118,6 +118,43 @@ starve each other's frame loops.
 
 ---
 
+## 3b. Only you can check: Firefox and Safari
+
+**Status: not blocking, but it is the second quality-bar item I cannot
+verify.**
+
+Spec section 3 asks for current Chrome, Firefox and Safari on desktop. This
+container has Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox
+or WebKit build, and `playwright install firefox webkit` needs
+`playwright.azureedge.net`, which the network policy refuses. So every
+screenshot, every play session and every verification harness in this project
+has run on one engine.
+
+Nothing in the client is knowingly Chromium-only — no prefixed APIs, no
+`chrome.*`, and the three things most likely to differ are all used in their
+standard form:
+
+| What | Where | Risk |
+|---|---|---|
+| `mask-image` on scrollers | `packages/client/src/styles/base.css` | Safari wants `-webkit-mask-image` on older versions |
+| Web Audio | `packages/client/src/audio/` | Safari requires a user gesture before the context starts; the mix already waits for one |
+| WebGL through PixiJS | the flight view | Pixi picks its own path per browser |
+
+On a machine with the other two:
+
+```bash
+pnpm --filter @marque/shots exec playwright install firefox webkit
+```
+
+```bash
+pnpm shots -- --only title,register,port-hub,bourse,yard,flight-at-rest
+```
+
+Then open the client in Safari and Firefox by hand, fly for a minute, land,
+and open the Bourse. Tell me anything that looks wrong and I will fix it.
+
+---
+
 ## 4. Deployment
 
 Everything that can be built is built: `Dockerfile`, `fly.toml` and
