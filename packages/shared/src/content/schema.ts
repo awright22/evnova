@@ -416,6 +416,8 @@ export const Tuning = z.object({
     insurancePremium: z.number().min(0),
     /** What a refit returns of the marks value it strips, 0..1. */
     refundFraction: z.number().min(0).max(1),
+    /** What insurance settles on a written-off hull, as a share of its cost. */
+    claimFraction: z.number().min(0).max(1),
   }),
   law: z.object({
     compositionPerDamage: z.number().nonnegative(),

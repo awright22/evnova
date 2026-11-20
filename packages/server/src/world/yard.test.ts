@@ -599,3 +599,161 @@ describe('sharing draughts', () => {
     }
   });
 });
+
+describe('a hull written off', () => {
+  /** Build a hull at the Bourse and take it out, so it is the one being flown. */
+  function flying(pilot: Pilot, name = 'Act of God'): { id: string; cost: number } {
+    const receipt = yard.build({
+      pilot,
+      ...BERTH,
+      name,
+      placements: starter(),
+      now: 1,
+    });
+    yard.switchTo(pilot.accountId, receipt.shipId, BERTH.portId);
+    return { id: receipt.shipId, cost: buildCost(starter(), modules, tuning).modules };
+  }
+
+  it('settles half what its fittings cost', () => {
+    const pilot = captain('Unlucky');
+    const { cost } = flying(pilot);
+    const before = pilot.marks;
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+
+    expect(outcome.claim).toBe(Math.floor(cost * tuning.yard.claimFraction));
+    expect(Number.isInteger(outcome.claim)).toBe(true);
+    expect(outcome.marksAfter).toBe(before + outcome.claim);
+    expect(outcome.hull).toBe('Act of God');
+  });
+
+  it('and the claim is less than the hull cost, so a loss is a loss', () => {
+    const pilot = captain('Arsonist');
+    const spent = pilot.marks;
+    flying(pilot);
+    const paid = spent - pilot.marks;
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+    expect(outcome.claim).toBeLessThan(paid);
+  });
+
+  it('posts it through the ledger as a claim, so the invariant still holds', () => {
+    const pilot = captain('Claimant');
+    flying(pilot);
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+
+    expect(totalMarks()).toBe(netPosted());
+    const rows = store.raw
+      .prepare(`SELECT category, delta FROM ledger WHERE category = 'insurance-claim'`)
+      .all() as { category: string; delta: number }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.delta).toBe(outcome.claim);
+  });
+
+  it('takes the hull off the books and leaves every other one alone', () => {
+    const pilot = captain('Fleet');
+    const kept = yard.build({
+      pilot,
+      ...BERTH,
+      name: 'Third Dividend',
+      placements: starter(),
+      now: 1,
+    });
+    const { id } = flying(pilot, 'Net of Fees');
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+
+    const left = yard.shipsOf(pilot.accountId);
+    expect(left.map((ship) => ship.id)).toEqual([kept.shipId]);
+    expect(left.map((ship) => ship.id)).not.toContain(id);
+    expect(outcome.stillOwned).toBe(1);
+  });
+
+  it('names one of their own hulls waiting where they wake', () => {
+    const pilot = captain('Provident');
+    yard.build({ pilot, ...BERTH, name: 'Spare', placements: starter(), now: 1 });
+    flying(pilot, 'Lost');
+
+    // Parked at the berth they wake at: they are put into it rather than
+    // handed a starter.
+    expect(yard.writeOff(pilot, BERTH.portId).waitingThere).toBeDefined();
+  });
+
+  it('and names nothing when their hulls are all somewhere else', () => {
+    const pilot = captain('Absentee');
+    yard.build({ pilot, ...BERTH, name: 'Elsewhere', placements: starter(), now: 1 });
+    flying(pilot, 'Lost Too');
+
+    const outcome = yard.writeOff(pilot, 'tare');
+    expect(outcome.stillOwned).toBe(1);
+    expect(outcome.waitingThere).toBeUndefined();
+  });
+
+  it('keeps the draughts on the captain’s books', () => {
+    const pilot = captain('Draughtsman');
+    yard.saveDesign(pilot.accountId, { name: 'Still Mine', placements: starter() }, 1);
+    flying(pilot);
+
+    yard.writeOff(pilot, BERTH.portId);
+    expect(yard.designsOf(pilot.accountId).map((d) => d.name)).toEqual(['Still Mine']);
+  });
+
+  it('empties the hold, dropping half of each lot as canisters', () => {
+    const pilot = captain('Laden');
+    flying(pilot);
+    market.adjustCargo(pilot.accountId, 'ice', 11);
+    market.adjustCargo(pilot.accountId, 'leaf', 4);
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+
+    // Rounding goes against the captain: eleven units drop five, not six.
+    expect(outcome.spilled).toEqual(
+      expect.arrayContaining([
+        { commodityId: 'ice', units: 5 },
+        { commodityId: 'leaf', units: 2 },
+      ]),
+    );
+    expect(outcome.lost).toBe(11 - 5 + (4 - 2));
+    expect(market.cargoUnits(pilot.accountId)).toBe(0);
+  });
+
+  it('and what drops is always less than what was aboard', () => {
+    // Spec section 19: the prize premium has to stay under the share of
+    // cargo lost when a hull goes, or a capture staged between friends
+    // would pay. That only holds if a wreck gives back less than it held.
+    const pilot = captain('Staged');
+    flying(pilot);
+    market.adjustCargo(pilot.accountId, 'ice', 40);
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+    const dropped = outcome.spilled.reduce((sum, lot) => sum + lot.units, 0);
+    expect(dropped).toBeLessThan(40);
+    expect(dropped + outcome.lost).toBe(40);
+  });
+
+  it('settles nothing on a draught nobody ever paid a premium on', () => {
+    const pilot = captain('Shuttle');
+    market.adjustCargo(pilot.accountId, 'ice', 6);
+
+    const outcome = yard.writeOff(pilot, BERTH.portId);
+
+    expect(outcome.hull).toBeUndefined();
+    expect(outcome.claim).toBe(0);
+    expect(outcome.marksAfter).toBe(pilot.marks);
+    // The cargo still goes: it was aboard whatever they were flying.
+    expect(market.cargoUnits(pilot.accountId)).toBe(0);
+    expect(outcome.lost + outcome.spilled.reduce((sum, lot) => sum + lot.units, 0)).toBe(6);
+  });
+
+  it('leaves nothing behind to claim twice', () => {
+    const pilot = captain('Twice');
+    flying(pilot);
+
+    const first = yard.writeOff(pilot, BERTH.portId);
+    const second = yard.writeOff(pilot, BERTH.portId);
+
+    expect(first.claim).toBeGreaterThan(0);
+    expect(second.claim).toBe(0);
+    expect(second.hull).toBeUndefined();
+  });
+});

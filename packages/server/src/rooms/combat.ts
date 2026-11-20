@@ -20,6 +20,7 @@ import {
   aimOf,
   slewTurret,
   wrapAngle,
+  absorbingModule,
   applyDamage,
   isAdrift,
   leadPoint,
@@ -362,15 +363,16 @@ export class CombatSystem {
     runtime: ShipRuntime,
     beam: { owner: string; damage: number; moduleIndex: number; x: number; y: number },
   ): void {
-    const outcome = applyDamage(beam.damage, ship.shield, runtime.hp[beam.moduleIndex] ?? 0);
+    const moduleIndex = absorbingModule(runtime.modules, runtime.hp, beam.moduleIndex);
+    const outcome = applyDamage(beam.damage, ship.shield, runtime.hp[moduleIndex] ?? 0);
 
     ship.shield = Math.max(0, ship.shield - outcome.toShield);
     runtime.lastHitAt = this.world.now();
 
     let disabled = false;
     if (outcome.toModule > 0) {
-      disabled = runtime.damageModule(beam.moduleIndex, outcome.toModule);
-      ship.moduleHp[beam.moduleIndex] = Math.max(0, Math.round(runtime.hp[beam.moduleIndex] ?? 0));
+      disabled = runtime.damageModule(moduleIndex, outcome.toModule);
+      ship.moduleHp[moduleIndex] = Math.max(0, Math.round(runtime.hp[moduleIndex] ?? 0));
       ship.adrift = isAdrift(runtime.modules, runtime.hp);
     }
 
@@ -577,10 +579,14 @@ export class CombatSystem {
     ship: ShipState,
     runtime: ShipRuntime,
     round: Round,
-    moduleIndex: number,
+    struck: number,
     worldX: number,
     worldY: number,
   ): void {
+    // Where it lands, unless what is there has already been shot to pieces:
+    // a wrecked module is not armour, and a round that found one carries
+    // through to whatever is nearest that still works.
+    const moduleIndex = absorbingModule(runtime.modules, runtime.hp, struck);
     const outcome = applyDamage(round.damage, ship.shield, runtime.hp[moduleIndex] ?? 0);
 
     ship.shield = Math.max(0, ship.shield - outcome.toShield);

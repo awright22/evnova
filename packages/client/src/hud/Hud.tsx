@@ -73,6 +73,14 @@ export interface HudReadout {
   prize: { name: string; tooFast: boolean } | undefined;
   /** Marks the Prize Court has against this captain, 0 when not posted. */
   composition: number;
+  /**
+   * The captain's own hull is a wreck.
+   *
+   * It stays on the screen for a few seconds while it comes apart, and the
+   * gauges go on reading what it was — but nothing it could be asked to do
+   * can be done any more, so the offers come down.
+   */
+  wreck: boolean;
 }
 
 export function Hud({
@@ -185,6 +193,12 @@ export function Hud({
  * spooling outranks an approach, and an approach outranks an offer to land.
  */
 function TravelBanner({ readout }: { readout: HudReadout }): React.JSX.Element | null {
+  // A wreck is offered nothing. The hull is still on the screen while it
+  // comes apart and a berth may well be in reach of where it stopped, but
+  // "L to come alongside" is an offer the server will refuse, and the claim
+  // screen is already saying where the captain is actually going.
+  if (readout.wreck) return null;
+
   if (readout.spoolingTo !== '') {
     return (
       <div className="hud__travel panel hud__travel--spooling" role="status">

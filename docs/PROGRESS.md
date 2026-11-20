@@ -234,7 +234,7 @@ Done when:
 - [x] Production chains: refined and manufactured output scales with input stock
 - [x] Asteroid mining with a mining module
 - [x] Beam weapons and point defense
-- [ ] Boarding disabled ships for cargo
+- [x] Boarding disabled ships for cargo
 - [ ] Limit orders, and short selling with margin and liquidation, without breaking any invariant
 - [ ] A test range where a draught can be flown and fought before buying it
 - [ ] The admin page
@@ -536,6 +536,32 @@ as requests, so a refusal settles with one of the protocol's typed reasons; a
 fallback handler absorbs unknown types; `onUncaughtException` keeps a handler
 bug from taking the process down with everyone on it; and the intent channel is
 rate limited per connection.
+
+### Addendum, 2026-11-20: death was ticked before it was finished
+
+"Death, insurance and respawn" was ticked on the strength of the wreck, the
+debris, the canisters and the designed panel. Spec section 8's paragraph was
+not actually built. A dead captain kept the hold they died with, still owned
+the hull that had just broken apart, was paid nothing, and woke in the sky
+where they fell — while the client's panel told them Underwriters' Hall had
+settled a figure it had worked out for itself and nobody had paid.
+
+All of it now holds, and `pnpm verify:loss` proves the paragraph clause by
+clause: the hull comes off the books, half what its fittings cost is settled
+through the ledger as a claim and debited from the Hall's pool, part of the
+hold drops as canisters and the rest is gone, and the captain wakes alongside
+the last berth they put in at — in a hull of their own if one is waiting
+there, and in a starter draught if nothing else is theirs.
+
+Writing that check found something worse. A round that struck a module
+already at zero dealt no damage at all, because the damage was capped at
+that module's remaining hit points. A hull could therefore be made immune to
+everything arriving from one bearing simply by having its outermost fitting
+shot off first — and no amount of fire would then bring its structure below
+the threshold that writes it off. The harness sat at a fixed bearing and
+fired for seventy seconds at a hull whose structure had stopped falling,
+which is how it surfaced. A hit that finds a wreck now carries through to
+the nearest module still standing.
 
 ---
 

@@ -65,6 +65,14 @@ export const pilots = sqliteTable(
 
     /** Set while landed, which takes the hull out of the simulation. */
     landedPortId: text('landed_port_id'),
+    /**
+     * The last berth this captain was alongside, which survives launching.
+     *
+     * Spec section 8: a captain whose hull is written off wakes at the last
+     * berth they landed at. `landed_port_id` cannot answer that, because it
+     * is cleared on launch and a hull is only ever written off in flight.
+     */
+    lastPortId: text('last_port_id').notNull().default(''),
 
     /** The draught being flown. */
     blueprintId: text('blueprint_id').notNull(),
@@ -427,7 +435,7 @@ export const meta = sqliteTable('meta', {
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /**
  * Migrations, applied in order.
@@ -662,6 +670,17 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
       );
       CREATE INDEX IF NOT EXISTS trades_to ON trades (to_id, state);
       CREATE INDEX IF NOT EXISTS trades_from ON trades (from_id, state);
+    `,
+  },
+  {
+    version: 12,
+    up: `
+      ALTER TABLE pilots ADD COLUMN last_port_id TEXT NOT NULL DEFAULT '';
+
+      -- Anybody alongside right now has their berth recorded; everybody else
+      -- gets it the next time they land, which is before they can be written
+      -- off there anyway.
+      UPDATE pilots SET last_port_id = landed_port_id WHERE landed_port_id IS NOT NULL;
     `,
   },
 ];

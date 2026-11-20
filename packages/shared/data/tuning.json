@@ -113,9 +113,10 @@
     "RPO": "Reprisal Ordnance"
   },
   "yard": {
-    "$comment": "What a yard charges. The premium is insurance on the hull, added to what the modules cost; the refund is what a captain gets back for the marks value of modules stripped in a refit, which is deliberately half, because shipbuilding is the economy's main sink and a refit that paid for itself would not be one. Materials stripped come back in full: the yard has the parts in its hands.",
+    "$comment": "What a yard charges. The premium is insurance on the hull, added to what the modules cost; the refund is what a captain gets back for the marks value of modules stripped in a refit, which is deliberately half, because shipbuilding is the economy's main sink and a refit that paid for itself would not be one. Materials stripped come back in full: the yard has the parts in its hands. The claim is what insurance settles when a hull is written off, as a share of what its modules cost: half, so losing a hull costs a captain the better part of it, and the premium paid on every build is a fraction of that.",
     "insurancePremium": 0.12,
     "refundFraction": 0.5,
+    "claimFraction": 0.5,
     "liveries": [
       [
         "#8D98A9",

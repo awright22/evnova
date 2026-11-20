@@ -2579,6 +2579,9 @@ export class SystemRoom extends Room<{
 
     if (pilot && port) {
       pilot.landedPortId = portId;
+      // Kept after launching, because this is where a captain wakes if the
+      // hull they take out of here does not come back.
+      pilot.lastPortId = portId;
       pilot.x = port.x;
       pilot.y = port.y;
       pilot.angle = ship.angle;
@@ -3366,10 +3369,59 @@ export class SystemRoom extends Room<{
       blueprint: ship.blueprint,
     });
 
+    // A captain's own loss is settled out of the tick: the hull comes off
+    // the books, what they were carrying is cleared, insurance pays, and
+    // part of the cargo drops where the hull came apart. That is a
+    // transaction and several queries, and a wreck is not worth a hole in
+    // the flight loop. The wreck lingers for six seconds, so the ship state
+    // the canisters come off is still here when this runs.
+    const captain = this.pilotsBySession.get(id);
+    if (captain && !this.pilots.has(id)) {
+      this.afterStep(() => this.settleLoss(id, ship, captain.accountId));
+    }
+
     // A captain gets a fresh hull; a raider simply stops existing.
     if (!this.pilots.has(id) && this.clients.get(id)) {
       this.clock.setTimeout(() => this.respawn(id), WRECK_LINGER_MS);
     }
+  }
+
+  /**
+   * What a written-off hull costs its captain, and what insurance returns.
+   *
+   * Spec section 8: the hull and its cargo are lost, and marks, draughts,
+   * shares and other parked hulls are kept. Part of the cargo drops as
+   * canisters anybody can scoop — including the captain who shot it down,
+   * which is the whole of why a wreck is worth flying to.
+   */
+  private settleLoss(sessionId: string, ship: ShipState, accountId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId) ?? world().pilots.load(accountId);
+    if (!pilot) return;
+
+    const outcome = world().yard.writeOff(pilot, pilot.lastPortId);
+    this.wake(pilot);
+    world().pilots.touch(pilot.accountId);
+
+    if (outcome.spilled.length > 0) {
+      this.combat.spill(
+        ship,
+        outcome.spilled.map((lot) => ({ commodity: lot.commodityId, units: lot.units })),
+        this.clock.elapsedTime,
+      );
+    }
+
+    // The figure comes from the Hall rather than from the client's own
+    // reckoning of what the draught cost: a claim a captain works out for
+    // themselves is a claim that disagrees with their balance.
+    this.clients.get(sessionId)?.send('claim', {
+      hull: outcome.hull ?? '',
+      claim: outcome.claim,
+      marks: outcome.marksAfter,
+      lost: outcome.lost,
+      spilled: outcome.spilled.reduce((sum, lot) => sum + lot.units, 0),
+      stillOwned: outcome.stillOwned,
+    });
+    this.sendPurseSoon(sessionId);
   }
 
   /**
@@ -3383,11 +3435,135 @@ export class SystemRoom extends Room<{
     const client = this.clients.get(id);
     if (!client) return;
 
+    const pilot = this.pilotsBySession.get(id);
     const previous = this.state.ships.get(id);
     const callsign = previous?.callsign ?? `Captain-${id.slice(0, 4)}`;
     this.removeHull(id);
-    this.spawnHull(id, STARTER_BLUEPRINT, callsign, false);
-    client.send('respawned', { id });
+
+    // No captain behind the session, or nowhere to wake: put something in the
+    // sky rather than leave a client staring at a wreck.
+    const berth = pilot ? this.wakeBerth(pilot).berth : '';
+    if (!pilot || berth === '') {
+      this.spawnHull(id, STARTER_BLUEPRINT, callsign, false);
+      client.send('respawned', { id, port: '', system: this.state.systemId });
+      return;
+    }
+
+    // `settleLoss` has already moved them: the hull is off the books, the
+    // claim is settled and their row says which berth and which system. All
+    // that is left is to stand them on it.
+    pilot.landedPortId = berth;
+    world().pilots.touch(pilot.accountId);
+    client.send('respawned', { id, port: berth, system: pilot.systemId });
+
+    if (pilot.systemId !== this.state.systemId) {
+      // Awake in another system: the client joins that room, which opens on
+      // the berth because the captain's row says they are alongside it.
+      this.pilotsBySession.delete(id);
+      this.sessionsByAccount.delete(pilot.accountId);
+      client.send('jump-complete', { system: pilot.systemId, propellantSpent: 0 });
+      return;
+    }
+
+    // Alongside, here. The same pushes a landing sends, so the berth opens
+    // on real prices and a real hold rather than on a screen that has to ask.
+    const port = this.system?.ports.find((candidate) => candidate.id === berth);
+    client.send('landed', { port: berth });
+    this.afterStep(() => {
+      this.sendPurse(id);
+      if (port) this.sendStaple(id, port);
+      this.sendYard(id);
+      this.sendBourse(id);
+      this.sendStanding(id);
+    });
+  }
+
+  /**
+   * Move a captain to where they wake, in whatever they wake in.
+   *
+   * Written the moment the hull is written off rather than when the wreck
+   * finishes burning, so a captain who closes the tab in between is still
+   * found at the right berth in the right hull when they come back.
+   *
+   * Not `landedPortId`: they are not standing on the berth until the wreck
+   * has gone and `respawn` says so. A captain who reconnects in the interval
+   * finds themselves in the sky beside it, which is true.
+   */
+  private wake(pilot: Pilot): void {
+    const { systems, tuning } = content();
+    const { berth, system } = this.wakeBerth(pilot);
+    if (berth === '') return;
+
+    pilot.systemId = system;
+    pilot.landedPortId = undefined;
+    pilot.shield = 0;
+    pilot.moduleHp = [];
+    // The hull it belonged to is gone, and so is what was in its magazine.
+    pilot.ammo = 0;
+
+    // One of their own hulls is waiting where they woke, so they are put
+    // into it: a captain with a hull to hand is not given another. A captain
+    // whose hulls are all elsewhere gets the starter draught, because a
+    // captain who cannot leave a berth is worse than a captain given a
+    // shuttle.
+    const waiting = world().yard.shipsAt(pilot.accountId, berth);
+    const takeOut = waiting[0];
+    let given = false;
+    if (takeOut) {
+      try {
+        world().yard.switchTo(pilot.accountId, takeOut.id, berth);
+      } catch {
+        given = true;
+      }
+    } else {
+      given = true;
+    }
+
+    if (given) {
+      pilot.blueprintId = STARTER_BLUEPRINT;
+      // A hull somebody is given comes with fuel in it. A captain with no
+      // marks and an empty tank is a captain who cannot leave the berth,
+      // and the starter draught is charity either way.
+      const draught = content().blueprints.get(STARTER_BLUEPRINT);
+      if (draught) {
+        const { modules, tuning } = content();
+        pilot.propellant = Math.floor(
+          deriveStats(placeAll(draught.placements, modules), tuning).propellantCapacity,
+        );
+      }
+    }
+
+    // Beside the berth rather than inside it, so a captain who reconnects
+    // before the wreck has gone is somewhere a hull can be.
+    const port = systems.get(system)?.ports.find((candidate) => candidate.id === berth);
+    const standoff = (port?.radius ?? 0) + tuning.world.spawnStandoff;
+    pilot.x = (port?.x ?? 0) + standoff;
+    pilot.y = port?.y ?? 0;
+    pilot.angle = Math.PI;
+  }
+
+  /**
+   * Where a captain wakes after a loss, and in which system.
+   *
+   * The berth is read from the captain's row rather than from this room, so
+   * a hull written off three systems from home wakes its captain at home.
+   */
+  private wakeBerth(pilot: Pilot): { berth: string; system: string } {
+    const { systems } = content();
+
+    for (const system of systems.values()) {
+      const found = system.ports.find((port) => port.id === pilot.lastPortId);
+      if (found) return { berth: found.id, system: system.id };
+    }
+
+    const here = systems.get(pilot.systemId) ?? this.system;
+    const first = here?.ports[0];
+    if (first && here) return { berth: first.id, system: here.id };
+
+    // A system with no berths at all: there is nowhere to wake, so they wake
+    // in the sky where they are. `respawn` handles an empty berth by leaving
+    // the hull in the simulation.
+    return { berth: '', system: pilot.systemId };
   }
 
   /**

@@ -626,3 +626,49 @@ was read straight off the blueprint table, which knows nothing about hulls
 built in the Yard: a captain in one they built had the capacity of whatever
 they flew last, or none at all. Every reader of a captain's hull now goes
 through the same resolver the simulation does.
+
+**2026-11-20 — A hull that cannot run is read as adrift wherever it is
+found.** It was set only where the damage landed, so a captain who logged out
+with their engines out came back unboardable until somebody shot them again.
+A hull also arrives adrift on reconnecting, which is exactly the state
+boarding is for.
+
+**2026-11-20 — A built hull's damage lives on the hull's row, not the
+captain's.** `switch-ship` clears the captain's damage array on purpose, since
+it describes the hull they just left. Nothing read the hull's own row at
+spawn, so changing hulls and coming back repaired the first one for nothing.
+Spawning now takes a built hull's damage from its row and falls back to the
+captain's array only for a catalogue draught, which has no row.
+
+**2026-11-20 — Arrival protection covers boarding as well as gunfire.** The
+protection exists so a jump does not drop a captain into somebody's guns;
+taking their cargo off them while it holds is the same arrival by another
+door, and a hull that arrives adrift would otherwise have no moment at all.
+
+**2026-11-20 — A hit that finds a wrecked module carries through to the
+nearest one still standing.** Damage was capped at the struck module's
+remaining hit points, so a round landing on a module already at zero did
+nothing: a hull could be made immune to everything from one bearing by having
+its outermost fitting shot off first, and no amount of fire would then bring
+its structure below the threshold that writes it off. Nearest by cell, so
+placement still decides what shields what, and ties break by index so both
+sides agree. Found by a harness that fired for seventy seconds at a hull
+whose structure stopped falling.
+
+**2026-11-20 — Where a captain wakes is a column of its own.**
+`landed_port_id` is cleared on launch and a hull is only ever written off in
+flight, so it cannot answer "the last berth they landed at". `last_port_id`
+is written on every landing and kept.
+
+**2026-11-20 — A free starter draught only where there is nothing else to
+fly.** Spec section 8 gives one to a captain who owns nothing else. A captain
+with a hull parked at the berth they wake at is put into that instead. A
+captain whose hulls are all somewhere else still gets the draught: the
+alternative is a captain who cannot leave a berth, which is worse than a
+captain given a shuttle.
+
+**2026-11-20 — A loss is settled out of the tick.** The hull coming off the
+books, the hold being cleared, the claim and the canisters are a transaction
+and a dozen queries. They run on the same deferral a landing uses, against
+the wreck that lingers for six seconds afterwards, so nothing in the flight
+loop waits for the paperwork.

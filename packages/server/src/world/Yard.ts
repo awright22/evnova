@@ -85,6 +85,31 @@ export interface OwnedShip {
   readonly moduleHp: number[];
 }
 
+/** What a write-off cost a captain, and what insurance settled. */
+export interface WriteOffOutcome {
+  /** The hull that was lost, or undefined for a catalogue draught. */
+  readonly hull: string | undefined;
+  /** Marks insurance settled, which is half what the hull's fittings cost. */
+  readonly claim: number;
+  /** The captain's balance after the claim. */
+  readonly marksAfter: number;
+  /** Cargo that spills as canisters: part of what was aboard. */
+  readonly spilled: readonly { readonly commodityId: string; readonly units: number }[];
+  /** Units lost outright, which is everything aboard that did not spill. */
+  readonly lost: number;
+  /** Hulls the captain still owns, parked wherever they were left. */
+  readonly stillOwned: number;
+  /**
+   * One of their own hulls, parked at the berth they wake at.
+   *
+   * Spec section 8 gives a free starter draught only to a captain who owns
+   * nothing else. A captain who has a hull waiting where they wake is put
+   * into that instead; one whose hulls are all elsewhere still gets the
+   * draught, because the alternative is a captain who cannot leave a berth.
+   */
+  readonly waitingThere: string | undefined;
+}
+
 /** What a build actually cost. */
 export interface BuildReceipt {
   readonly shipId: string;
@@ -338,6 +363,92 @@ export class Yard {
       .set({ moduleHp: JSON.stringify(moduleHp.map((hp) => Math.max(0, Math.round(hp)))) })
       .where(and(eq(schema.ships.id, shipId), eq(schema.ships.accountId, accountId)))
       .run();
+  }
+
+  /**
+   * A hull is written off: settle the claim and take it off the books.
+   *
+   * Spec section 8: the hull and its cargo are lost; marks, draughts, shares
+   * and other parked hulls are kept; insurance pays back half what the hull's
+   * fittings cost. Part of the cargo spills as canisters anyone can scoop and
+   * the rest is simply gone, which is what makes a wreck worth flying to and
+   * a loss worth avoiding.
+   *
+   * One transaction. A claim settled against a hull still on the books is a
+   * hull a captain could sell afterwards, and cargo cleared without the claim
+   * paid is a captain robbed by a crash.
+   *
+   * A captain flying a catalogue draught — the starter, or whatever they were
+   * given after the last loss — has no hull row and no claim: there was never
+   * a premium on it.
+   */
+  writeOff(pilot: Pilot, wakeAt: string): WriteOffOutcome {
+    const { modules, tuning, commodities } = content();
+
+    return this.store.transaction(() => {
+      const hull = this.flying(pilot.accountId);
+
+      // Half of what the fittings cost, by the same reckoning the Yard
+      // charged for them. Not the premium: that was the price of the cover,
+      // not part of the hull.
+      const worth = hull ? buildCost(hull.placements, modules, tuning).modules : 0;
+      const claim = Math.floor(worth * tuning.yard.claimFraction);
+
+      if (hull) {
+        this.store.db.delete(schema.ships).where(eq(schema.ships.id, hull.id)).run();
+      }
+
+      // What was aboard: part of it drops where the hull came apart, and the
+      // rest burns with it. Half, which is the share the letters-of-marque
+      // rule in spec section 19 is tuned against.
+      const spilled: { commodityId: string; units: number }[] = [];
+      let lost = 0;
+      for (const [commodityId, units] of this.market.cargoOf(pilot.accountId)) {
+        if (units <= 0) continue;
+        if (commodities.has(commodityId)) {
+          const drops = Math.floor(units / 2);
+          if (drops > 0) spilled.push({ commodityId, units: drops });
+          lost += units - drops;
+        } else {
+          lost += units;
+        }
+        this.market.adjustCargo(pilot.accountId, commodityId, -units);
+      }
+
+      let marksAfter = pilot.marks;
+      if (claim > 0) {
+        marksAfter = this.ledger.post(
+          {
+            accountId: pilot.accountId,
+            delta: claim,
+            category: 'insurance-claim',
+            reason: hull ? `claim on ${hull.name}` : 'claim',
+          },
+          pilot,
+        );
+
+        // The company that wrote the cover settles it. The premium on every
+        // build goes into the same pool, so underwriting is a business that
+        // can have a bad year.
+        const insurer = this.exchange?.insurer;
+        if (insurer !== undefined) {
+          this.exchange?.credit({ ticker: insurer, marks: -claim, kind: 'insurance' });
+        }
+      }
+
+      const left = this.shipsOf(pilot.accountId);
+      const waiting = wakeAt === '' ? undefined : left.find((ship) => ship.portId === wakeAt);
+
+      return {
+        hull: hull?.name,
+        claim,
+        marksAfter,
+        spilled,
+        lost,
+        stillOwned: left.length,
+        waitingThere: waiting?.id,
+      };
+    });
   }
 
   // --- Licences -----------------------------------------------------------

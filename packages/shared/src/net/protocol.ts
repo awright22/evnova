@@ -546,6 +546,7 @@ export const SERVER_MESSAGES = [
   'purse',
   'impact',
   'written-off',
+  'claim',
   'respawned',
   'posted',
   'chat',
@@ -572,6 +573,28 @@ export const SERVER_MESSAGES = [
 
 /** One of the pushes above, for code that routes them. */
 export type ServerMessage = (typeof SERVER_MESSAGES)[number];
+
+/**
+ * What a write-off settled, sent only to the captain it happened to.
+ *
+ * The figures come from the Hall rather than from the client's reckoning of
+ * what the draught cost: a claim a captain works out for themselves is a
+ * claim that disagrees with their balance.
+ */
+export interface ClaimState {
+  /** The hull that was lost, or empty for a draught nobody paid for. */
+  readonly hull: string;
+  /** Marks insurance settled. */
+  readonly claim: number;
+  /** The balance after it. */
+  readonly marks: number;
+  /** Units of cargo gone for good. */
+  readonly lost: number;
+  /** Units that dropped as canisters, which anybody can scoop. */
+  readonly spilled: number;
+  /** Hulls still on the captain's books, parked where they were left. */
+  readonly stillOwned: number;
+}
 
 /** A line as it reaches the other captains. */
 export interface ChatLine {

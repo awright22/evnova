@@ -11,6 +11,7 @@
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
+  LANDING_SPEED,
   PROJECTILE_KIND,
   SERVER_MESSAGES,
   SystemState,
@@ -31,7 +32,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { fly, flyTo, profileOf } from './control.ts';
+import { brakeTo, fly, flyTo, profileOf } from './control.ts';
 import { REPO_ROOT, sleep } from './harness.ts';
 
 const PORT = 2595;
@@ -343,6 +344,10 @@ async function main(): Promise<void> {
 
     // Back to the berth, which is where the hold is counted.
     await flyTo(room, flying, profile, berth.x, berth.y, berth.radius + 300, 240_000);
+    // In reach is not the same as slow enough: `flyTo` stops steering once
+    // the mark is inside its tolerance, and a berth refuses a hull that
+    // arrives at a hundred a second.
+    await brakeTo(room, flying, LANDING_SPEED / 2, 30_000);
 
     let back = '';
     try {

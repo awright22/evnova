@@ -27,6 +27,13 @@ export interface Pilot {
   angle: number;
   /** Set while landed, which takes the hull out of the simulation. */
   landedPortId: string | undefined;
+  /**
+   * The last berth this captain was alongside, kept after launching.
+   *
+   * Where they wake if their hull is written off. Empty for a captain who
+   * has never landed anywhere, who wakes where they started.
+   */
+  lastPortId: string;
   blueprintId: string;
   moduleHp: number[];
   shield: number;
@@ -72,6 +79,7 @@ export class PilotStore {
       y: row.pilot.y,
       angle: row.pilot.angleMrad / 1000,
       landedPortId: row.pilot.landedPortId ?? undefined,
+      lastPortId: row.pilot.lastPortId,
       blueprintId: row.pilot.blueprintId,
       moduleHp: parseHp(row.pilot.moduleHp),
       shield: row.pilot.shield,
@@ -153,6 +161,7 @@ export class PilotStore {
             y: Math.round(pilot.y),
             angleMrad: Math.round(pilot.angle * 1000),
             landedPortId: pilot.landedPortId ?? null,
+            lastPortId: pilot.lastPortId,
             blueprintId: pilot.blueprintId,
             moduleHp: JSON.stringify(pilot.moduleHp.map((hp) => Math.max(0, Math.round(hp)))),
             shield: Math.max(0, Math.round(pilot.shield)),

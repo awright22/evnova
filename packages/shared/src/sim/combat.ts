@@ -290,6 +290,52 @@ export function applyDamage(
   };
 }
 
+/**
+ * Which module a hit actually lands on.
+ *
+ * A round strikes where the geometry says it does, and if what is there is
+ * still intact that is the end of it. If what is there is already wrecked,
+ * the hit carries through to the nearest module that is not: a disabled
+ * module is disabled, not armour plate, and a hull whose outermost fitting
+ * had already been shot off was otherwise immune to everything that came
+ * from the same bearing afterwards — park broadside to somebody with a dead
+ * plate facing them and nothing could ever touch you again, which is both an
+ * exploit and a flat contradiction of a hull being written off when its
+ * structure falls far enough.
+ *
+ * Nearest by cell, so placement still decides what shields what: a plate on
+ * the outside soaks first and keeps soaking as the hole is widened, and the
+ * reactor behind it is reached only once there is nothing nearer left.
+ * Deterministic in ties by index, because this runs on both sides.
+ */
+export function absorbingModule(
+  modules: readonly PlacedModule[],
+  hp: readonly number[],
+  struck: number,
+): number {
+  if ((hp[struck] ?? 0) > 0) return struck;
+
+  const at = modules[struck];
+  if (!at) return struck;
+
+  let best = -1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  modules.forEach((module, index) => {
+    if ((hp[index] ?? 0) <= 0) return;
+    const dx = module.centreX - at.centreX;
+    const dy = module.centreY - at.centreY;
+    const distance = dx * dx + dy * dy;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
+    }
+  });
+
+  // Nothing left intact: the hit lands where it landed, and the hull is
+  // already past whatever threshold writes it off.
+  return best === -1 ? struck : best;
+}
+
 /** True when the hull is written off: bridge gone, or structure past the threshold. */
 /**
  * Whether a hull can still get itself out of trouble.

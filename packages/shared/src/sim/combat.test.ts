@@ -4,8 +4,10 @@ import { content } from '../content/load.ts';
 import { Rng } from '../math/rng.ts';
 import { CELL_METRES, placeAll } from '../ships/geometry.ts';
 import type { ModuleDef } from '../content/schema.ts';
+import type { PlacedModule } from '../ships/geometry.ts';
 import {
   PROJECTILE_KIND,
+  absorbingModule,
   aimOf,
   applyDamage,
   hullShape,
@@ -525,5 +527,70 @@ describe('a hull that cannot run', () => {
     const dead = hp([1, 2]);
     expect(isAdrift(engined, dead)).toBe(true);
     expect(isWrittenOff(engined, dead, tuning)).toBe(false);
+  });
+});
+
+describe('a hit that finds a module already wrecked', () => {
+  /** A row of three modules, so "nearest" means something. */
+  function row(): PlacedModule[] {
+    const { modules } = content();
+    const plate = modules.get('slp-armour-1');
+    if (!plate) throw new Error('the catalogue has no plate to shoot at');
+    return placeAll(
+      [
+        { moduleId: plate.id, x: 0, y: 0, rotation: 0 },
+        { moduleId: plate.id, x: 4, y: 0, rotation: 0 },
+        { moduleId: plate.id, x: 8, y: 0, rotation: 0 },
+      ],
+      modules,
+    );
+  }
+
+  it('lands where it struck while that module is intact', () => {
+    const fitted = row();
+    const hp = fitted.map((module) => module.def.hitPoints);
+    expect(absorbingModule(fitted, hp, 1)).toBe(1);
+  });
+
+  it('carries through to the nearest module still standing', () => {
+    const fitted = row();
+    const hp = fitted.map((module) => module.def.hitPoints);
+    hp[0] = 0;
+    // Index 1 is four cells away; index 2 is eight.
+    expect(absorbingModule(fitted, hp, 0)).toBe(1);
+  });
+
+  it('and reaches past a second wreck to the next one in', () => {
+    const fitted = row();
+    const hp = fitted.map((module) => module.def.hitPoints);
+    hp[0] = 0;
+    hp[1] = 0;
+    expect(absorbingModule(fitted, hp, 0)).toBe(2);
+  });
+
+  it('gives up only when there is nothing intact left to hit', () => {
+    const fitted = row();
+    const hp = fitted.map(() => 0);
+    // Which is a hull already past whatever threshold writes it off.
+    expect(absorbingModule(fitted, hp, 0)).toBe(0);
+  });
+
+  it('is the same answer on both sides, ties broken by index', () => {
+    const { modules } = content();
+    const plate = modules.get('slp-armour-1');
+    if (!plate) throw new Error('the catalogue has no plate to shoot at');
+    const fitted = placeAll(
+      [
+        { moduleId: plate.id, x: 4, y: 0, rotation: 0 },
+        { moduleId: plate.id, x: 0, y: 0, rotation: 0 },
+        { moduleId: plate.id, x: 8, y: 0, rotation: 0 },
+      ],
+      modules,
+    );
+    const hp = fitted.map((module) => module.def.hitPoints);
+    hp[0] = 0;
+    // Equidistant either side: the lower index, every time, on every client.
+    expect(absorbingModule(fitted, hp, 0)).toBe(1);
+    expect(absorbingModule(fitted, hp, 0)).toBe(1);
   });
 });

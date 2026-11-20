@@ -79,6 +79,16 @@ export interface SeedSpec {
    */
   readonly crippled?: boolean;
   /**
+   * The berth this captain last landed at, which is where they wake.
+   *
+   * Written straight to the row. Landing is proved by its own harnesses; a
+   * check about what happens after a loss should not have to fly across a
+   * system first to establish where home is.
+   */
+  readonly lastBerth?: string;
+  /** Hulls already on this captain's books, parked at a berth. */
+  readonly parked?: readonly { readonly draught: string; readonly at: string }[];
+  /**
    * Callsigns to open a convoy with, this captain leading.
    *
    * They must be seeded too, and earlier in the list: a convoy is a row
@@ -90,13 +100,22 @@ export interface SeedSpec {
 }
 
 /** Where a berth is, and which system it is in. */
-function berth(portId: string): { systemId: string; x: number; y: number } {
+function berth(portId: string): { id: string; systemId: string; x: number; y: number } {
   for (const system of content().systems.values()) {
     const port = system.ports.find((candidate) => candidate.id === portId);
-    if (port) return { systemId: system.id, x: port.x, y: port.y };
+    if (port) return { id: port.id, systemId: system.id, x: port.x, y: port.y };
   }
   throw new Error(`no berth called "${portId}"`);
 }
+
+/**
+ * How far apart two captains seeded at one berth stand.
+ *
+ * Close enough that a party can be put across from one to the other without
+ * flying anywhere — boarding reaches a hundred and fifty units — and far
+ * enough that they are two hulls rather than one point.
+ */
+const SPACING = 70;
 
 export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<string, string> {
   const store = openStore(databaseUrl);
@@ -111,6 +130,8 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
   const yard = new Yard(store, ledger, market);
 
   const tokens: Record<string, string> = {};
+  /** How many captains have already been set down at each berth. */
+  const atBerth = new Map<string, number>();
   const now = Date.now();
 
   for (const spec of specs) {
@@ -144,9 +165,15 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
       if (!pilot) throw new Error(`${spec.callsign} has no captain`);
       pilot.systemId = where.systemId;
       // A little off the berth, so the hull is alongside rather than inside
-      // it and the landing prompt reads the way it does in play.
-      pilot.x = where.x + 90;
-      pilot.y = where.y + 60;
+      // it and the landing prompt reads the way it does in play — and spaced
+      // around it, because two captains seeded at one berth used to be at
+      // exactly the same point, where a gun has no line to draw and a round
+      // spawns inside what it was fired at.
+      const nth = atBerth.get(where.id) ?? 0;
+      atBerth.set(where.id, nth + 1);
+      const around = nth * ((Math.PI * 2) / 5);
+      pilot.x = where.x + 90 + Math.cos(around) * SPACING * nth;
+      pilot.y = where.y + 60 + Math.sin(around) * SPACING * nth;
       pilots.touch(accountId);
       pilots.flush();
     }
@@ -201,6 +228,36 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
             placeAll(draught.placements, content().modules).map((module) =>
               spec.crippled === true && module.def.type === 'engine' ? 0 : module.def.hitPoints,
             ),
+          ),
+          builtAt: now,
+        })
+        .run();
+    }
+
+    if (spec.lastBerth !== undefined) {
+      const where = berth(spec.lastBerth);
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      pilot.lastPortId = where.id;
+      pilots.touch(accountId);
+      pilots.flush();
+    }
+
+    for (const hull of spec.parked ?? []) {
+      const draught = content().blueprints.get(hull.draught);
+      if (!draught) throw new Error(`no draught called "${hull.draught}"`);
+      const where = berth(hull.at);
+      store.db
+        .insert(schema.ships)
+        .values({
+          id: randomUUID(),
+          accountId,
+          name: draught.name,
+          placements: JSON.stringify(draught.placements),
+          portId: where.id,
+          systemId: where.systemId,
+          moduleHp: JSON.stringify(
+            placeAll(draught.placements, content().modules).map((module) => module.def.hitPoints),
           ),
           builtAt: now,
         })

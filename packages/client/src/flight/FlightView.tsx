@@ -19,6 +19,7 @@ import {
   leadPoint,
   placeAll,
   speedOf,
+  type ClaimState,
   type SystemDef,
 } from '@marque/shared';
 
@@ -109,6 +110,7 @@ export function FlightView({
     propellantCapacity: 0,
     marks: 0,
     composition: 0,
+    wreck: false,
     spoolingTo: '',
     course: '',
     spoolProgress: 0,
@@ -344,6 +346,12 @@ export function FlightView({
 
       session.on('respawned', () => setWrittenOff(undefined));
 
+      // What the Hall actually settled, and what the hold actually cost.
+      session.on('claim', (payload) => {
+        const settled = payload as ClaimState;
+        setWrittenOff((was) => (was ? { ...was, settled } : was));
+      });
+
       session.on('written-off', (payload) => {
         const event = payload as {
           x: number;
@@ -355,21 +363,11 @@ export function FlightView({
         };
 
         if (event.id === session!.sessionId) {
-          // Death has a designed state, not a blank screen. Underwriters' Hall
-          // settles half the hull's cost, which is computable from the draught.
-          const bp = blueprints.get(event.blueprint);
-          const cost = bp
-            ? bp.placements.reduce(
-                (sum, placement) => sum + (modules.get(placement.moduleId)?.cost ?? 0),
-                0,
-              )
-            : 0;
+          // Death has a designed state, not a blank screen. The figures come
+          // from the Hall in a `claim` of its own a moment later; what is
+          // known straight away is where it happened and who did it.
           const killer = session!.shipViews().find((v) => v.id === event.killedBy);
-          setWrittenOff({
-            system: system.name,
-            claim: Math.round(cost / 2),
-            by: killer?.callsign ?? '',
-          });
+          setWrittenOff({ system: system.name, by: killer?.callsign ?? '' });
         }
         const art = blueprints.get(event.blueprint);
         const size = art ? art.placements.length / 12 : 1;
@@ -645,6 +643,9 @@ export function FlightView({
           readout.propellantCapacity = liveRef.current.purse.propellantCapacity;
           readout.marks = liveRef.current.purse.marks;
           readout.composition = liveRef.current.purse.composition;
+          // Still on the screen, coming apart. Everything the interface would
+          // offer to do with it is refused from here on.
+          readout.wreck = self.writtenOff;
 
           // The hull's own synchronised state. The spool, the approach and the
           // shield all come from here rather than from the predicted mirror:
@@ -795,29 +796,65 @@ function remoteThrottle(vx: number, vy: number): number {
 
 interface WrittenOff {
   readonly system: string;
-  readonly claim: number;
   readonly by: string;
+  /** What the Hall settled, once it has said. */
+  readonly settled?: ClaimState;
 }
 
 /**
  * Written off.
  *
  * Marks, draughts, shares and parked hulls survive it; this hull and its cargo
- * do not. The Hall settles half the hull's cost and the captain wakes at the
- * last port they landed at, which for now means a fresh starter in place.
+ * do not. The Hall settles half what the hull's fittings cost, part of the
+ * cargo drops where the hull came apart, and the captain wakes at the last
+ * berth they landed at.
  */
 function WrittenOffPanel({ event }: { event: WrittenOff }): React.JSX.Element {
+  const settled = event.settled;
+
   return (
     <div className="flight__written-off" role="status">
       <div className="flight__written-off-panel panel">
         <h2>Written off at {event.system}</h2>
-        <p>
-          Underwriters&apos; Hall has settled your claim for{' '}
-          <span className="data">{event.claim.toLocaleString()}</span> marks and wishes you a
-          more careful year.
-          {event.by && <> The loss is recorded against {event.by}.</>}
+        {settled ? (
+          <p>
+            {settled.claim > 0 ? (
+              <>
+                Underwriters&apos; Hall has settled your claim for{' '}
+                <span className="data">{settled.claim.toLocaleString()}</span> marks and wishes
+                you a more careful year.
+              </>
+            ) : (
+              <>
+                There was no cover on {settled.hull === '' ? 'that hull' : settled.hull}, and so
+                there is nothing to settle.
+              </>
+            )}
+            {event.by && <> The loss is recorded against {event.by}.</>}
+          </p>
+        ) : (
+          <p>
+            Underwriters&apos; Hall is reading the file.
+            {event.by && <> The loss is recorded against {event.by}.</>}
+          </p>
+        )}
+        {settled && (settled.lost > 0 || settled.spilled > 0) && (
+          <p className="micro">
+            <span className="data">{settled.lost.toLocaleString()}</span> units went with her
+            {settled.spilled > 0 && (
+              <>
+                ; <span className="data">{settled.spilled.toLocaleString()}</span> are adrift in
+                canisters for whoever gets there first
+              </>
+            )}
+            .
+          </p>
+        )}
+        <p className="micro">
+          {settled && settled.stillOwned > 0
+            ? 'You are being set down at the last berth you put in at.'
+            : 'A starter hull is being brought up at the last berth you put in at.'}
         </p>
-        <p className="micro">A replacement hull is being brought up.</p>
       </div>
     </div>
   );

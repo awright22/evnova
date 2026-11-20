@@ -409,6 +409,44 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'written-off',
+    description:
+      'The claim screen: what the Hall settled, what went with the hull, and where '
+      + 'the captain is being set down. The figures are the ones the server paid, not '
+      + "the client's own reckoning of what the draught was worth.",
+    path: '/?callsign=Act%20of%20God&harness=1',
+    settle: '.hud',
+    settleMs: 1500,
+    bots: 2,
+    // A fragile gunboat with a hold worth dropping, in the Home Roads, with
+    // a berth at the far side of the system behind it — so the panel's last
+    // line is about somewhere the captain is not.
+    //
+    // Shot down by a patrol rather than by the Unlettered: raiders stand off
+    // a berth and come in on their own schedule, and a hull waiting for them
+    // off Tret waited two and a half minutes and was still waiting. Firing on
+    // lawful traffic where law reaches gets the Prize Court's attention
+    // inside a few seconds, and a patrol does the rest.
+    seed: {
+      callsign: 'Act of God',
+      at: 'the-bourse',
+      flying: 'force-majeure',
+      lastBerth: 'underwriters-hall',
+      cargo: { ice: 14 },
+    },
+    act: async (page) => {
+      await page.waitForSelector('.hud', { timeout: 20_000 });
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(300);
+      await engageNearest(page, 90);
+      await page.waitForSelector('.flight__written-off', { timeout: 90_000 });
+      // The panel goes up on the write-off and the Hall's figures arrive on
+      // the next turn of the loop, so the capture waits for the file to be
+      // read rather than photographing the sentence that says it is being.
+      await page.waitForTimeout(900);
+    },
+  },
+  {
     name: 'belt',
     description:
       "A belt in Lindqvist: rocks lit from the star, the worked ones smaller and "
