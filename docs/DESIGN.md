@@ -172,6 +172,7 @@ can render a designed state for each rather than printing raw error text.
 | Procedural ship art looks like programmer art | Fails the quality bar on the project's second pillar | One renderer, one style, driven by `ART_DIRECTION.md`; judged from captures, not from code. |
 | Performance budget with 30 ships / 300 projectiles / 3000 particles | Below 60 fps on integrated graphics | Blueprints render once to a texture; particles are pooled and drawn in batches; `tools/perf` reports percentiles against the reference scene every milestone. |
 | Context resets across a long build | Lost decisions, repeated mistakes | This file plus `docs/PROGRESS.md` are the memory. Every decision gets a dated line below. |
+| A fact about the build container written down as a fact about everywhere | Code that works only here, and is found by whoever runs it somewhere else first | Cycle 3's blocker was this four times over and cycle 4's was twice more. `CLAUDE.md` forbids it in `tools/`; CI runs the same commands on a different machine; and CI now builds and boots the production image, which nothing had ever done. |
 
 ---
 

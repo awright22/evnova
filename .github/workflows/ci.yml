@@ -142,6 +142,51 @@ jobs:
       - name: Open an account and take a lane
         run: pnpm verify:travel
 
+  image:
+    name: The server image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The one thing in docs/HUMAN_TODO.md that costs the owner money is
+      # `fly deploy`, and until cycle 4 nothing had ever built this image:
+      # the container this project is developed in has no Docker daemon, so
+      # the Dockerfile was written, reviewed and never run. It failed on two
+      # counts when it was finally read — no git in the build stage, and an
+      # SSH remote in the lockfile — and neither was visible from here.
+      #
+      # A runner has a daemon. Build it on every push so the deploy path is
+      # exercised by something other than the owner's first attempt. No
+      # registry and no push: the build either succeeds or it does not.
+      - name: Build the production image
+        run: docker build --tag marque-server:ci .
+
+      # A built image that cannot start is not a working deploy. Run it
+      # against a scratch volume and wait for the health endpoint the host
+      # polls, which also proves the native better-sqlite3 build survived
+      # the copy into the runtime stage.
+      - name: Boot it and wait for /health
+        run: |
+          docker run --rm --detach --name marque-ci \
+            --publish 2567:2567 \
+            --env INVITE_CODE= \
+            marque-server:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:2567/health; then
+              echo
+              echo "the image serves /health"
+              docker stop marque-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the image never answered /health:"
+          docker logs marque-ci
+          docker stop marque-ci
+          exit 1
+
   authority:
     name: Server authority and a six-ship fight
     runs-on: ubuntu-latest
