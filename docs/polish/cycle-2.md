@@ -180,12 +180,23 @@ things look. A capture that fails is not a harness inconvenience — it is a
 hole in the only review that catches what tests cannot. The `-stuck.png`
 the harness writes on a miss is what made all three legible in minutes.
 
-**M4. The title plate sits in the corner.** `.title` centred its plate
-vertically and left it against the page padding horizontally. At 1280 that
-reads as a deliberate editorial setting; at the sweep's viewport it is a
-card in the bottom-left of an otherwise empty field, and it is the first
-thing a player sees. The plate keeps its left-aligned text and amber rule;
-it now sits in the middle of the page rather than against its edge.
+**M4. Neither of the first two screens was centred.** Both came out of the
+same hole as M3: nobody had looked at them.
+
+- **The title plate sat in the corner.** `.title` centred its plate
+  vertically and left it against the page padding horizontally. At 1280 that
+  reads as a deliberate editorial setting; at the sweep's viewport it is a
+  card in the bottom-left of an otherwise empty field, and it is the first
+  thing a player sees. The plate keeps its left-aligned text and amber rule;
+  it sits in the middle of the page now rather than against its edge.
+- **The Register sat at the top**, with sixty per cent of the viewport empty
+  under it. It asked for `place-items: center` on `height: 100%`, which
+  centres only if the container really is the viewport's height. It is
+  `min-height: 100vh` with `place-content` now, so it does not depend on the
+  chain of heights above it.
+
+Between them that is the first screen a player sees and the first screen a
+player types into.
 
 ### Minors
 
