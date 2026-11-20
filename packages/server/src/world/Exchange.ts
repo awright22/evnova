@@ -255,7 +255,14 @@ export class Exchange {
         //    enormous build does not reprice a company for good; a sustained
         //    change does move it.
         const earned = banked.get(company.ticker) ?? 0;
-        const smoothed = smooth(row.smoothedEarnings, earned, exchange.smoothing);
+        // Never below its going concern: a company that sells nothing this
+        // week still owns its yards, its berths and its contracts, and a
+        // listing that decays to the value floor and then spikes many times
+        // over on one order is not a market anybody can read.
+        const smoothed = Math.max(
+          company.openingEarnings * exchange.earningsFloor,
+          smooth(row.smoothedEarnings, earned, exchange.smoothing),
+        );
 
         // 2. The house trader moves the price part of the way toward fair
         //    value, along the curve, which is what makes a price respond to
@@ -574,6 +581,8 @@ export class Exchange {
         costBasis: mine?.costBasis ?? 0,
         dividends: mine?.dividends ?? 0,
         available: Math.floor(pool.shares * tuning.exchange.maxPoolFraction),
+        poolShares: pool.shares,
+        poolMarks: pool.marks,
       });
     }
     return out;

@@ -198,6 +198,17 @@ export interface Listing {
   readonly dividends: number;
   /** Shares the pool can still sell, so the ticket can bound its field. */
   readonly available: number;
+  /**
+   * The pool's own holdings, so the ticket can quote exactly.
+   *
+   * Sent rather than inferred. The interface previews an order with the same
+   * `quoteBuy`/`quoteSell` the server fills it with, and those take a pool;
+   * reconstructing one from the price and the available shares is right only
+   * up to the rounding in both, which is exactly the kind of near-miss that
+   * shows a captain one total and charges another.
+   */
+  readonly poolShares: number;
+  readonly poolMarks: number;
 }
 
 /** A headline in the Gazette. */

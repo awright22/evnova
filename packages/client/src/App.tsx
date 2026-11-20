@@ -23,6 +23,7 @@ import { PortHub } from './port/PortHub.tsx';
 import { Staple } from './port/Staple.tsx';
 import { Editor } from './yard/Editor.tsx';
 import { Moorings } from './yard/Moorings.tsx';
+import { Bourse } from './bourse/Bourse.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -42,6 +43,7 @@ export function App(): React.JSX.Element {
   const [stapleOpen, setStapleOpen] = useState(false);
   const [yardOpen, setYardOpen] = useState(false);
   const [mooringsOpen, setMooringsOpen] = useState(false);
+  const [bourseOpen, setBourseOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export function App(): React.JSX.Element {
       setStapleOpen(false);
       setYardOpen(false);
       setMooringsOpen(false);
+      setBourseOpen(false);
     }
   }, [mode.kind]);
 
@@ -172,9 +175,26 @@ export function App(): React.JSX.Element {
             onOpenStaple={() => setStapleOpen(true)}
             onOpenYard={() => setYardOpen(true)}
             onOpenMoorings={() => setMooringsOpen(true)}
+            onOpenBourse={() => setBourseOpen(true)}
             hasYard={port.services.includes('yard')}
             hasMoorings={port.services.includes('moorings')}
+            hasBourse={port.services.includes('bourse')}
           />
+          {bourseOpen && (
+            <Bourse
+              listings={snapshot.bourse?.listings ?? []}
+              news={snapshot.bourse?.news ?? []}
+              standings={snapshot.bourse?.standings ?? []}
+              marks={purse.marks}
+              berthName={port.name}
+              busy={false}
+              notice={snapshot.notice}
+              feeRate={snapshot.bourse?.feeRate ?? 0}
+              maxPoolFraction={snapshot.bourse?.maxPoolFraction ?? 0}
+              onTrade={(side, ticker, shares) => void client.deal(side, ticker, shares)}
+              onClose={() => setBourseOpen(false)}
+            />
+          )}
           {mooringsOpen && (
             <Moorings
               hulls={snapshot.yard?.ships ?? []}

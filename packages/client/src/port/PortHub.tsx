@@ -25,7 +25,7 @@ import './port.css';
  */
 const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
   staple: { name: 'the Staple', trading: true },
-  bourse: { name: 'the Bourse', trading: false },
+  bourse: { name: 'the Bourse', trading: true },
   factor: { name: 'the Factor', trading: false },
   yard: { name: 'the Yard', trading: true },
   moorings: { name: 'the Moorings', trading: true },
@@ -68,9 +68,11 @@ export interface PortHubProps {
   onOpenStaple: () => void;
   onOpenYard: () => void;
   onOpenMoorings: () => void;
+  onOpenBourse: () => void;
   /** True while this berth keeps a Yard. */
   readonly hasYard: boolean;
   readonly hasMoorings: boolean;
+  readonly hasBourse: boolean;
 }
 
 export function PortHub({
@@ -81,8 +83,10 @@ export function PortHub({
   onOpenStaple,
   onOpenYard,
   onOpenMoorings,
+  onOpenBourse,
   hasYard,
   hasMoorings,
+  hasBourse,
 }: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
   const [focusMoved, setFocusMoved] = useState(false);
@@ -215,6 +219,16 @@ export function PortHub({
                 action="Open the floor"
                 disabled={state.busy}
                 onAction={onOpenStaple}
+              />
+            )}
+
+            {hasBourse && (
+              <ServiceRow
+                name="the Bourse"
+                detail="Shares in the ten listed companies, and the Gazette"
+                action="Open the floor"
+                disabled={state.busy}
+                onAction={onOpenBourse}
               />
             )}
 

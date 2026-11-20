@@ -190,6 +190,8 @@
     "newsKeep": 60,
     "historyKeep": 180,
     "$invariant6Comment": "smoothing * multiple * holdingCap must stay below 1, or self-dealing pays: a captain could buy shares, spend to lift that company's earnings, and sell for more than they spent. At 0.02 * 400 * 0.10 = 0.8 they recover at most eighty marks of share value per hundred spent, before the Staple's spread and the Bourse's own fees. The content loader refuses to start if this is violated.",
-    "$multipleComment": "Marks of value per mark of earnings a tick. Large because a tick is twenty seconds and a company is worth rather more than twenty seconds of trading; fairValue divides by the float, so this is a company-wide figure and not a price."
+    "$multipleComment": "Marks of value per mark of earnings a tick. Large because a tick is twenty seconds and a company is worth rather more than twenty seconds of trading; fairValue divides by the float, so this is a company-wide figure and not a price.",
+    "earningsFloor": 0.25,
+    "$earningsFloorComment": "A company is never worth nothing. Smoothed earnings never fall below this fraction of what the company opened on, because a quiet quarter does not sell the yards: there is still a going concern underneath. Without it a listing whose earnings depend on player orders alone \u2014 Slipway, which earns only on its fittings \u2014 decays to the value floor within a day of nobody building, and then spikes many times over on the next hull. A quarter leaves a bad year costing three quarters of the share price, which is a drawdown and not a collapse."
   }
 }

@@ -140,14 +140,38 @@ export class Freight {
         // delivered — the units arriving, valued at the good's base price, so
         // a carrier's earnings follow the traffic rather than the local
         // price, which a captain could move on their own.
-        const ticker = this.exchange?.carrierOf(needy.system.region);
-        if (ticker !== undefined) {
+        const carrier = this.exchange?.carrierOf(needy.system.region);
+        if (carrier !== undefined) {
           this.exchange?.credit({
-            ticker,
+            ticker: carrier,
             marks: Math.round(units * commodity.basePrice * FREIGHT_MARGIN),
             kind: 'freight',
             where: needy.port.name,
             what: needy.system.region,
+          });
+        }
+
+        // And the producer earns on the goods leaving its own stockpile.
+        //
+        // This is the bulk of a producer's earnings and it has to be: spec
+        // section 10 says a producer earns when goods leave its ports to
+        // buyers, and most goods leave on the Reach's own freighters rather
+        // than in a captain's hold. Without it a producer in a quiet week
+        // earns nothing at all and the house trader walks its price down to
+        // the floor — which is what happened the first time this ran, with
+        // all ten listings collapsing to two marks a share.
+        //
+        // It is not fakeable for the same reason the rest is not: a captain
+        // cannot make a berth short of something without actually hauling it
+        // away, and if they do, the haulage is the thing that earned it.
+        const producer = this.exchange?.producerOf(flush.port.owner, commodity.id);
+        if (producer !== undefined) {
+          this.exchange?.credit({
+            ticker: producer,
+            marks: Math.round(units * commodity.basePrice),
+            kind: 'goods-sold',
+            where: flush.port.name,
+            what: commodity.id,
           });
         }
 

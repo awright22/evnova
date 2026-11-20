@@ -5,6 +5,7 @@ import { content } from '@marque/shared';
 import { Accounts } from '../accounts.ts';
 import { openStore, type Store } from '../db/index.ts';
 import { Exchange, type BourseRefused } from './Exchange.ts';
+import { Gazette } from './Gazette.ts';
 import { Ledger } from './Ledger.ts';
 import { PilotStore, type Pilot } from './PilotStore.ts';
 
@@ -367,5 +368,91 @@ describe('the Bourse', () => {
 
     const reopened = new Exchange(store, ledger);
     expect(reopened.listingsFor(pilot.accountId).find((l) => l.ticker === 'RPO')!.held).toBe(12);
+  });
+});
+
+describe('freight lost on a lane', () => {
+  /**
+   * The chain M6 is done when: a freighter does not arrive, the producer
+   * whose goods were aboard loses the sale, its price falls over the next
+   * few market ticks, and the Gazette says why.
+   *
+   * Tested here rather than by flying a blockade because the claim is about
+   * the economy, not about marksmanship. The acceptance harness flies the
+   * interception for real and reports what it managed; this pins down what
+   * the loss is supposed to do once it happens.
+   */
+  it('lowers the producer and prints a headline', () => {
+    const gazette = new Gazette();
+
+    // A working lane: the producer has been earning steadily, so its price
+    // has somewhere to fall from.
+    for (let i = 0; i < 30; i++) {
+      bourse.credit({
+        ticker: 'TLY',
+        marks: 120_000,
+        kind: 'goods-sold',
+        where: 'Ballast',
+        what: 'ore',
+      });
+      const result = bourse.tick(i);
+      gazette.report(result.events, result.dividends, i);
+    }
+
+    const settled = bourse.listingsFor(undefined).find((l) => l.ticker === 'TLY')!.price;
+    expect(settled).toBeGreaterThan(0);
+
+    // Now the lane is cut: the consignments stop arriving, and the ones in
+    // flight are lost outright.
+    for (let i = 0; i < 12; i++) {
+      bourse.credit({
+        ticker: 'TLY',
+        marks: -90_000,
+        kind: 'goods-sold',
+        where: 'Ballast',
+        what: 'ore',
+      });
+      const result = bourse.tick(100 + i);
+      gazette.report(result.events, result.dividends, 100 + i);
+    }
+
+    const after = bourse.listingsFor(undefined).find((l) => l.ticker === 'TLY')!.price;
+    expect(after).toBeLessThan(settled);
+
+    const explained = gazette
+      .recent()
+      .filter((line) => line.ticker === 'TLY' && line.direction === 'down');
+    expect(explained.length).toBeGreaterThan(0);
+    expect(explained[0]!.text).toContain('Ore');
+  });
+
+  it('costs the carrier too, and names the region', () => {
+    const gazette = new Gazette();
+    for (let i = 0; i < 8; i++) {
+      bourse.credit({
+        ticker: 'KSC',
+        marks: -40_000,
+        kind: 'freight',
+        where: 'Hallam',
+        what: 'home-roads',
+      });
+      const result = bourse.tick(i);
+      gazette.report(result.events, result.dividends, i);
+    }
+
+    const lines = gazette.recent().filter((line) => line.ticker === 'KSC');
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines[0]!.text).toContain('lost in transit');
+  });
+
+  it('says nothing at all about a quiet company', () => {
+    const gazette = new Gazette();
+    for (let i = 0; i < 10; i++) {
+      const result = bourse.tick(i);
+      gazette.report(result.events, result.dividends, i);
+    }
+    // A feed that prints "nothing happened" ten times a tick is a feed
+    // nobody reads.
+    expect(gazette.recent()).toHaveLength(0);
   });
 });

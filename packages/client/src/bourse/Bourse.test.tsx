@@ -38,6 +38,8 @@ function listed(pool: Pool, overrides: Partial<Listing> = {}): Listing {
     fairValue: price,
     earnings: 400,
     previous: price,
+    poolShares: pool.shares,
+    poolMarks: pool.marks,
     history: [price],
     float: 1_000_000,
     holdingCap: 50_000,

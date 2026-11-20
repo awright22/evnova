@@ -79,22 +79,22 @@ const AGE_TICK_MS = 30_000;
 // --- Arithmetic, all pure ------------------------------------------------
 
 /**
- * The pool behind a listing, reconstructed from what the listing carries.
+ * The pool behind a listing.
  *
- * A listing gives the quote and the shares the pool will part with, not the
- * pool itself — and it should not, because a client has no business holding
- * the exchange's reserves. The two invert cleanly: `available` is a fixed
- * fraction of the pool's shares, and the quote is its marks over its shares.
- * The reconstruction is exact to the mark except for the floor taken when
- * `available` was computed, which moves a preview by a mark at most on any
- * parcel worth previewing.
+ * Carried on the listing rather than reconstructed from the quote and the
+ * available shares. The two do invert — `available` is a fixed fraction of
+ * the pool's shares and the quote is its marks over its shares — but only up
+ * to the floor taken when `available` was computed, and a preview that is
+ * right "to within a mark" is a preview that sometimes shows a captain one
+ * total and charges them another. The ticket previews with the same function
+ * the server fills with, so it takes the same numbers.
  */
 export function poolOf(listing: Listing, maxPoolFraction: number): Pool {
-  const shares =
-    maxPoolFraction > 0
-      ? Math.max(1, Math.round(listing.available / maxPoolFraction))
-      : Math.max(1, listing.available);
-  return { shares, marks: Math.max(1, Math.round(listing.price * shares)) };
+  void maxPoolFraction;
+  return {
+    shares: Math.max(1, listing.poolShares),
+    marks: Math.max(1, listing.poolMarks),
+  };
 }
 
 /** The move since the last market tick, as a fraction of the old quote. */
@@ -532,7 +532,9 @@ export function Bourse({
       <section className="bourse__market panel" aria-label="Listings">
         <header className="panel-header">
           <h2>Listings</h2>
-          <span className="micro">{listings.length} companies</span>
+          <span className="micro">
+            {listings.length} {listings.length === 1 ? 'company' : 'companies'}
+          </span>
         </header>
 
         <div className="bourse__scroll">
@@ -857,9 +859,13 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
             <dt className="label">Fair value</dt>
             <dd className="data">
               {formatQuote(listing.fairValue)}
+              {/*
+                The gap is the trade, so it is stated rather than left to be
+                worked out: unsigned, because the word carries the direction.
+              */}
               <span className="company__note micro">
-                quote {against >= 0 ? 'above' : 'below'} by{' '}
-                {formatPercent(Math.abs(against))}
+                quote {formatRate(Math.abs(against))}{' '}
+                {against >= 0 ? 'above' : 'below'}
               </span>
             </dd>
           </div>
@@ -943,6 +949,9 @@ function Ticket({
       ? quoteBuy(pool, shares, feeRate, maxPoolFraction)
       : quoteSell(pool, shares, feeRate);
   const impact = moveOf(quote.priceAfter, quote.priceBefore);
+  // Nothing asked for yet. A column of zeroes would read as a quote, so the
+  // preview waits with dashes until there is a parcel to price.
+  const resting = quote.shares < 1;
 
   const write = (value: number): void => {
     onParcel(value < 1 ? '' : String(Math.min(ceiling, value)));
@@ -1031,28 +1040,32 @@ function Ticket({
         <dl className="ticket__preview">
           <div>
             <dt className="label">{side === 'buy' ? 'Parcel costs' : 'Parcel pays'}</dt>
-            <dd className="data ticket__total">{formatMarks(quote.total)}</dd>
+            <dd className="data ticket__total">
+              {resting ? '—' : formatMarks(quote.total)}
+            </dd>
           </div>
           <div>
             <dt className="label">Average a share</dt>
             <dd className="data">
-              {quote.shares > 0 ? formatQuote(quote.averagePrice) : '—'}
+              {resting ? '—' : formatQuote(quote.averagePrice)}
             </dd>
           </div>
           <div>
-            <dt className="label">Fee, destroyed</dt>
-            <dd className="data">{formatMarks(quote.fee)}</dd>
+            <dt className="label">Fee</dt>
+            <dd className="data">{resting ? '—' : formatMarks(quote.fee)}</dd>
           </div>
           <div>
             <dt className="label">Quote ends at</dt>
             <dd className="data">
-              {formatQuote(quote.priceAfter)}
+              {formatQuote(resting ? listing.price : quote.priceAfter)}
               {/*
                 Not toned: an order always moves the quote against the captain,
                 so neither direction is good news and the sign says enough.
               */}
               <span className="ticket__impact micro">
-                {formatPercent(impact, 2)} on this order
+                {resting
+                  ? 'where it stands'
+                  : `${formatPercent(impact, 2)} on this order`}
               </span>
             </dd>
           </div>
@@ -1086,8 +1099,16 @@ function Ticket({
             disabled={busy || shares < 1 || shares > ceiling}
             onClick={() => onSend(listing.ticker, shares)}
           >
-            {side === 'buy' ? 'Buy' : 'Sell'} {shares > 0 ? formatMarks(shares) : ''}{' '}
-            {listing.ticker}
+            {/* An order with the floor has a state of its own, so the button
+                is not merely greyed while the answer is coming back. */}
+            {busy ? (
+              'With the floor'
+            ) : (
+              <>
+                {side === 'buy' ? 'Buy' : 'Sell'}{' '}
+                {shares > 0 ? `${formatMarks(shares)} ${listing.ticker}` : listing.ticker}
+              </>
+            )}
           </button>
           <span className="micro">
             {side === 'buy'

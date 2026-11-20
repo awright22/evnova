@@ -1510,6 +1510,7 @@ export class SystemRoom extends Room<{
     ship.blueprint = blueprintId;
     ship.hostile = hostile;
     ship.patrol = role === 'patrol';
+    ship.freighter = role === 'freighter';
     ship.shield = runtime.shieldCapacity;
     for (const hp of runtime.hp) ship.moduleHp.push(Math.round(hp));
 

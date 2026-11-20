@@ -320,6 +320,11 @@ export const Tuning = z.object({
     houseRate: z.number().positive().max(1),
     /** How much of a tick's earnings counts toward the smoothed figure. */
     smoothing: z.number().positive().max(1),
+    /**
+     * The least a company's smoothed earnings may fall to, as a fraction of
+     * what it opened on. Its going concern, below the trading.
+     */
+    earningsFloor: z.number().min(0).max(1),
     /** Most of a float one captain may hold. */
     holdingCap: z.number().positive().max(1),
     /** Most of a pool's shares one order may take. */

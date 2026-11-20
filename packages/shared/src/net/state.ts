@@ -57,6 +57,15 @@ export const ShipState = schema(
     hostile: t.boolean().default(false),
     /** A patrol of the Prize Court, so a contact can be named for what it is. */
     patrol: t.boolean().default(false),
+    /**
+     * A company freighter: unarmed, laden, and somebody's livelihood.
+     *
+     * On the state because a captain should be able to tell what they are
+     * looking at before they shoot it — and because what it is carrying is
+     * deliberately *not* here, so deciding to intercept one is a decision
+     * made without knowing whether it was worth it.
+     */
+    freighter: t.boolean().default(false),
     /** Posted by the Prize Court: patrols answer for this hull. */
     posted: t.boolean().default(false),
     /** Server time the hull was written off, for the wreck to linger. */

@@ -11,7 +11,7 @@
  */
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
-import type { Placement, Problem } from '@marque/shared';
+import type { Headline, Listing, Placement, Problem, Standing } from '@marque/shared';
 
 import {
   CHAT_BACKLOG,
@@ -93,6 +93,15 @@ export interface StapleState {
   readonly holdUsed: number;
 }
 
+/** The floor, the feed and the board, as one screen's worth of state. */
+export interface BourseState {
+  readonly listings: readonly Listing[];
+  readonly news: readonly Headline[];
+  readonly standings: readonly Standing[];
+  readonly feeRate: number;
+  readonly maxPoolFraction: number;
+}
+
 /** What a captain has on their books and at their moorings. */
 export interface YardState {
   readonly designs: readonly { id: string; name: string; placements: Placement[] }[];
@@ -143,6 +152,8 @@ export interface GameSnapshot {
   readonly staple: StapleState | undefined;
   /** The captain's draughts and hulls, while alongside. */
   readonly yard: YardState | undefined;
+  /** The Bourse, the Gazette and the standings, while alongside one. */
+  readonly bourse: BourseState | undefined;
   /** What the server's survey found, when it refused a build. */
   readonly surveyProblems: readonly Problem[];
 }
@@ -193,6 +204,7 @@ export class GameClient {
   private course: string | undefined;
   private staple: StapleState | undefined;
   private yard: YardState | undefined;
+  private bourse: BourseState | undefined;
   private surveyProblems: readonly Problem[] = [];
   private disposed = false;
 
@@ -233,6 +245,7 @@ export class GameClient {
       course: this.course,
       staple: this.staple,
       yard: this.yard,
+      bourse: this.bourse,
       surveyProblems: this.surveyProblems,
     };
   }
@@ -406,6 +419,36 @@ export class GameClient {
 
     room.onMessage('yard', (payload) => {
       this.yard = payload as YardState;
+      this.emit();
+    });
+
+    // The three arrive separately but are one screen, so they are held
+    // together and the parts that have not arrived yet read as empty rather
+    // than as undefined.
+    room.onMessage('bourse', (payload) => {
+      const board = payload as { listings: Listing[]; feeRate: number; maxPoolFraction: number };
+      this.bourse = {
+        listings: board.listings,
+        news: this.bourse?.news ?? [],
+        standings: this.bourse?.standings ?? [],
+        feeRate: board.feeRate,
+        maxPoolFraction: board.maxPoolFraction,
+      };
+      this.emit();
+    });
+
+    room.onMessage('news', (payload) => {
+      if (!this.bourse) return;
+      this.bourse = { ...this.bourse, news: (payload as { headlines: Headline[] }).headlines };
+      this.emit();
+    });
+
+    room.onMessage('standings', (payload) => {
+      if (!this.bourse) return;
+      this.bourse = {
+        ...this.bourse,
+        standings: (payload as { standings: Standing[] }).standings,
+      };
       this.emit();
     });
 
@@ -603,6 +646,12 @@ export class GameClient {
   /** Take out a hull moored at this berth. */
   async switchShip(id: string): Promise<boolean> {
     return this.requestOk('switch-ship', { id });
+  }
+
+  /** Buy or sell shares on the Bourse. */
+  async deal(side: 'buy' | 'sell', ticker: string, shares: number): Promise<boolean> {
+    if (shares < 1) return false;
+    return this.requestOk('bourse', { side, ticker, shares: Math.trunc(shares) });
   }
 
   /** Trade at the berth's Staple. The server answers with fresh prices. */
