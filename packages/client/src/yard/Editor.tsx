@@ -33,6 +33,8 @@ import type { StapleState } from '../game/GameClient.ts';
 import { Stamp } from '../seal/Stamp.tsx';
 import { Grid } from './Grid.tsx';
 import { cellsCovered, designReducer, emptyDesign, type DesignAction } from './design.ts';
+import { useScroller } from '../shell/scroller.ts';
+
 import './yard.css';
 
 export interface EditorProps {
@@ -127,6 +129,9 @@ export function Editor({
   onImport,
   onClose,
 }: EditorProps): React.JSX.Element {
+  // The fittings palette runs well past its panel and cut its last row.
+  const fittings = useScroller();
+
   const { modules, tuning, licences } = content();
 
   const [state, dispatch] = useReducer(
@@ -334,7 +339,7 @@ export function Editor({
           </button>
         </header>
 
-        <div className="yard__catalogue">
+        <div className="yard__catalogue" ref={fittings.ref} data-more={fittings.more}>
           {GROUPS.map((group) => {
             const inGroup = [...modules.values()]
               .filter((def) => group.types.includes(def.type))

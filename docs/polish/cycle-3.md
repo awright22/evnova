@@ -58,7 +58,14 @@ accident.
 It is the one good thing about the failure: the screen is proof that the
 write-off panel now outlives the six seconds cycle 2 found it had.
 
-**N2. Two of the three required browsers have never been run.** Spec section
+**N2. The Yard's fittings palette still cut its last row.** Cycle 2 moved the
+overflow fade into `base.css` so any scroller could use it, and wired the
+Bourse and the admin page. The Yard's catalogue — forty-odd fittings in a
+panel that shows eighteen — was not wired, and the `yard-code` capture shows
+it cut through "Mk II Fixed Gun". Wired now. The fade is cheap; finding the
+scrollers is the work, and a capture of each screen is what finds them.
+
+**N3. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So
