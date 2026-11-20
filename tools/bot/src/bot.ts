@@ -299,6 +299,14 @@ export interface BotTelemetry {
   readonly steps: number;
   /** Input frames this bot deliberately held back a step. */
   readonly inputsStalled: number;
+  /**
+   * Whether it has a hull in the sky.
+   *
+   * False means written off and not set down again — a bot that is still
+   * connected, still counted, and doing nothing. A soak that does not read
+   * this reports numbers from fewer clients than it thinks it has.
+   */
+  readonly flying: boolean;
   readonly shipsSeen: number;
 }
 
@@ -311,6 +319,10 @@ export class Bot {
 
   /** Whether last frame's input is still waiting to go out. */
   private stalled = false;
+
+  /** When this bot lost its hull, if it has. */
+  private groundedSince: number | undefined;
+  private saidGrounded = false;
 
   /**
    * The loss generator.
@@ -690,7 +702,29 @@ export class Bot {
     // Launched again: the server made a new hull, so bind to that one.
     const live = this.room.state.ships.get(this.room.sessionId);
     if (live && live !== this.boundTo) this.rebind(live);
-    if (!live) return;
+    if (!live) {
+      // No hull in the sky and not alongside: written off, and waiting to
+      // be set down again. Said out loud, because a bot that goes quiet
+      // here looks exactly like a bot that is working — which cost twelve
+      // runs of a capture that was waiting for this one to shoot
+      // something.
+      this.groundedSince ??= performance.now();
+      if (!this.saidGrounded && performance.now() - this.groundedSince > 3000) {
+        this.saidGrounded = true;
+        console.warn(
+          `${this.options.callsign}: no hull in the sky. Written off, and not `
+            + 'set down again yet. Nothing this bot is asked to do will happen.',
+        );
+      }
+      return;
+    }
+    if (this.groundedSince !== undefined) {
+      if (this.saidGrounded) {
+        console.log(`${this.options.callsign}: flying again.`);
+      }
+      this.groundedSince = undefined;
+      this.saidGrounded = false;
+    }
 
     const due = this.predict.tick(performance.now());
 
@@ -826,6 +860,7 @@ export class Bot {
       inputsSent: this.input.sentCount,
       steps: this.steps,
       inputsStalled: this.dropped,
+      flying: this.landedAt !== undefined || this.room.state.ships.has(this.room.sessionId),
       shipsSeen: this.room.state.ships.size,
     };
   }

@@ -774,6 +774,11 @@ function buildReport(
   const last = samples.at(-1);
   const verdict = assess(samples);
 
+  // A bot that was written off and never set down again is still
+  // connected, still counted, and doing nothing. The figures below are
+  // from however many were actually flying.
+  const grounded = (last?.bots ?? []).filter((bot) => !bot.flying);
+
   const tickRows = samples
     .map(
       (s) =>
@@ -860,6 +865,7 @@ is where the captain put it.
 | Measure | Value |
 |---|---|
 | Clients diverging | ${(last?.bots ?? []).filter((b) => b.status === 'diverging').length} of ${(last?.bots ?? []).length} |
+| Clients with no hull in the sky | ${grounded.length} of ${(last?.bots ?? []).length}${grounded.length > 0 ? ` (${grounded.map((bot) => bot.callsign).join(', ')})` : ''} |
 | Worst drift EMA | ${Math.max(0, ...(last?.bots ?? []).map((b) => b.driftEma)).toFixed(4)} |
 | Worst drift peak | ${Math.max(0, ...(last?.bots ?? []).map((b) => b.driftPeak)).toFixed(4)} |
 | Input frames stalled | ${(last?.bots ?? []).reduce((sum, b) => sum + b.inputsStalled, 0)} |

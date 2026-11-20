@@ -223,13 +223,27 @@ async function flyToRock(page: Page, seconds: number): Promise<boolean> {
 async function engageNearest(
   page: Page,
   seconds: number,
-  options: { readonly untilHit?: boolean; readonly patrolsOnly?: boolean } = {},
+  options: {
+    readonly untilHit?: boolean;
+    readonly patrolsOnly?: boolean;
+    /**
+     * One hull, by callsign, and nothing else.
+     *
+     * Without it the mark is whatever is nearest *this instant*, so a
+     * gunner with traffic around it re-aims every pass and sprays four
+     * hundred rounds across five hulls instead of putting eight hundred
+     * damage through one. A Force Majeure is written off by about seven
+     * seconds of a Short Measure's fire; four minutes of not quite hitting
+     * anything is what this was doing instead.
+     */
+    readonly mark?: string;
+  } = {},
 ): Promise<boolean> {
   const deadline = Date.now() + seconds * 1000;
 
   /** Where the nearest hull is, relative to the nose, and how it is holding up. */
   const read = (): Promise<{ delta: number; range: number; markShield: number } | null> =>
-    page.evaluate((patrolsOnly: boolean) => {
+    page.evaluate(([patrolsOnly, wanted]: [boolean, string]) => {
       // This runs in the page, not in Node, so the browser globals are named
       // through globalThis rather than typed from the DOM lib.
       const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
@@ -244,6 +258,7 @@ async function engageNearest(
         // A patrol holds station, so it will not come looking. Firing on one
         // brings it, and brings the rest of them.
         if (patrolsOnly && !ship.patrol) continue;
+        if (wanted !== '' && ship.callsign !== wanted) continue;
         const range = Math.hypot(ship.x - self.x, ship.y - self.y);
         if (!nearest || range < nearest.range) {
           nearest = {
@@ -259,7 +274,7 @@ async function engageNearest(
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
       return { delta, range: nearest.range, markShield: nearest.shield };
-    }, options.patrolsOnly === true);
+    }, [options.patrolsOnly === true, options.mark ?? ''] as [boolean, string]);
 
   const first = await read();
   if (!first) return false;
@@ -520,7 +535,7 @@ export const SCREENS: readonly Screen[] = [
           // Started and not awaited: the capture has to get on and open
           // its own page, and this drives the gunner alongside it for as
           // long as the screen takes.
-          void engageNearest(page, 220).catch(() => undefined);
+          void engageNearest(page, 220, { mark: 'Act of God' }).catch(() => undefined);
         },
       },
     ],
