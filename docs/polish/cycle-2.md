@@ -26,11 +26,17 @@ every fix in it, rather than reported from the run that opened it.
 | `pnpm play:new` | 14 of 14 |
 | `pnpm play:late` | 27 of 27 |
 | `pnpm audio` | 29 events logged; one check failed on a fixed 14-second wait, which is now waited for rather than timed |
-| `pnpm perf` | see below |
+| `pnpm perf` | sim step **0.0073 ms** mean for 30 ships (0.24 µs a ship, p99 is 0.14% of a 60 fps frame); **1.56 MB** to the title screen, interactive in 249 ms, against a 5 MB budget |
 
 The soak holds 2.28 ms against a 4 ms budget with twelve clients fighting at
 150 ms and 2% of their input frames stalled. The catch-up cap below is most
 of why.
+
+Every budget in spec section 3 is measured and inside it except frame rate,
+which cannot be measured here: this container has no GPU and Chromium falls
+back to SwiftShader, so `pnpm perf` reports 3.6 fps and says so itself. That
+is a floor, not a result. `docs/HUMAN_TODO.md` has the steps for running it
+on a machine with a GPU.
 
 ## The two threads
 
