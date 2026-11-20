@@ -22,6 +22,7 @@ import { GalaxyMap } from './map/GalaxyMap.tsx';
 import { PortHub } from './port/PortHub.tsx';
 import { Staple } from './port/Staple.tsx';
 import { Editor } from './yard/Editor.tsx';
+import { Moorings } from './yard/Moorings.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -40,6 +41,7 @@ export function App(): React.JSX.Element {
   const [chat, setChat] = useState<readonly ChatLine[]>([]);
   const [stapleOpen, setStapleOpen] = useState(false);
   const [yardOpen, setYardOpen] = useState(false);
+  const [mooringsOpen, setMooringsOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export function App(): React.JSX.Element {
     if (mode.kind !== 'port') {
       setStapleOpen(false);
       setYardOpen(false);
+      setMooringsOpen(false);
     }
   }, [mode.kind]);
 
@@ -157,6 +160,9 @@ export function App(): React.JSX.Element {
                 snapshot.staple?.listings.find((l) => l.commodityId === 'ordnance')?.ask ?? 0,
               structure: purse.structure,
               draught: purse.draught,
+              mooredHere: (snapshot.yard?.ships ?? []).filter(
+                (hull) => hull.portId === port.id,
+              ).length,
               busy: false,
               notice: snapshot.notice,
             }}
@@ -165,31 +171,51 @@ export function App(): React.JSX.Element {
             onOpenChart={() => setChartOpen(true)}
             onOpenStaple={() => setStapleOpen(true)}
             onOpenYard={() => setYardOpen(true)}
+            onOpenMoorings={() => setMooringsOpen(true)}
             hasYard={port.services.includes('yard')}
+            hasMoorings={port.services.includes('moorings')}
           />
+          {mooringsOpen && (
+            <Moorings
+              hulls={snapshot.yard?.ships ?? []}
+              flyingId={snapshot.yard?.flyingId ?? ''}
+              flyingName={snapshot.yard?.flyingName ?? purse.draught}
+              portId={port.id}
+              berthName={port.name}
+              busy={false}
+              notice={snapshot.notice}
+              onSwitch={(id) => void client.switchShip(id)}
+              onClose={() => setMooringsOpen(false)}
+            />
+          )}
           {yardOpen && (
             <Editor
               flying={snapshot.yard?.flying ?? []}
+              flyingId={snapshot.yard?.flyingId ?? ''}
               flyingName={snapshot.yard?.flyingName ?? purse.draught}
               licence={purse.licence}
               marks={purse.marks}
+              stock={snapshot.yard?.stock ?? {}}
+              berthName={snapshot.yard?.berthName ?? port.name}
+              licences={snapshot.yard?.licences ?? []}
               staple={snapshot.staple}
               hold={hold}
               notice={snapshot.notice}
               serverProblems={snapshot.surveyProblems}
               busy={false}
               onBuild={(name, placements, refitting) =>
+                // The editor decides this from the same `flyingId` it quotes
+                // against, so the bill it showed is the bill that is charged.
                 client.build(
                   name,
                   placements,
-                  // A hull that was never built has no row to refit: building
-                  // from it makes the first one.
-                  refitting && snapshot.yard?.flyingId
-                    ? snapshot.yard.flyingId
-                    : undefined,
+                  refitting ? snapshot.yard?.flyingId : undefined,
                 )
               }
               onSave={(name, placements) => client.saveDesign(name, placements)}
+              onBuyLicence={(id) => void client.buyLicence(id)}
+              onExport={(name, placements) => client.exportDesign(name, placements)}
+              onImport={(code) => void client.importDesign(code)}
               onClose={() => setYardOpen(false)}
             />
           )}

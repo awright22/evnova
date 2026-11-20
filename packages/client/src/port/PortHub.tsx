@@ -28,7 +28,7 @@ const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
   bourse: { name: 'the Bourse', trading: false },
   factor: { name: 'the Factor', trading: false },
   yard: { name: 'the Yard', trading: true },
-  moorings: { name: 'the Moorings', trading: false },
+  moorings: { name: 'the Moorings', trading: true },
   repair: { name: 'Repairs', trading: true },
 };
 
@@ -43,6 +43,8 @@ export interface PortHubState {
   readonly composition: number;
   /** True while the berth's market is open to this captain. */
   readonly hasStaple: boolean;
+  /** How many of the captain's hulls are tied up at this berth. */
+  readonly mooredHere: number;
   /**
    * What this berth charges for a unit of each, 0 when it keeps no Staple.
    *
@@ -65,8 +67,10 @@ export interface PortHubProps {
   onOpenChart: () => void;
   onOpenStaple: () => void;
   onOpenYard: () => void;
+  onOpenMoorings: () => void;
   /** True while this berth keeps a Yard. */
   readonly hasYard: boolean;
+  readonly hasMoorings: boolean;
 }
 
 export function PortHub({
@@ -76,7 +80,9 @@ export function PortHub({
   onOpenChart,
   onOpenStaple,
   onOpenYard,
+  onOpenMoorings,
   hasYard,
+  hasMoorings,
 }: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
   const [focusMoved, setFocusMoved] = useState(false);
@@ -209,6 +215,20 @@ export function PortHub({
                 action="Open the floor"
                 disabled={state.busy}
                 onAction={onOpenStaple}
+              />
+            )}
+
+            {hasMoorings && (
+              <ServiceRow
+                name="the Moorings"
+                detail={
+                  state.mooredHere > 0
+                    ? `${state.mooredHere} of your hulls tied up here`
+                    : 'Where your hulls lie, and which you are in'
+                }
+                action="Walk the moorings"
+                disabled={state.busy}
+                onAction={onOpenMoorings}
               />
             )}
 

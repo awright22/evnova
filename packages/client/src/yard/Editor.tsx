@@ -14,12 +14,14 @@
 import { useCallback, useMemo, useReducer, useState } from 'react';
 
 import {
+  boundsOf,
   buildCost,
   content,
   deriveStats,
   placeAll,
   shortModuleName,
   splitBill,
+  stocksModule,
   validateDesign,
   type LicenceId,
   type ModuleDef,
@@ -35,9 +37,31 @@ import './yard.css';
 export interface EditorProps {
   /** The hull being flown, which a refit starts from. */
   readonly flying: readonly Placement[];
+  /**
+   * Its id in the Moorings, or empty for a draught that was never built.
+   *
+   * This decides whether Build is a refit or a new hull, and therefore what
+   * the bill is: a refit credits the fittings already aboard, a new hull is
+   * paid for whole. Without it the editor quoted every first build as a refit
+   * of the starter and under-charged by the value of a whole shuttle.
+   */
+  readonly flyingId: string;
   readonly flyingName: string;
   readonly licence: string;
   readonly marks: number;
+  /** The highest tier this berth's Yard stocks from each maker. */
+  readonly stock: Partial<Record<string, number>>;
+  readonly berthName: string;
+  /** The warrant ladder, lowest first. */
+  readonly licences: readonly {
+    id: string;
+    name: string;
+    cost: number;
+    maxModules: number;
+    maxExtent: number;
+    held: boolean;
+    behind: boolean;
+  }[];
   /** The berth's market, for what materials cost here. */
   readonly staple: StapleState | undefined;
   /** What the captain is carrying, by commodity. */
@@ -48,6 +72,10 @@ export interface EditorProps {
   readonly busy: boolean;
   onBuild: (name: string, placements: readonly Placement[], refitting: boolean) => void;
   onSave: (name: string, placements: readonly Placement[]) => void;
+  onBuyLicence: (id: string) => void;
+  /** Encode the current draught as a code to paste. */
+  onExport: (name: string, placements: readonly Placement[]) => string;
+  onImport: (code: string) => void;
   onClose: () => void;
 }
 
@@ -63,9 +91,13 @@ const GROUPS: { readonly label: string; readonly types: readonly string[] }[] = 
 
 export function Editor({
   flying,
+  flyingId,
   flyingName,
   licence,
   marks,
+  stock,
+  berthName,
+  licences: ladder,
   staple,
   hold,
   notice,
@@ -73,6 +105,9 @@ export function Editor({
   busy,
   onBuild,
   onSave,
+  onBuyLicence,
+  onExport,
+  onImport,
   onClose,
 }: EditorProps): React.JSX.Element {
   const { modules, tuning, licences } = content();
@@ -87,6 +122,11 @@ export function Editor({
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
   const [hover, setHover] = useState<{ x: number; y: number } | undefined>(undefined);
   const [name, setName] = useState(flyingName);
+  /** Show the whole catalogue, including what this berth cannot supply. */
+  const [showAll, setShowAll] = useState(false);
+  /** The share-code drawer: closed, showing a code, or taking one. */
+  const [sharing, setSharing] = useState<'off' | 'out' | 'in'>('off');
+  const [incoming, setIncoming] = useState('');
 
   const held = licences.get(licence as LicenceId) ?? [...licences.values()][0]!;
 
@@ -107,9 +147,19 @@ export function Editor({
     return before.length > 0 ? deriveStats(before, tuning) : undefined;
   }, [flying, modules, tuning]);
 
+  /**
+   * A refit changes a hull the captain owns; anything else is a new hull.
+   *
+   * The starter draught is not owned — it came with the ticket — so a captain
+   * who has never built is buying their first hull outright even though the
+   * grid opens on what they are flying.
+   */
+  const refitting = flyingId !== '';
+  const creditedAgainst = useMemo(() => (refitting ? flying : []), [refitting, flying]);
+
   const cost = useMemo(
-    () => buildCost(state.placements, modules, tuning, flying),
-    [state.placements, modules, tuning, flying],
+    () => buildCost(state.placements, modules, tuning, creditedAgainst),
+    [state.placements, modules, tuning, creditedAgainst],
   );
 
   const split = useMemo(() => splitBill(cost.bill, hold), [cost.bill, hold]);
@@ -141,7 +191,24 @@ export function Editor({
 
   const owed = cost.marks + purchase.total;
   const problems = serverProblems.length > 0 ? serverProblems : survey.problems;
-  const refitting = flying.length > 0;
+
+  /**
+   * How many cells the draught spans at its widest, against the warrant's cap.
+   *
+   * The same `boundsOf` the validator measures with, so the number shown here
+   * and the number in a "covers 8 cells across" problem cannot disagree.
+   */
+  const extent = useMemo(() => {
+    if (placed.length === 0) return 0;
+    const bounds = boundsOf(placed);
+    return Math.max(bounds.width, bounds.height);
+  }, [placed]);
+
+  /** The next warrant up, which is the only one worth offering. */
+  const nextWarrant = useMemo(
+    () => ladder.find((rung) => !rung.held && !rung.behind),
+    [ladder],
+  );
 
   // --- Working the grid ---------------------------------------------------
 
@@ -234,41 +301,71 @@ export function Editor({
       <section className="yard__fittings panel">
         <header className="panel-header">
           <h2>Fittings</h2>
-          <span className="micro">{held.name}</span>
+          <button
+            type="button"
+            className={`yard__scope micro${showAll ? ' yard__scope--on' : ''}`}
+            onClick={() => setShowAll((on) => !on)}
+            title={
+              showAll
+                ? `Showing the whole Register. ${berthName} cannot supply the greyed fittings.`
+                : `Showing only what ${berthName} stocks.`
+            }
+          >
+            {showAll ? 'Everywhere' : 'In stock'}
+          </button>
         </header>
 
         <div className="yard__catalogue">
           {GROUPS.map((group) => {
-            const inGroup = [...modules.values()].filter((def) =>
-              group.types.includes(def.type),
-            );
+            const inGroup = [...modules.values()]
+              .filter((def) => group.types.includes(def.type))
+              .filter((def) => showAll || stocksModule(stock, def));
             if (inGroup.length === 0) return null;
 
             return (
               <div key={group.label} className="yard__group">
                 <span className="label">{group.label}</span>
-                {inGroup.map((def) => (
-                  <button
-                    key={def.id}
-                    type="button"
-                    className={`yard__fitting${picked?.id === def.id ? ' yard__fitting--on' : ''}`}
-                    onClick={() => setPicked(picked?.id === def.id ? undefined : def)}
-                  >
-                    <span className="yard__fitting-name">
-                      {shortModuleName(
-                        def.name,
-                        tuning.manufacturers[def.manufacturer] ?? def.manufacturer,
-                      )}
-                      <span className="yard__maker">{def.manufacturer}</span>
-                    </span>
-                    <span className="yard__fitting-figures">
-                      <span className="data">{def.cost.toLocaleString()}</span>
-                      <span className="micro">
-                        {def.footprint.width}×{def.footprint.height}
+                {inGroup.map((def) => {
+                  const here = stocksModule(stock, def);
+                  return (
+                    <button
+                      key={def.id}
+                      type="button"
+                      // A fitting this berth cannot supply is shown, not
+                      // hidden: a captain should be able to see what exists
+                      // and go and find it. It just cannot be picked.
+                      disabled={!here}
+                      className={`yard__fitting${picked?.id === def.id ? ' yard__fitting--on' : ''}${
+                        here ? '' : ' yard__fitting--elsewhere'
+                      }`}
+                      title={
+                        here
+                          ? def.description
+                          : `${berthName} does not stock this. Tier ${def.tier} ${
+                              tuning.manufacturers[def.manufacturer] ?? def.manufacturer
+                            }.`
+                      }
+                      onClick={() => setPicked(picked?.id === def.id ? undefined : def)}
+                    >
+                      <span className="yard__fitting-name">
+                        {shortModuleName(
+                          def.name,
+                          tuning.manufacturers[def.manufacturer] ?? def.manufacturer,
+                        )}
+                        <span className="yard__maker">
+                          {def.manufacturer}
+                          {def.tier > 1 ? ` ${'I'.repeat(def.tier)}` : ''}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                ))}
+                      <span className="yard__fitting-figures">
+                        <span className="data">{def.cost.toLocaleString()}</span>
+                        <span className="micro">
+                          {def.footprint.width}×{def.footprint.height}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             );
           })}
@@ -308,11 +405,86 @@ export function Editor({
             >
               Redo
             </button>
+            <button
+              type="button"
+              className={`button${sharing !== 'off' ? ' button--primary' : ''}`}
+              onClick={() => setSharing((open) => (open === 'off' ? 'out' : 'off'))}
+              title="Copy this draught as a code, or read one in"
+            >
+              Code
+            </button>
             <button type="button" className="button" onClick={onClose}>
               Close
             </button>
           </div>
         </header>
+
+        {sharing !== 'off' && (
+          <div className="yard__share panel">
+            <div className="yard__share-tabs">
+              <button
+                type="button"
+                className={`yard__share-tab${sharing === 'out' ? ' yard__share-tab--on' : ''}`}
+                onClick={() => setSharing('out')}
+              >
+                Write one out
+              </button>
+              <button
+                type="button"
+                className={`yard__share-tab${sharing === 'in' ? ' yard__share-tab--on' : ''}`}
+                onClick={() => setSharing('in')}
+              >
+                Read one in
+              </button>
+            </div>
+
+            {sharing === 'out' ? (
+              <>
+                {/*
+                  Read-only and selected on focus: the point of this field is
+                  to be copied, and a captain who edits a code has broken its
+                  checksum without being told why.
+                */}
+                <textarea
+                  className="yard__code"
+                  readOnly
+                  rows={3}
+                  value={state.placements.length > 0 ? onExport(name, state.placements) : ''}
+                  onFocus={(event) => event.currentTarget.select()}
+                  aria-label="This draught as a code"
+                />
+                <p className="micro">
+                  Anyone who reads this has the draught exactly. It carries no hull, no
+                  fittings and no marks — they still have to build it.
+                </p>
+              </>
+            ) : (
+              <>
+                <textarea
+                  className="yard__code"
+                  rows={3}
+                  value={incoming}
+                  onChange={(event) => setIncoming(event.target.value)}
+                  placeholder="Paste a draught code"
+                  aria-label="A draught code to read in"
+                />
+                <div className="yard__share-actions">
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy || incoming.trim() === ''}
+                    onClick={() => {
+                      onImport(incoming);
+                      setIncoming('');
+                    }}
+                  >
+                    Read it
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <Grid
           placements={state.placements}
@@ -353,6 +525,46 @@ export function Editor({
                 <li key={`${problem.code}-${problem.placements.join(',')}`}>{problem.message}</li>
               ))}
             </ul>
+          )}
+        </div>
+
+        <div className="yard__warrant panel">
+          <header className="panel-header">
+            <h2>Warrant</h2>
+            <span className="micro">{held.name}</span>
+          </header>
+
+          <p className="micro">
+            {held.maxModules} fittings, {held.maxExtent} cells across. This draught:{' '}
+            <span className={state.placements.length > held.maxModules ? 'yard__short' : 'data'}>
+              {state.placements.length}
+            </span>{' '}
+            in{' '}
+            <span className={extent > held.maxExtent ? 'yard__short' : 'data'}>{extent}</span>.
+          </p>
+
+          {nextWarrant === undefined ? (
+            <p className="micro">Nothing further is issued.</p>
+          ) : (
+            <div className="yard__warrant-next">
+              <span className="label">{nextWarrant.name}</span>
+              <span className="micro">
+                {nextWarrant.maxModules} fittings, {nextWarrant.maxExtent} across
+              </span>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy || marks < nextWarrant.cost}
+                onClick={() => onBuyLicence(nextWarrant.id)}
+                title={
+                  marks < nextWarrant.cost
+                    ? `${(nextWarrant.cost - marks).toLocaleString()} marks short`
+                    : `Take out a ${nextWarrant.name}`
+                }
+              >
+                {nextWarrant.cost.toLocaleString()}
+              </button>
+            </div>
           )}
         </div>
 

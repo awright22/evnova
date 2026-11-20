@@ -912,22 +912,48 @@ export class SystemRoom extends Room<{
     const pilot = this.pilotsBySession.get(sessionId);
     if (!pilot) return;
 
-    // What the captain is flying, which the editor starts a refit from. A
-    // captain who has never built owns no hull row — they fly the draught
-    // their account opened with — so it comes from the blueprint rather than
-    // from the hangar, and the editor opens on their actual ship instead of
-    // an empty grid.
-    const { blueprints } = content();
+    // What the captain is flying, which the editor starts a refit from. The
+    // same resolver the simulation uses, so a captain who has never built
+    // opens the editor on the draught they actually fly rather than an empty
+    // grid, and one who has built opens on their own hull under its own name.
+    const { licences } = content();
+    const { blueprint } = this.hullFor(pilot);
     const owned = world().yard.flying(pilot.accountId);
-    const flying = owned?.placements ?? blueprints.get(pilot.blueprintId)?.placements ?? [];
+
+    const berth = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+    const held = licences.get(pilot.licence as LicenceId);
 
     this.clients.get(sessionId)?.send('yard', {
       designs: world().yard.designsOf(pilot.accountId),
       ships: world().yard.shipsOf(pilot.accountId),
       licence: pilot.licence,
-      flying,
+      flying: blueprint.placements,
       flyingId: owned?.id ?? '',
-      flyingName: blueprints.get(pilot.blueprintId)?.name ?? pilot.blueprintId,
+      flyingName: blueprint.name,
+
+      /** What this berth's Yard stocks, so the palette shows only the rest. */
+      stock: berth?.yardStock ?? {},
+      berthName: berth?.name ?? '',
+
+      /**
+       * The warrant ladder, with what each one covers.
+       *
+       * Sent whole rather than just the next rung: a captain deciding whether
+       * to save for a cruiser warrant wants to see what it buys, and the
+       * editor should not have to carry a second copy of the costs.
+       */
+      licences: [...licences.entries()]
+        .sort((a, b) => a[1].rank - b[1].rank)
+        .map(([id, def]) => ({
+          id,
+          name: def.name,
+          cost: def.cost,
+          maxModules: def.maxModules,
+          maxExtent: def.maxExtent,
+          held: id === pilot.licence,
+          /** Below the one held: shown as passed, not as something to buy. */
+          behind: held !== undefined && def.rank < held.rank,
+        })),
     });
   }
 

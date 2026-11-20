@@ -323,3 +323,154 @@
 .yard__actions .button {
   flex: 1 1 auto;
 }
+
+/* --- What this berth stocks --------------------------------------------- */
+
+/*
+ * The scope toggle: showing only what can be fitted here, or the whole
+ * Register with the rest greyed. It reads as a state, not a button, so it
+ * carries no chamfer and no border until it is on.
+ */
+.yard__scope {
+  padding: 0 var(--space-0-5);
+  font: inherit;
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid transparent;
+}
+
+.yard__scope:hover {
+  color: var(--text-primary);
+}
+
+.yard__scope--on {
+  color: var(--amber);
+  border-color: var(--rule);
+}
+
+/*
+ * A fitting the berth cannot supply. Dimmed rather than hidden, so a captain
+ * can see what exists and go and find it, and unpickable so they cannot build
+ * a draught the counter will refuse.
+ */
+.yard__fitting--elsewhere {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.yard__fitting--elsewhere:hover {
+  color: var(--text-disabled);
+  background: none;
+}
+
+.yard__fitting--elsewhere .data,
+.yard__fitting--elsewhere .micro {
+  color: var(--text-disabled);
+}
+
+/* --- The warrant -------------------------------------------------------- */
+
+.yard__warrant p {
+  margin: 0;
+  padding: var(--space-1);
+  color: var(--text-secondary);
+}
+
+.yard__warrant-next {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-0-5) var(--space-1);
+  padding: var(--space-1);
+  border-top: var(--border-width) solid var(--rule-faint);
+}
+
+/* The name and the figures stack in the first column; the price sits beside. */
+.yard__warrant-next .label {
+  grid-column: 1;
+}
+
+.yard__warrant-next .micro {
+  grid-column: 1;
+  color: var(--text-secondary);
+}
+
+.yard__warrant-next .button {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+/* --- Share codes -------------------------------------------------------- */
+
+.yard__share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.yard__share-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.yard__share-tab {
+  padding: 0 var(--space-0-5) var(--space-0-5);
+  font: inherit;
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+
+.yard__share-tab:hover {
+  color: var(--text-primary);
+}
+
+.yard__share-tab--on {
+  color: var(--text-primary);
+  border-bottom-color: var(--amber);
+}
+
+/*
+ * A code is a long unbroken run of characters, so it wraps anywhere rather
+ * than giving the panel a horizontal scrollbar. Spec section 4 names three
+ * faces and no monospace one, so this is the condensed face opened up with
+ * tracking: enough to tell one character from the next without adding a
+ * fourth typeface to a type system that is deliberately closed.
+ */
+.yard__code {
+  width: 100%;
+  padding: var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-body-sm);
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  word-break: break-all;
+  background: var(--void);
+  border: var(--border-width) solid var(--rule);
+  resize: vertical;
+}
+
+.yard__code:focus-visible {
+  border-color: var(--amber-dim);
+  outline: none;
+}
+
+.yard__share p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.yard__share-actions {
+  display: flex;
+  justify-content: flex-end;
+}

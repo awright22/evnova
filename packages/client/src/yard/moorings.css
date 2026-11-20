@@ -1,0 +1,113 @@
+/**
+ * The Moorings. A harbourmaster's register: one row per hull, its figures
+ * tabular and read down the column, and the hull you are in marked out.
+ *
+ * Same idiom as the Staple, because both are a page of records a captain
+ * reads rather than a shop they browse.
+ */
+
+.moorings {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  outline: none;
+}
+
+.moorings__panel {
+  display: grid;
+  gap: var(--space-2);
+  width: min(900px, 100%);
+  max-height: 100%;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: var(--panel);
+}
+
+.moorings__lede {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.moorings__none {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--text-muted);
+  text-align: center;
+  border: var(--border-width) dashed var(--rule);
+}
+
+.moorings__table {
+  width: 100%;
+  font-size: var(--size-body-sm);
+  border-collapse: collapse;
+}
+
+.moorings__table thead th {
+  padding: 0 var(--space-1) var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  color: var(--text-muted);
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.moorings__table tbody td,
+.moorings__table tbody th {
+  padding: var(--space-0-5) var(--space-1);
+  text-align: left;
+  font-weight: 400;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.moorings__table tbody tr:hover td,
+.moorings__table tbody tr:hover th {
+  background: color-mix(in srgb, var(--hover) 55%, transparent);
+}
+
+/* The hull's name over its span, stacked in one cell. */
+.moorings__name {
+  display: block;
+  color: var(--text-primary);
+}
+
+.moorings__table tbody th .micro {
+  color: var(--text-muted);
+}
+
+/** Figures read down the column, so they are tabular and right-aligned. */
+.moorings__figure {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.moorings__table thead .moorings__figure {
+  text-align: right;
+}
+
+/*
+ * The hull being flown. Marked with a rule down the left rather than a fill:
+ * it is the captain's position in the list, not a warning.
+ */
+.moorings__row--flying th {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.moorings__row--flying .moorings__name {
+  color: var(--amber);
+}
+
+.moorings__notice {
+  margin: 0;
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-secondary);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}

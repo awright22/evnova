@@ -25,7 +25,8 @@
     "verify:authority": "tsx tools/verify/src/authority.ts",
     "verify:persistence": "tsx tools/verify/src/persistence.ts",
     "verify:travel": "tsx tools/verify/src/travel.ts",
-    "verify:trade": "tsx tools/verify/src/trade.ts"
+    "verify:trade": "tsx tools/verify/src/trade.ts",
+    "verify:yard": "tsx tools/verify/src/yard.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

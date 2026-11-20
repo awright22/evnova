@@ -108,6 +108,22 @@ export class Yard {
     private readonly market: Market,
   ) {}
 
+  /**
+   * Refuse placements naming a fitting the Register does not list.
+   *
+   * `placeAll` throws on an unknown module id, which is right for a
+   * programming error and wrong for a client message: the throw escaped the
+   * intent handler, so a hand-made build naming "hrc-bridge-99" produced a
+   * server exception rather than a refusal a captain could read. Every path
+   * that takes placements from a client comes through here first.
+   */
+  private requireKnown(placements: readonly Placement[]): void {
+    const { modules } = content();
+    if (placements.some((placement) => !modules.has(placement.moduleId))) {
+      throw new YardRefused('unknown-fitting');
+    }
+  }
+
   // --- Designs ------------------------------------------------------------
 
   designsOf(accountId: string): SavedDesign[] {
@@ -129,6 +145,11 @@ export class Yard {
     design: { id?: string; name: string; placements: Placement[] },
     now: number,
   ): SavedDesign {
+    // A draught with a fitting nobody has heard of is refused at the counter
+    // rather than written to the books, where it would throw in the editor
+    // the next time the captain opened it.
+    this.requireKnown(design.placements);
+
     return this.store.transaction(() => {
       if (design.id !== undefined) {
         const existing = this.store.db
@@ -443,6 +464,7 @@ export class Yard {
     const licence = licences.get(options.pilot.licence as LicenceId);
     if (!licence) throw new YardRefused('invalid-design');
 
+    this.requireKnown(options.placements);
     const placed = placeAll(options.placements, modules);
     const check = validateDesign(placed, licence, tuning);
     if (!check.valid) throw new YardRefused('invalid-design', check.problems);

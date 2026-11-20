@@ -19,6 +19,8 @@ import {
   SERVER_MESSAGES,
   SystemState,
   content,
+  encodeShareCode,
+  normaliseShareCode,
   rejectionText,
   scrubChat,
   type ChatLine,
@@ -107,6 +109,19 @@ export interface YardState {
   /** Its id in the hangar, or empty for a hull that was never built. */
   readonly flyingId: string;
   readonly flyingName: string;
+  /** The highest tier this berth's Yard stocks from each maker. */
+  readonly stock: Partial<Record<string, number>>;
+  readonly berthName: string;
+  /** The warrant ladder, lowest first, with what each one covers. */
+  readonly licences: readonly {
+    id: string;
+    name: string;
+    cost: number;
+    maxModules: number;
+    maxExtent: number;
+    held: boolean;
+    behind: boolean;
+  }[];
 }
 
 export interface GameSnapshot {
@@ -556,6 +571,40 @@ export class GameClient {
     void this.request('forget-design', { id });
   }
 
+  /**
+   * A draught as a code to paste to somebody.
+   *
+   * Encoded here rather than asked of the server: the editor already holds
+   * the placements, the encoding is deterministic shared code, and a captain
+   * copying a code should not have to wait for a round trip.
+   */
+  exportDesign(name: string, placements: readonly Placement[]): string {
+    return encodeShareCode({ name, placements: [...placements] });
+  }
+
+  /** Read a pasted code onto the captain's books. */
+  async importDesign(code: string, name?: string): Promise<boolean> {
+    return this.requestOk('import-design', {
+      code: normaliseShareCode(code),
+      ...(name !== undefined && name !== '' ? { name } : {}),
+    });
+  }
+
+  /** Hand a draught to another captain, by callsign. */
+  async giveDesign(id: string, callsign: string): Promise<boolean> {
+    return this.requestOk('give-design', { id, callsign: callsign.trim() });
+  }
+
+  /** Buy the next warrant up. */
+  async buyLicence(licence: string): Promise<boolean> {
+    return this.requestOk('buy-licence', { licence });
+  }
+
+  /** Take out a hull moored at this berth. */
+  async switchShip(id: string): Promise<boolean> {
+    return this.requestOk('switch-ship', { id });
+  }
+
   /** Trade at the berth's Staple. The server answers with fresh prices. */
   trade(side: 'buy' | 'sell', commodity: string, units: number): void {
     if (units < 1) return;
@@ -572,15 +621,29 @@ export class GameClient {
 
   /** Send an intent and turn a refusal into a notice the interface can show. */
   private async request(type: string, payload: unknown): Promise<void> {
+    await this.requestOk(type, payload);
+  }
+
+  /**
+   * As `request`, but says whether the server accepted it.
+   *
+   * Used where the interface has to act on the answer rather than just show a
+   * notice: a form that should only close once its intent was accepted, or a
+   * field that should only clear once the code in it was read.
+   */
+  private async requestOk(type: string, payload: unknown): Promise<boolean> {
     const room = this.room;
-    if (!room) return;
+    if (!room) return false;
     try {
       await room.request(type, payload);
       this.notice = undefined;
+      this.emit();
+      return true;
     } catch (error) {
       this.notice = refusalText(error);
+      this.emit();
+      return false;
     }
-    this.emit();
   }
 
   dispose(): void {
