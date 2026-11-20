@@ -36,6 +36,30 @@ cycle 1: making it lawful to fire on a posted captain produced more
 write-offs, so more bots rebound. The browser never had this, because
 remounting the flight view takes a new handle. The bot does the same now.
 
+**The gunner's eyes were never switched on.** Fourteen runs of the write-off
+capture, and the thing that settled it was watching the victim's own
+structure: 717, and not moving. Nothing was hitting it at all — so no amount
+of patrol tuning, stand-off distance or mark-holding was ever going to
+matter. `openCompanion` opened its page without `harness=1`, so the client
+published no room on `window`; a companion asked to find a mark, turn onto
+it and hold the trigger read nothing, returned at once, and fired not one
+round.
+
+Every theory the previous runs produced — patrols that hold station, gunners
+that die, rooms that do not match, hulls that take too long to lose — was
+built on a gunner that had never been switched on. *The lesson is the one
+cycle 2 keeps relearning: measure the thing itself before theorising about
+what is acting on it.*
+
+**A client coming back from the background replayed every missed step.**
+Found in this cycle's soak and not living there. `predict.tick(now)` returns
+every fixed step owed since the last call, and both clients sent an input for
+each. A browser tab in the background gets no animation frames, so ten
+seconds away is three hundred steps: the reconciler's replay buffer
+overflows, and the client replays ten seconds of whatever key was last held
+as though the captain had been holding it. Capped at twelve steps — four
+hundred milliseconds, which covers a slow frame and nothing longer.
+
 ## Findings
 
 Ranked by player impact.
@@ -57,6 +81,8 @@ cannot tell whether a scroller is actually overflowing, so the fade would
 also cut a complete list. It needs either whole-row sizing or a
 scroll-driven fade, and neither is worth a wrong answer now.
 
-**N2. The write-off capture is still unproduced.** Thirteen runs. The gunner
-now holds one mark, which should settle it; if the run that is in flight
-produces the screen, this is closed.
+**N2. The soak still logs one replay-buffer warning in three minutes.** Down
+from one every run at ten seconds, and the drift telemetry shows nothing:
+every client matched, worst EMA 0.0000. The remaining case looks like a
+client whose hull is written off mid-burst. Noise rather than a fault, and
+recorded so a cycle that sees it get worse knows it was once better.
