@@ -153,8 +153,9 @@ berth the captain did not walk into. Nothing about the loss is in doubt by
 then: it is settled, paid and persisted. So only the view of it is held
 back now, behind a "Go ashore" on the panel.
 
-**M3. Three screens had not been photographed in a long time, and nobody
-noticed.** The first full sweep of the cycle found them:
+**M3. Five screens had quietly stopped being photographed.** The first full
+sweep of the cycle found them — 34 captured, 5 missed, and every miss the
+same family of fault:
 
 - **`register` and `register-phrase`** wait for `.register` on `/`. Since M9
   put a title screen in front of everything, `/` is the *title* — so both
@@ -162,11 +163,15 @@ noticed.** The first full sweep of the cycle found them:
   not been looked at for two milestones. The sign-up act was broken twice
   over: it also clicked `button[type="submit"]`, and every control on the
   Register is a `type="button"`.
+- **`register-refused`** had both faults as well.
+- **`boot-unreachable`** waits for `.boot__failure` on the same `/`. A
+  captain with an account is offered "Back to the Reach" rather than the
+  Register, and the link fails behind that door, not in front of it.
 - **`yard-code`** clicks `.yard__tools button:text("Code")`. The control is
   called *Draughts*, and the code lives behind its "Write one out" tab. The
   selector has been naming a button that does not exist.
 
-All three now take the path a player takes, using the selectors
+All five now take the path a player takes, using the selectors
 `pnpm play:new` already proves work.
 
 The wider point: a screen that cannot be captured is a screen nobody is
@@ -194,20 +199,20 @@ bottom edge only when there is in fact more there. Bottom only — every table
 here keeps a sticky header, and fading that would dim the column names.
 Applied to all four of the Bourse's scrollers.
 
-**N1b. "Also at this berth" headed an empty box.** The heading means "and
+**N2. "Also at this berth" headed an empty box.** The heading means "and
 these as well", and it filters out everything with a row of its own above —
 so at a berth that keeps the lot, it listed nothing and left a labelled
 empty box, which reads as content that failed to load. The section is not
 drawn when it has nothing to say.
 
-**N1c. The board's still was a photograph of an animation.** `board` takes a
+**N3. The board's still was a photograph of an animation.** `board` takes a
 commission and waits 900ms, which is about right for the stamp's strike at
 full speed and much too short under software rasterisation: the capture
 caught the seal mid-strike, across the control it had been pressed on and
 across the commission's own terms. The stamp has six frames of its own; this
 screen is the board, and it waits for the impression to settle now.
 
-**N2. The screen called `combat` was a photograph of no combat.** Two hulls
+**N4. The screen called `combat` was a photograph of no combat.** Two hulls
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
 zero, and a landing prompt across the bottom. The fight had happened: the
 mark's shield was down. But `untilHit` returned the instant a round told,
@@ -217,13 +222,13 @@ gone and the hulls have parted. It now closes to well inside reach before
 returning, and waits 120ms rather than 350 before the shutter. `beams` takes
 the same path and the same fix.
 
-**N3. A refusal stood under a panel about something else.** The flight view
+**N5. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
 The write-off capture photographed "The port declined that" sitting under
 "Written off at Parity". A state that takes over the screen clears the
 smaller notices it has made irrelevant; named on the avoid list.
 
-**N4. The soak still logs one replay-buffer warning in three minutes.** Down
+**N6. The soak still logs one replay-buffer warning in three minutes.** Down
 from one every run at ten seconds, and the drift telemetry shows nothing:
 every client matched, worst EMA 0.0000. The remaining case looks like a
 client whose hull is written off mid-burst. Noise rather than a fault, and
