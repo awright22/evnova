@@ -153,6 +153,10 @@ async function main(): Promise<void> {
         PORT: String(options.serverPort),
         NODE_ENV: 'development',
         DATABASE_URL: scratchDb,
+        // Enough to build with. Several screens are of the Yard and the
+        // Moorings, and a captain on a new captain's float can only ever be
+        // photographed looking at a bill they cannot pay.
+        STARTING_MARKS: '4000000',
       },
     });
     processes.push(server);

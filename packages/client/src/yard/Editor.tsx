@@ -348,10 +348,18 @@ export function Editor({
                       onClick={() => setPicked(picked?.id === def.id ? undefined : def)}
                     >
                       <span className="yard__fitting-name">
-                        {shortModuleName(
-                          def.name,
-                          tuning.manufacturers[def.manufacturer] ?? def.manufacturer,
-                        )}
+                        {/*
+                          The name needs a box of its own to be clipped with
+                          an ellipsis: a bare text node in a flex row has none,
+                          so it was pushing the maker tag off the end and both
+                          were cut mid-word.
+                        */}
+                        <span className="yard__fitting-what">
+                          {shortModuleName(
+                            def.name,
+                            tuning.manufacturers[def.manufacturer] ?? def.manufacturer,
+                          )}
+                        </span>
                         <span className="yard__maker">
                           {def.manufacturer}
                           {def.tier > 1 ? ` ${'I'.repeat(def.tier)}` : ''}
@@ -553,7 +561,9 @@ export function Editor({
               </span>
               <button
                 type="button"
-                className="button button--primary"
+                // Plain: Build is the amber action of this screen, and a
+                // second amber button beside it competes for the same eye.
+                className="button"
                 disabled={busy || marks < nextWarrant.cost}
                 onClick={() => onBuyLicence(nextWarrant.id)}
                 title={
@@ -683,6 +693,20 @@ export function Editor({
               type="button"
               className="button button--primary"
               disabled={busy || !survey.valid || marks < owed || purchase.unavailable}
+              // A greyed button with no reason beside it is a dead end. The
+              // bill already turns red when it cannot be met; this says by
+              // how much, and names the other two reasons it can be refused.
+              title={
+                !survey.valid
+                  ? `${problems.length} to answer before this can be built`
+                  : marks < owed
+                    ? `${(owed - marks).toLocaleString()} marks short`
+                    : purchase.unavailable
+                      ? `${berthName} cannot supply all the materials`
+                      : refitting
+                        ? `Refit the ${flyingName}`
+                        : `Build the ${name}`
+              }
               onClick={() => onBuild(name, state.placements, refitting)}
             >
               {refitting ? 'Refit' : 'Build'}

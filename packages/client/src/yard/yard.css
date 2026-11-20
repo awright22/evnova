@@ -73,6 +73,16 @@
   align-items: baseline;
   gap: var(--space-0-5);
   min-width: 0;
+}
+
+/*
+ * The fitting's own name. It gets the box that shrinks and clips, so the
+ * maker tag beside it is never cut: a row reading "Mk II Maneuvering Thrust"
+ * with the maker missing entirely told a captain less than one reading
+ * "Mk II Maneuvering…" with "SLP II" still beside it.
+ */
+.yard__fitting-what {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

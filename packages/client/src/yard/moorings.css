@@ -17,10 +17,18 @@
   outline: none;
 }
 
+/*
+ * Sized to what it holds, within reason. A fixed 900px panel carrying the
+ * one-line empty state read as a wide box with a sentence adrift in it —
+ * the same fault as an empty detail panel, which is already on the avoid
+ * list in docs/ART_DIRECTION.md.
+ */
 .moorings__panel {
   display: grid;
   gap: var(--space-2);
-  width: min(900px, 100%);
+  width: fit-content;
+  min-width: min(460px, 100%);
+  max-width: min(900px, 100%);
   max-height: 100%;
   padding: var(--space-2);
   overflow-y: auto;

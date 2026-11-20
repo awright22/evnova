@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M5 — Shipyard**
+**Current milestone: M6 — Exchange**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -81,19 +81,69 @@ Done when:
 - [x] The soak report shows stable prices and bounded credit growth with trading bots
 - [x] A bot that hammers one route sees its margin decay, and a rested route recovers
 
-## M5. Shipyard
+## M5. Shipyard — complete
 
-- [ ] The Loft: editor, drag, rotate, mirror, undo, copy and paste
-- [ ] Validation shown on the grid where problems occur
-- [ ] Bills of materials, building and refitting
-- [ ] Hull licences and tech tiers
-- [ ] Draught sharing as a share code
-- [ ] The Moorings
+- [x] The Loft: editor, drag, rotate, mirror, undo, copy and paste
+- [x] Validation shown on the grid where problems occur
+- [x] Bills of materials, building and refitting
+- [x] Hull licences and tech tiers
+- [x] Draught sharing as a share code
+- [x] The Moorings
 
 Done when:
-- [ ] A scripted new-player session designs, affords and builds a valid ship using only what the interface shows
-- [ ] A draught exported by one account builds identically on another
-- [ ] Invalid or unaffordable builds sent straight to the server are rejected
+- [x] A scripted new-player session designs, affords and builds a valid ship using only what the interface shows
+- [x] A draught exported by one account builds identically on another
+- [x] Invalid or unaffordable builds sent straight to the server are rejected
+
+### Report
+
+**What is now playable.** A captain can walk into a Yard, lay out a hull on
+the grid from the fittings that berth actually stocks, watch the handling and
+the bill change as they place them, and build it — paying in marks and in
+commodities taken from the hold or bought on the spot. The hull they build is
+the hull they then fly: it launches, it is drawn on every other captain's
+screen, it keeps its own damage, and it lies where they left it. They can own
+up to twelve, walk the Moorings to see where each one is, and take out any
+that is tied up at the berth they are standing on. They can buy their way up
+the warrant ladder as they can afford it, write a draught out as a code to
+paste to somebody, read one in, or hand one straight to another captain by
+callsign.
+
+The catalogue is forty-four fittings across three tiers, and where you build
+now matters: a company's own yard carries its own maker's best work and a
+rival's only second-hand, so a tier-3 engine exists at Careenage and Cabotage
+and nowhere else. The editor shows the whole Register behind an "Everywhere"
+toggle with the unstocked parts greyed, so a captain can see what to go and
+find rather than wondering why the list is short.
+
+**How to run it.**
+
+```bash
+pnpm dev
+```
+
+Land at the Bourse at Parity — it keeps a Yard, a Staple and the Moorings.
+
+```bash
+pnpm verify:yard
+```
+
+Twenty-one checks over the real protocol: the three done-when clauses, the
+Moorings, the warrant ladder, and every typed refusal.
+
+**Known issues.**
+
+- `weapon.tracking` was dead data until this milestone and is now read, which
+  makes turrets genuinely slower to bring round. The NPC brains were tuned
+  against instant turrets and have not been re-tuned; the next soak run is the
+  place to find out whether patrols still land hits.
+- A built hull's grid crosses the wire as a share code on its state. That is
+  one string per distinct hull rather than per hull per patch, but a system
+  holding twenty large custom hulls has not been measured against the
+  bandwidth budget in spec section 3.
+- The Moorings cap at twelve hulls and the books at forty draughts. Both are
+  constants in `Yard.ts` rather than tuning data, because neither is a
+  gameplay number a designer would reach for.
 
 ## M6. Exchange
 

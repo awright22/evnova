@@ -157,7 +157,10 @@ export function Moorings({
                     ) : (
                       <button
                         type="button"
-                        className="button button--primary"
+                        // A plain button, not the amber one: this is a row
+                        // action repeated down a list, and a column of amber
+                        // dilutes it as the player's signal colour.
+                        className="button"
                         disabled={busy || !row.here}
                         title={
                           row.here

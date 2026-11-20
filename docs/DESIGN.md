@@ -494,3 +494,54 @@ targets, which it does by construction.
 **2026-11-20 — A push message may not share a name with a request.** They are
 one name space, so a push called `staple` was delivered as the answer to the
 `staple` request and the real answer never arrived. The push is `market`.
+
+**2026-11-20 — One resolver decides what a captain flies.** The `ships` row
+with nowhere parked beats the draught named on the captain's row. Before this,
+`spawnHull` only knew content blueprints, so a built hull was stored and never
+flown. Everything — the simulation, the purse, the Yard — goes through
+`hullFor`, so the three cannot disagree.
+
+**2026-11-20 — A built hull's grid travels as a share code.** Spec section 7
+asks for export and import, so the encoding had to exist; using it for state
+as well means one tested, deterministic format rather than a second nested
+schema for module grids. The field never changes over a hull's life, so it
+costs its bytes once on arrival. The client's `HullBook` reads like the
+catalogue and learns a built hull the first time it sees one, which left every
+existing lookup site unchanged.
+
+**2026-11-20 — Share codes carry a dictionary, not catalogue indices.**
+Placements refer to modules through ids carried in the code itself, so adding
+a fitting to `modules.json` or reordering the file cannot silently turn one
+captain's gun into another's cargo bay. Base64url and UTF-8 are hand-rolled
+because this runs in both runtimes and they disagree about `btoa`, `Buffer`
+and `atob`. A CRC-16 catches a mistyped paste.
+
+**2026-11-20 — Yards stock by maker as well as by tier.** Spec section 7 asks
+that higher tiers be sold only at certain ports; section 19 already gives the
+three companies monopolies, so the gate follows from the setting rather than
+being invented beside it. One rule, `stocksModule`, is read by the editor to
+decide what to offer and by the Yard to decide what to fit, so the palette
+cannot show something the counter will refuse.
+
+**2026-11-20 — Turrets traverse.** `weapon.tracking` was declared in the
+schema and read nowhere: `aimOf` snapped a turret to its mark in the same tick
+it was given one. Rather than delete a stat spec section 8 describes, each
+mount holds a bearing relative to the hull and comes round at its own rate,
+whether or not the trigger is down. A mount with no traverse rate stays
+instant, which is what every turret did before.
+
+**2026-11-20 — `placeAll` throws; client messages must not.** Throwing on an
+unknown module id is right for a programming error and wrong for a message
+from a client, where it escaped the intent handler instead of refusing. Every
+path that takes placements from a client checks them against the Register
+first and refuses with `unknown-fitting`.
+
+**2026-11-20 — The editor quotes on the basis the build will use.** It
+credited the fittings on the hull being flown, but the starter draught is not
+owned, so the server charged for a new hull outright — 29,680 marks against a
+quoted 1,008. The quote and the build now read the same `flyingId`.
+
+**2026-11-20 — Hit-testing goes through the SVG's own transform.** The grid
+keeps its aspect and is centred in its column, so dividing the viewBox by the
+bounding box was wrong by the letterbox whenever the two aspects differed.
+`getScreenCTM` is the transform the browser drew with.

@@ -388,6 +388,80 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'yard-code',
+    description:
+      "A draught written out as a code: the share drawer open over the editor's board, "
+      + 'with the code in a field made to be copied.',
+    path: '/?callsign=Correspondent',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Yard")');
+      await page.waitForSelector('.grid', { timeout: 20_000 });
+      await page.click('.yard__tools button:text("Code")');
+      await page.waitForSelector('.yard__code', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+    },
+  },
+  {
+    name: 'yard-everywhere',
+    description:
+      'The whole Register in the palette, with the fittings this berth cannot supply greyed '
+      + 'out rather than hidden, so a captain can see what to go and find.',
+    path: '/?callsign=Window%20Shopper',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Yard")');
+      await page.waitForSelector('.grid', { timeout: 20_000 });
+      await page.click('.yard__scope');
+      await page.waitForSelector('.yard__fitting--elsewhere', { timeout: 20_000 });
+      // Scrolled to where the greyed fittings actually are, so the capture
+      // shows the gate rather than the top of a list that happens to be
+      // entirely in stock.
+      await page.locator('.yard__fitting--elsewhere').first().scrollIntoViewIfNeeded();
+      await page.waitForTimeout(400);
+    },
+  },
+  {
+    name: 'moorings',
+    description:
+      'The Moorings: every hull the captain owns, where each lies, and which one they are in.',
+    path: '/?callsign=Fleet%20Owner',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      // Two hulls, so the register has something in it. A capture of the
+      // empty state says nothing about whether the screen works.
+      for (const hull of ['Bonded Runner', 'Short Measure']) {
+        await page.click('.port__service-list button:text("Open the Yard")');
+        await page.waitForSelector('.grid', { timeout: 20_000 });
+
+        await page.fill('.yard__name', hull);
+        await page.click('.yard__actions button:text("Build")');
+        await page.waitForTimeout(900);
+        await page.click('.yard__tools button:text("Close")');
+        await page.waitForSelector('.port', { timeout: 20_000 });
+      }
+
+      await page.click('.port__service-list button:text("Walk the moorings")');
+      await page.waitForSelector('.moorings__table', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+    },
+  },
+  {
     name: 'chat',
     description: 'The chat overlay: the composer open on the global channel, with the log behind it.',
     path: '/?callsign=Say%20Again',

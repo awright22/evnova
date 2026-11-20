@@ -27,8 +27,24 @@ export interface GridProps {
   onCellUp: () => void;
 }
 
-/** Cells of margin around the hull, so there is somewhere to extend it. */
-const MARGIN = 6;
+/**
+ * Cells of margin around the hull, so there is somewhere to extend it.
+ *
+ * Kept tight. Six cells each way meant a starter draught of eight by five
+ * drew into a twenty-by-seventeen board and sat as a small patch in the
+ * middle of an empty field — the board re-fits as fittings are placed, so the
+ * margin only has to be enough to aim at, not enough to finish in.
+ */
+const MARGIN = 3;
+
+/**
+ * The smallest board, in cells.
+ *
+ * Without it a draught of one fitting would be magnified until a single
+ * module filled the screen, which reads as a different interface rather than
+ * a zoomed-in one.
+ */
+const MIN_SPAN = 11;
 
 /** How a module's type reads at a glance. */
 const TYPE_FILL: Record<string, string> = {
@@ -92,17 +108,41 @@ export function Grid({
     }
     if (ghost) consider(ghost.placement, ghost.def);
 
-    return {
-      minX: minX - MARGIN,
-      minY: minY - MARGIN,
-      width: maxX - minX + MARGIN * 2,
-      height: maxY - minY + MARGIN * 2,
+    // Grown about its own centre to the minimum, so a small draught sits in
+    // the middle of the board rather than against one corner of it.
+    const grow = (low: number, high: number): { start: number; span: number } => {
+      const span = Math.max(high - low + MARGIN * 2, MIN_SPAN);
+      return { start: low - (span - (high - low)) / 2, span };
     };
+
+    const across = grow(minX, maxX);
+    const down = grow(minY, maxY);
+
+    return { minX: across.start, minY: down.start, width: across.span, height: down.span };
   }, [placements, modules, ghost]);
 
-  /** Which cell a pointer event is over, in grid coordinates. */
+  /**
+   * Which cell a pointer event is over, in grid coordinates.
+   *
+   * Through the element's own screen transform rather than by dividing the
+   * viewBox by the bounding box. The board keeps its aspect ratio and is
+   * centred in whatever space the column gives it, so whenever the two
+   * aspects differ there is a letterbox the simple arithmetic knows nothing
+   * about: clicks landed a cell or two off, and further off the wider the
+   * window got. `getScreenCTM` accounts for the scale and the centring
+   * together, because it is the same transform the browser drew with.
+   */
   const cellAt = (event: React.PointerEvent<SVGSVGElement>): { x: number; y: number } => {
     const svg = event.currentTarget;
+    const screen = svg.getScreenCTM?.();
+
+    if (screen) {
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(screen.inverse());
+      return { x: Math.floor(point.x), y: Math.floor(point.y) };
+    }
+
+    // No transform to be had, which happens in a headless DOM. Fall back to
+    // the flat mapping, which is right whenever the aspects do match.
     const rect = svg.getBoundingClientRect();
     const scale = bounds.width / rect.width;
     return {

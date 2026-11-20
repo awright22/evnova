@@ -428,6 +428,14 @@ whenever an unintended look appears, then fix it.
 - Drop-shadowed text for contrast; fix the surface instead
 - Icon-only buttons without a tooltip and an accessible label
 - Tooltips that restate the visible label instead of explaining the value
+- A row action repeated down a list in amber. One amber button is the primary
+  action of a screen; one per row is a column of amber, which is the same
+  dilution as using it decoratively. Row actions are plain buttons, and the
+  fill is kept for the single thing the screen is for.
+- A fixed-width panel holding a one-line empty state, which reads as a box
+  with a sentence adrift in it. A panel sizes to what it holds.
+- A board that draws the hull as a small patch in an empty field. The margin
+  around a draught is somewhere to aim, not somewhere to finish.
 
 **Found in captures and being fixed:**
 
