@@ -84,8 +84,87 @@ human to-do's table of what this environment cannot reach.
 
 ## Majors
 
-*To be written when the suite finishes.*
+**M1. Every seal in the game was a ship's wheel.** Looked at a struck seal at
+native resolution for the first time: an outer ring, an inner ring, a hub at
+the middle and six arms radiating out of it. `docs/ART_DIRECTION.md` section
+8 bans the compass rose and the ship's wheel in the same line — *the 1600s
+are in the institutions, not the props* — and the signature interaction of
+the whole project had been striking one since M6.
+
+The geometry caused it. A lozenge's base sat at 0.16 of its reach and a
+bar's inner end at 0.22, so three or six repeats all ran back to within a
+tenth of the centre and met there; the inner ring around them completed the
+wheel. Every device is floored outside both 0.46 of its reach and the inner
+ring now, so it sits in the band between ring and rim and the middle of the
+seal is empty. Rendered every issuer to a sheet and looked: lozenges around
+a ring, chevrons closing into a star, rings and bars. No hub, no spokes.
+
+**And the test that was supposed to prevent it passed throughout.** It is
+called *leaves the centre clear, because a seal carries no monogram*, and it
+asserted that the nearest point of any device was more than **0.02** from
+dead centre. A base at 0.096 clears that fifty times over and clears nothing
+a person would see. The rule was broken for four milestones while a test
+named after it stayed green. It asks for 0.2 now.
+
+That is the cycle's lesson and it is worth more than the fix: a test can
+enshrine a weaker property than the rule it is named after, and then its
+passing is evidence of nothing. The seal tests check structure — how many
+repeats, how far out, nothing at dead centre — and none of them could have
+told anyone what the mark looked like. Only looking at it could.
 
 ## Minors
 
-*To be written when the suite finishes.*
+**N1. `verify:bourse` built a draught with no propellant tank.** Refused
+`no-tank` under every licence, and four checks depended on that build —
+including invariant 6's self-dealing test, which had therefore not been run.
+The fixture gained a tank.
+
+The loop that built it caught the refusal with `catch { break; }` and
+reported "0 marks of Slipway fittings". The Yard had already said exactly
+what was wrong and sends the survey's problems alongside the refusal; the
+harness threw both away. It reports them now. This is the rule `CLAUDE.md`
+gained in cycle 2, broken in a file written before it.
+
+**N2. `verify:orders` failed seven checks and none of them were the game.**
+
+- It compared a purse against an order's settled total while the Bourse was
+  paying dividends on the shares that order had just bought: 58 marks gone
+  against 68 settled, the 10 being income the check was not watching.
+- It compared an average fill price against the limit. Marks are whole:
+  eight shares at 8.36 is 66.88, the pool charges 67, the fee is another
+  mark, and 8.5 a share reads as a violation of a limit that was never
+  broken. It now compares what was settled against what the limit permits
+  once every fill has been rounded up.
+- It read the live quote to decide whether the limit had held. At six
+  hundred times the world's clock that is a different market by the time it
+  is read — KSC opens at 8.20, eight shares fill at the limit, and the house
+  trader walks the quote to 19.95 on its own. The harness was reporting the
+  house trader's work as a limit violation.
+- It sized a short at a fixed 30% of the holding cap, which at that drifted
+  price wants 2,992 marks of margin against a purse of 2,975 and is refused
+  by seventeen marks. It is sized from the margin state the Bourse reports
+  now.
+- And the clock: at 600x a short was opened, carried, margin-called and
+  bought back inside one fifteen-second window, so the harness looked for a
+  position that had already been closed and reported one that was never
+  carried. Sixty still gives dozens of ticks a check.
+
+24 of 24 pass. Every figure that bears on a failure is printed now, because
+"58 against 68" cannot tell you whether you are looking at a ledger fault or
+a reading taken at the wrong instant.
+
+**N3. `pnpm perf` printed the first line of its own diagnostic.**
+`browser.ts` puts the on-screen text into the error precisely so a failure
+can be diagnosed, and `main.ts` took `message.split('\n')[0]` and dropped
+the rest — so the run reported "the flight view never came up" and nothing
+about why, from a harness built to answer exactly that. Cycle 3 raised that
+wait from thirty seconds to two minutes and added the diagnostic; the line
+that discarded it was three files away and went unread.
+
+**N4. The range's write-off check said "survived" and nothing else.** Two
+armed hulls against a stationary one for ninety seconds, and when it failed
+the detail was *survived, which this check needed it not to* — which does
+not distinguish a hull that is too tough from sparring partners that never
+close. It reports the hull's shield and structure over the window and how
+far off the spars are now. It passed on both re-runs, so the original
+failure was intermittent; the telemetry is there for when it is not.
