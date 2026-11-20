@@ -89,6 +89,8 @@ export interface PortHubProps {
   onBuy: (service: 'repair' | 'propellant' | 'ordnance' | 'composition') => void;
   onLaunch: () => void;
   onOpenChart: () => void;
+  /** Settings: the shell's screen, reachable from alongside. */
+  onOpenSettings: () => void;
   onOpenStaple: () => void;
   onOpenYard: () => void;
   onOpenMoorings: () => void;
@@ -110,6 +112,7 @@ export function PortHub({
   onBuy,
   onLaunch,
   onOpenChart,
+  onOpenSettings,
   onOpenStaple,
   onOpenYard,
   onOpenMoorings,
@@ -397,6 +400,14 @@ export function PortHub({
         <footer className="port__actions">
           <button type="button" className="button" onClick={onOpenChart}>
             Chart <span className="micro">M</span>
+          </button>
+          {/*
+            Alongside is where a captain has a moment: settings are reachable
+            from here rather than from the flight view, where pressing the
+            wrong thing costs a hull.
+          */}
+          <button type="button" className="button" onClick={onOpenSettings}>
+            Settings
           </button>
           <button
             type="button"

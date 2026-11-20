@@ -443,6 +443,11 @@ export const SCREENS: readonly Screen[] = [
       flying: 'force-majeure',
       lastBerth: 'underwriters-hall',
       cargo: { ice: 14 },
+      // Already posted, so the patrols answer for them from the first
+      // instant. Earning it by shooting something first worked alone and
+      // not in a full run, where the traffic has moved on by the time this
+      // screen comes round.
+      composition: 4000,
     },
     act: async (page) => {
       await page.waitForSelector('.hud', { timeout: 20_000 });
@@ -458,10 +463,13 @@ export const SCREENS: readonly Screen[] = [
         undefined,
         { timeout: 60_000 },
       );
+      // Nothing to do but be answered for. Closing on the nearest hull
+      // brings the patrol to them sooner; the hull carries a gun but this
+      // is not a fight it is going to win.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
-      await engageNearest(page, 120);
-      await page.waitForSelector('.flight__written-off', { timeout: 120_000 });
+      await engageNearest(page, 90);
+      await page.waitForSelector('.flight__written-off', { timeout: 150_000 });
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
       // read rather than photographing the sentence that says it is being.
@@ -802,7 +810,7 @@ export const SCREENS: readonly Screen[] = [
       'The stamp, frame by frame: the control presses, the seal strikes at 108% with an '
       + "amber rim at its edge, the ink spreads, and the berth's mark is left on the "
       + 'order. The signature interaction of the game, caught across its 260ms.',
-    path: '/?callsign=Supercargo',
+    path: '/?callsign=Bill%20of%20Lading',
     settle: '.hud',
     settleMs: 900,
     act: async (page) => {
@@ -825,7 +833,7 @@ export const SCREENS: readonly Screen[] = [
     description:
       "The stamp at document size: the issuing house's seal struck on a commission, its "
       + 'name set round the rim, the ink spread and the deboss under it.',
-    path: '/?callsign=Supercargo%20Three',
+    path: '/?callsign=Clerk%20of%20the%20Board',
     settle: '.hud',
     settleMs: 900,
     act: async (page) => {

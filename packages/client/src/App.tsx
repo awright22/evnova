@@ -29,6 +29,15 @@ import { Convoy } from './convoy/Convoy.tsx';
 import { Offers } from './offers/Offers.tsx';
 import { Admin } from './admin/Admin.tsx';
 import { httpBaseFrom, loadAccount } from './game/account.ts';
+import { Title } from './shell/Title.tsx';
+import { Settings } from './shell/Settings.tsx';
+import { Credits } from './shell/Credits.tsx';
+import {
+  applySettings,
+  loadSettings,
+  saveSettings,
+  type Settings as SettingsState,
+} from './shell/settings.ts';
 import { RangeBanner } from './flight/RangeBanner.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
@@ -43,16 +52,69 @@ export function App(): React.JSX.Element {
     return params.get('admin') !== null;
   }, []);
 
+  // Settings are applied before anything renders, so a captain who has
+  // scaled the interface up never sees one frame of it small.
+  const [settings, setSettings] = useState(() => {
+    const loaded = loadSettings();
+    applySettings(loaded);
+    return loaded;
+  });
+
+  const change = useCallback((next: SettingsState) => {
+    setSettings(next);
+    applySettings(next);
+    saveSettings(next);
+  }, []);
+
+  /**
+   * Where the shell is standing.
+   *
+   * The title comes first, unless a capture or a test asked to go straight
+   * in: the harness drives the game and has no business pressing a door.
+   */
+  const [shell, setShell] = useState<'title' | 'settings' | 'credits' | 'game'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('harness') !== null || params.get('callsign') !== null
+      ? 'game'
+      : 'title';
+  });
+
   if (admin) {
     // The server's HTTP origin, not the socket's: the admin page is three
-            // fetches and no room, and `ws://` is not a scheme fetch knows.
-            return <Admin endpoint={httpBaseFrom(SERVER_URL)} deviceToken={loadAccount()?.deviceToken} />;
+    // fetches and no room, and `ws://` is not a scheme fetch knows.
+    return <Admin endpoint={httpBaseFrom(SERVER_URL)} deviceToken={loadAccount()?.deviceToken} />;
   }
 
-  return <Game />;
+  if (shell === 'settings') {
+    return <Settings settings={settings} onChange={change} onClose={() => setShell('title')} />;
+  }
+
+  if (shell === 'credits') {
+    return <Credits onClose={() => setShell('title')} />;
+  }
+
+  if (shell === 'title') {
+    return (
+      <Title
+        version={BUILD_VERSION}
+        returning={loadAccount() !== undefined}
+        onEnter={() => setShell('game')}
+        onSettings={() => setShell('settings')}
+        onCredits={() => setShell('credits')}
+      />
+    );
+  }
+
+  return <Game settings={settings} onSettings={change} />;
 }
 
-function Game(): React.JSX.Element {
+function Game({
+  settings,
+  onSettings,
+}: {
+  readonly settings: SettingsState;
+  onSettings: (next: SettingsState) => void;
+}): React.JSX.Element {
   const client = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return new GameClient(
@@ -66,6 +128,7 @@ function Game(): React.JSX.Element {
   const [chartOpen, setChartOpen] = useState(false);
   const [chat, setChat] = useState<readonly ChatLine[]>([]);
   const [stapleOpen, setStapleOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [yardOpen, setYardOpen] = useState(false);
   const [mooringsOpen, setMooringsOpen] = useState(false);
   const [bourseOpen, setBourseOpen] = useState(false);
@@ -183,6 +246,16 @@ function Game(): React.JSX.Element {
       />
     ) : null;
 
+  if (settingsOpen) {
+    return (
+      <Settings
+        settings={settings}
+        onChange={onSettings}
+        onClose={() => setSettingsOpen(false)}
+      />
+    );
+  }
+
   switch (mode.kind) {
     case 'register':
       return (
@@ -237,6 +310,7 @@ function Game(): React.JSX.Element {
             onBuy={(service) => client.buy(service)}
             onLaunch={() => client.launch()}
             onOpenChart={() => setChartOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
             onOpenStaple={() => setStapleOpen(true)}
             onOpenYard={() => setYardOpen(true)}
             onOpenMoorings={() => setMooringsOpen(true)}

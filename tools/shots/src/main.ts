@@ -161,6 +161,34 @@ async function main(): Promise<void> {
       ADMIN_CALLSIGNS: 'Harbourmaster',
     };
 
+    // Every screen that names a captain must name a different one. A
+    // callsign is unique on the Register, so the second screen to ask for
+    // one is refused at sign-up and lands on the Register instead of the
+    // sky — which reads as a selector timeout three screens later and says
+    // nothing about why.
+    const claimed = new Map<string, string>();
+    for (const screen of screens) {
+      const names = [
+        ...(screen.seed ? [screen.seed.callsign] : []),
+        ...(screen.companions ?? []).map((companion) => companion.seed.callsign),
+        ...(() => {
+          const asked = new URLSearchParams((screen.path ?? '').split('?')[1] ?? '').get(
+            'callsign',
+          );
+          return asked === null ? [] : [asked];
+        })(),
+      ];
+      for (const name of names) {
+        const taken = claimed.get(name.toLowerCase());
+        if (taken !== undefined && taken !== screen.name) {
+          throw new Error(
+            `"${name}" is named by both ${taken} and ${screen.name}; a callsign is unique`,
+          );
+        }
+        claimed.set(name.toLowerCase(), screen.name);
+      }
+    }
+
     // 2. Captains with a history, for the screens that only exist once
     //    something has already happened — a chain's last choice is not
     //    posted to anybody who has not run six beats of it. Written before

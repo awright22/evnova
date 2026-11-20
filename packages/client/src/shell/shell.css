@@ -1,0 +1,316 @@
+/*
+ * The shell: title, settings and credits.
+ *
+ * The same ledger-page idiom as everything else — panels, rules, condensed
+ * labels, tabular figures — because a settings screen that looked like a
+ * different game would be the first thing a captain saw.
+ */
+
+.shell {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-content: start;
+  gap: var(--space-2);
+  min-height: 100vh;
+  padding: var(--space-2);
+  background: var(--void);
+}
+
+.shell__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  padding: var(--space-2);
+}
+
+.shell__head h1 {
+  margin: 0;
+}
+
+.shell__head .button {
+  margin-left: auto;
+}
+
+.shell__block {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding-bottom: var(--space-1-5);
+}
+
+.shell__block--wide {
+  grid-column: 1 / -1;
+}
+
+.shell__rows {
+  display: grid;
+  gap: var(--space-1-5);
+  padding: 0 var(--space-1-5);
+}
+
+.shell__row {
+  display: grid;
+  grid-template-columns: 150px 1fr 56px;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.shell__row--choice {
+  grid-template-columns: 150px 1fr;
+}
+
+.shell__note {
+  grid-column: 2 / -1;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}
+
+.shell__figure {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A slider, drawn rather than left to the browser: a default range control
+ * is the one piece of chrome that would say "web page" out loud.
+ */
+.shell__slider {
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.shell__slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--rule);
+}
+
+.shell__slider::-moz-range-track {
+  height: 4px;
+  background: var(--rule);
+}
+
+.shell__slider::-webkit-slider-thumb {
+  width: 10px;
+  height: 18px;
+  margin-top: -7px;
+  background: var(--amber);
+  border: none;
+  appearance: none;
+}
+
+.shell__slider::-moz-range-thumb {
+  width: 10px;
+  height: 18px;
+  background: var(--amber);
+  border: none;
+  border-radius: 0;
+}
+
+.shell__slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--amber-bright);
+  outline-offset: 2px;
+}
+
+.shell__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-0-5);
+}
+
+.shell__choice,
+.shell__key {
+  min-height: 24px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.shell__choice:hover,
+.shell__key:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.shell__choice--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+/* A cell waiting for a key says so, and is the only amber thing on the row. */
+.shell__key--listening {
+  color: var(--text-on-amber);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.shell__key--clash {
+  border-color: var(--danger-dim);
+  color: var(--danger);
+}
+
+.shell__keys {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shell__keys thead th {
+  padding: var(--space-0-5) var(--space-1-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.shell__keys tbody th,
+.shell__keys tbody td {
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--size-body-sm);
+  font-weight: 500;
+  text-align: left;
+  color: var(--text-primary);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.shell__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1-5) 0;
+}
+
+.shell__foot .micro {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}
+
+/*
+ * The title.
+ *
+ * One plate on the void, left of centre, with the name set at display size
+ * and everything else small under it. No art behind it: the flight view is
+ * the art, and a title screen that tried to compete with it would lose.
+ */
+.title {
+  display: grid;
+  align-content: center;
+  min-height: 100vh;
+  padding: var(--space-4) var(--space-3);
+  background: var(--void);
+}
+
+.title__plate {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  max-width: 48ch;
+  padding: var(--space-3);
+  border-left: 2px solid var(--amber-dim);
+}
+
+.title__name {
+  margin: 0;
+  font-size: var(--size-display);
+  letter-spacing: 0.02em;
+}
+
+.title__line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--size-body);
+  line-height: var(--leading-body);
+}
+
+.title__doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.title__version {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}
+
+/* Credits: a document, so it is set like one. */
+.credits {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  min-height: 100vh;
+  padding: var(--space-2);
+  background: var(--void);
+}
+
+.credits__sheet {
+  display: grid;
+  gap: var(--space-1-5);
+  width: min(74ch, 100%);
+  padding: var(--space-3);
+}
+
+.credits__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.credits__head h1 {
+  margin: 0;
+}
+
+.credits__head .button {
+  margin-left: auto;
+}
+
+.credits__body {
+  max-height: 68vh;
+  overflow-y: auto;
+  font-family: var(--font-document);
+  font-size: var(--size-doc);
+  line-height: var(--leading-doc);
+  color: var(--text-secondary);
+}
+
+.credits__body h2 {
+  margin: var(--space-2) 0 var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.credits__body p {
+  margin: 0 0 var(--space-1);
+}
+
+.credits__body a {
+  color: var(--amber);
+}

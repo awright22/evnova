@@ -171,6 +171,23 @@
   }
 }
 
+/* And the same by the setting, either way round. */
+:root[data-motion='reduced'] .stamp__control,
+:root[data-motion='reduced'] .paper--pressed {
+  transform: none;
+  transition: none;
+}
+
+:root[data-motion='reduced'] .stamp__impression,
+:root[data-motion='reduced'] .stamp--settle .stamp__impression {
+  animation: stamp-fade 120ms linear both;
+}
+
+:root[data-motion='reduced'] .stamp--strike .stamp__impression::after {
+  animation: none;
+  opacity: 0;
+}
+
 @keyframes stamp-fade {
   from {
     opacity: 0;

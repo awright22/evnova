@@ -93,6 +93,15 @@ export class Effects {
   /** Where the pool resumes scanning, so spawning stays O(1) amortised. */
   private cursor = 0;
 
+  /**
+   * How much of the effect budget to spend, 0..1.
+   *
+   * The graphics quality setting scales effects down and never gameplay:
+   * a thinner spray of sparks is the same fight, which is what spec section
+   * 3 asks for. Every recipe multiplies its count by this.
+   */
+  private density = 1;
+
   constructor(
     seed = 'effects',
     private reducedMotion = false,
@@ -127,6 +136,16 @@ export class Effects {
     this.reducedMotion = reduced;
   }
 
+  /** How thick the effects are drawn. Gameplay is untouched either way. */
+  setDensity(density: number): void {
+    this.density = Math.min(1, Math.max(0.15, density));
+  }
+
+  /** A recipe's count, thinned by the quality setting. */
+  private some(count: number): number {
+    return Math.max(1, Math.round(count * this.density));
+  }
+
   get activeCount(): number {
     return this.particles.reduce((n, p) => n + (p.active ? 1 : 0), 0);
   }
@@ -151,7 +170,7 @@ export class Effects {
   /** A round that reached the hull: sparks and a one-frame flash. */
   hullHit(x: number, y: number, normal: number): void {
     const p = palette();
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < this.some(10); i++) {
       const particle = this.take();
       if (!particle) break;
       const spread = this.rng.range(-1.1, 1.1);
@@ -215,7 +234,7 @@ export class Effects {
 
     // A burst in every direction: a round coming apart, with no normal to
     // fan away from, which also keeps the shape distinct from a hull hit.
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < this.some(5); i++) {
       const particle = this.take();
       if (!particle) break;
       const bearing = this.rng.range(-Math.PI, Math.PI);
@@ -257,7 +276,7 @@ export class Effects {
     }
 
     // Fireball.
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < this.some(22); i++) {
       const particle = this.take();
       if (!particle) break;
       const bearing = this.rng.range(-Math.PI, Math.PI);
@@ -275,7 +294,7 @@ export class Effects {
     }
 
     // Sparks.
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < this.some(30); i++) {
       const particle = this.take();
       if (!particle) break;
       const bearing = this.rng.range(-Math.PI, Math.PI);
@@ -294,7 +313,7 @@ export class Effects {
 
     // Tumbling debris, shaped like the module tiles it came from.
     const pieces = 4 + Math.floor(this.rng.next() * 6);
-    for (let i = 0; i < pieces; i++) {
+    for (let i = 0; i < this.some(pieces); i++) {
       const particle = this.take();
       if (!particle) break;
       const bearing = this.rng.range(-Math.PI, Math.PI);
@@ -325,7 +344,7 @@ export class Effects {
     }
 
     // Smoke, drifting and fading.
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < this.some(14); i++) {
       const particle = this.take();
       if (!particle) break;
       const bearing = this.rng.range(-Math.PI, Math.PI);

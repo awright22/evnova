@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { playStamp } from '../audio/stamp.ts';
+import { motionIsReduced } from '../shell/settings.ts';
 import { Seal } from './Seal.tsx';
 import './stamp.css';
 
@@ -45,14 +46,6 @@ const SETTLE_MS = 80;
  */
 const LINGER_MS = 900;
 const LIFT_MS = 400;
-
-function prefersReducedMotion(): boolean {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
 
 export function Stamp({
   issuer,
@@ -107,7 +100,7 @@ export function Stamp({
     if (busy || disabled) return;
     clear();
 
-    const reduced = prefersReducedMotion();
+    const reduced = motionIsReduced();
     const sheet = paper?.current;
 
     // The order goes now. The sequence is what says it was given, not what

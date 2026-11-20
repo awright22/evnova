@@ -23,8 +23,10 @@ import {
   type SystemDef,
 } from '@marque/shared';
 
-import { AudioMix } from '../audio/mix.ts';
+import type { AudioMix } from '../audio/mix.ts';
+import { sharedMix } from '../audio/shared.ts';
 import { playNotice } from '../audio/notices.ts';
+import { motionIsReduced } from '../shell/settings.ts';
 import { CombatAudio } from '../audio/combat.ts';
 import { EngineSound } from '../audio/engine.ts';
 import { Hud, type HudReadout } from '../hud/Hud.tsx';
@@ -226,7 +228,8 @@ export function FlightView({
 
       host.appendChild(app.canvas);
 
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // The setting first, then what the browser asks for.
+      const reducedMotion = motionIsReduced();
       scene = new Scene(app.renderer, system, blueprints, modules, reducedMotion);
       scene.resize(app.screen.width, app.screen.height);
       app.stage.addChild(scene.root);
@@ -238,7 +241,9 @@ export function FlightView({
       // on the first key press and torn down with the view.
       const startAudio = (): void => {
         if (mix || disposed) return;
-        mix = new AudioMix();
+        // The one mix for the session, so the volume settings reach it and
+        // the port screens' own sounds come out of the same buses.
+        mix = sharedMix();
         void mix.unlock().then(() => {
           if (disposed || !mix) return;
           engine = new EngineSound(mix);
@@ -260,6 +265,9 @@ export function FlightView({
 
       // Effects live in world space, under the same camera transform as hulls.
       const effects = new Effects(`fx:${session.sessionId}`, reducedMotion);
+      // Graphics quality scales the effects down and never the gameplay, as
+      // spec section 3 requires: the same fight, drawn thinner.
+      effects.setDensity(document.documentElement.dataset.quality === 'plain' ? 0.4 : 1);
       scene.attachEffects(effects.view);
 
       // Shield capacity for the bubble, and muzzle speed for the lead mark,
@@ -767,7 +775,8 @@ export function FlightView({
       // A held voice outlives the frame loop that was feeding it, so a view
       // that goes away while a beam is down would leave a hum behind.
       combat?.releaseAll();
-      void mix?.close();
+      // The mix is the session's, not this view's: closing it here would
+      // silence every screen a captain walks to next.
       scene?.destroy();
       session?.destroy();
       app?.destroy(true, { children: true });

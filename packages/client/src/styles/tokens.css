@@ -133,3 +133,37 @@
     --motion-slow: var(--motion-instant);
   }
 }
+
+/*
+ * The setting, which can go either way: a captain may hold motion back on a
+ * browser that has not been told to, or ask for all of it on one that has.
+ * It works through the same three tokens, so there is one place that decides
+ * and nothing has to ask.
+ */
+:root[data-motion='reduced'] {
+  --motion-quick: var(--motion-instant);
+  --motion-base: var(--motion-instant);
+  --motion-slow: var(--motion-instant);
+}
+
+:root[data-motion='full'] {
+  --motion-quick: 120ms;
+  --motion-base: 160ms;
+  --motion-slow: 200ms;
+}
+
+/*
+ * Colour-vision-safe palette.
+ *
+ * Nothing in this game is ever told by colour alone — a gain carries its
+ * sign, a hostile carries its bracket, a livery carries its name — so this
+ * is belt and braces rather than the only way through. It trades the two
+ * hues that collide under the common deficiencies: gain green against
+ * danger red, and the Reprisal verdigris against the Thirty cobalt.
+ */
+:root[data-palette='safe'] {
+  --gain: #4fb8e6;
+  --gain-wash: rgb(79 184 230 / 14%);
+  --livery-reprisal: #b07cd8;
+  --nebula-marque: #7f6fb0;
+}

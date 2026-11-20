@@ -52,6 +52,14 @@ export interface SeedSpec {
    * captains different ones.
    */
   readonly marks?: number;
+  /**
+   * Marks owed to the Prize Court, which posts them.
+   *
+   * For a check or a capture whose subject is what happens to a posted
+   * captain: patrols answer for them from the first instant, rather than
+   * the harness having to earn it by shooting something first.
+   */
+  readonly composition?: number;
   /** Standing with each charter. Applied directly, not through a shift. */
   readonly standing?: Partial<Record<Charter, number>>;
   /** Park them at this berth's coordinates, so landing lands here. */
@@ -162,6 +170,14 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
           pilot,
         );
       }
+    }
+
+    if (spec.composition !== undefined) {
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      pilot.composition = Math.max(0, Math.round(spec.composition));
+      pilots.touch(accountId);
+      pilots.flush();
     }
 
     if (spec.standing) {
