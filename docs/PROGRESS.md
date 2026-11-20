@@ -231,9 +231,9 @@ Done when:
 
 ## M8. Depth
 
-- [ ] Production chains: refined and manufactured output scales with input stock
-- [ ] Asteroid mining with a mining module
-- [ ] Beam weapons and point defense
+- [x] Production chains: refined and manufactured output scales with input stock
+- [x] Asteroid mining with a mining module
+- [x] Beam weapons and point defense
 - [ ] Boarding disabled ships for cargo
 - [ ] Limit orders, and short selling with margin and liquidation, without breaking any invariant
 - [ ] A test range where a draught can be flown and fought before buying it
