@@ -425,11 +425,17 @@ async function engageNearest(
         while (Date.now() < closeUntil) {
           const now = await read();
           if (!now) break;
-          if (now.range <= STANDOFF || Math.abs(now.delta) > tolerance * 3) break;
+          // Stop closing well before the stand-off rather than at it. Each
+          // read is a round trip, and at the two seconds this box runs under
+          // software rasterisation the hull has travelled a long way by the
+          // time the answer arrives: aiming to stop at 420 put the capture
+          // at 71, nose to nose, where the bearing to the mark swings faster
+          // than the hull can turn and the guns end up pointing at the sky.
+          if (now.range <= STANDOFF * 1.6 || Math.abs(now.delta) > tolerance * 3) break;
         }
         await page.keyboard.up('ArrowUp');
         // Stop the closing speed, so the capture fights rather than rams.
-        if (aim.range < GUN_REACH) await hold(page, 'ArrowDown', 700);
+        if (aim.range < GUN_REACH) await hold(page, 'ArrowDown', 1100);
         continue;
       }
 
@@ -447,10 +453,17 @@ async function engageNearest(
       // forty-five seconds and photographed whatever the sky looked like at
       // the end — range 1414, mark off screen. What was actually wrong was
       // that the gunner had no fixed mark, which `held` now fixes.
+      // A share of the mark, not the first point of it.
+      //
+      // Returning on the first hit is too early against a mark that cannot
+      // run: the engagement ends while the two hulls are still a long way
+      // apart, and the capture gets rounds in flight at something off the
+      // edge of the screen. A sixth of the mark's structure is long enough
+      // to have closed and still mid-exchange, with the trigger down.
       if (
         options.untilHit
         && now
-        && (now.markShield < shieldAtStart - 1 || now.markHp < hpAtStart)
+        && (now.markShield < shieldAtStart - 1 || now.markHp < hpAtStart * 0.84)
       ) {
         return true;
       }
