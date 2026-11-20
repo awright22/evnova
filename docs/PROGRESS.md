@@ -268,14 +268,25 @@ Done when:
 - [x] Cycle 3: `docs/polish/cycle-3.md`, every blocker and minor fixed — 1
   blocker, 0 majors, 10 minors. The blocker was CI, red on every one of 38
   runs since M0; run 39 is green on all four jobs.
-- [ ] Cycle 4
-- [ ] Cycle 5, if cycle 4 is not clean
+- [~] Cycle 4: `docs/polish/cycle-4.md` — 2 blockers, 2 majors, 4 minors.
+  Both blockers are on the deploy path, which nothing had ever exercised;
+  both majors are things a test said were fine and a picture said were not.
+- [ ] Cycle 5
+- [ ] Cycle 6, if cycle 5 is not clean
 - [ ] Two cycles in a row find no blockers or majors
 - [ ] Final report
 
 Spec section 18 completes the project on three cycles *and* two consecutive
-cycles with no blockers or majors. Cycle 2 found five majors and cycle 3 a
-blocker, so the earliest close is cycles 4 and 5 both clean.
+cycles with no blockers or majors. Cycle 2 found five majors, cycle 3 a
+blocker, and cycle 4 two of each, so the earliest close is cycles 5 and 6
+both clean.
+
+Cycle 4 is why that bar is set where it is. It ran the full sweep and every
+command for the fourth time and still found that `fly deploy` could not have
+built the image, that every seal in the game was a ship's wheel, and that a
+look fixed in cycle 3 was back on the screen it was named after. None of
+those were new breakage. They were all there the whole time, behind tests
+that passed and a deploy path nothing ran.
 
 ---
 
