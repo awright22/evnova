@@ -62,6 +62,9 @@ export const REJECTIONS = {
   'not-holding': 'You do not hold that many shares.',
   'market-too-thin': 'The pool will not take an order that size. Try a smaller parcel.',
   'barred-here': 'This company will not have you alongside.',
+  'not-a-seat': 'Letters are issued at a company seat, not here.',
+  'standing-too-low': 'This company does not trust you with a letter.',
+  'letter-held': 'You already hold a letter of marque.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -236,6 +239,18 @@ export interface Standing {
   readonly isSelf: boolean;
 }
 
+/**
+ * Take out, or give up, a letter of marque.
+ *
+ * `charter` empty surrenders whatever is held — a captain who wants to deal
+ * with the other two again has to, and the Register would rather be told than
+ * work it out.
+ */
+export const LetterIntent = z.object({
+  charter: z.string().max(32),
+});
+export type LetterIntent = z.infer<typeof LetterIntent>;
+
 /** Buy a hull licence. Only upward, and only what the Register issues. */
 export const BuyLicenceIntent = z.object({
   licence: z.string().max(64),
@@ -320,6 +335,7 @@ export const SERVER_MESSAGES = [
   'news',
   'standings',
   'standing',
+  'scanned',
 ] as const;
 
 /** A line as it reaches the other captains. */

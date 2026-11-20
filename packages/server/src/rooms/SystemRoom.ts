@@ -43,6 +43,7 @@ import {
   GiveDesignIntent,
   ImportDesignIntent,
   BourseIntent,
+  LetterIntent,
   SaveDesignIntent,
   SwitchShipIntent,
   StapleIntent,
@@ -57,6 +58,9 @@ import {
   encodeShareCode,
   isCharter,
   standingName,
+  contrabandIn,
+  letterLapsed,
+  mayHoldLetter,
   CHARTERS,
   placeAll,
   stepFlight,
@@ -176,6 +180,17 @@ const liveRooms = new Set<SystemRoom>();
 /** Tell every room the Bourse has moved. */
 export function refreshEveryBourse(): void {
   for (const room of liveRooms) room.refreshBourse();
+}
+
+/**
+ * Let every room's patrols look at the traffic.
+ *
+ * Driven from the world's economy tick for the same reason the Bourse is: a
+ * scan is a thing that happens now and then, and the rooms should not each
+ * keep their own timer for it.
+ */
+export function scanEveryLane(): void {
+  for (const room of liveRooms) room.runPatrolScans();
 }
 
 export class SystemRoom extends Room<{
@@ -704,6 +719,74 @@ export class SystemRoom extends Room<{
     }),
 
     /**
+     * Take out a letter of marque, or give one up.
+     *
+     * Only at the issuing company's own seat, only to a captain it already
+     * trusts, and it costs standing with the other two at once. A letter is a
+     * declaration; the Register would rather a captain made it in person.
+     */
+    letter: validate(LetterIntent, (client: Client, message: LetterIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+
+      const { tuning } = content();
+      const now = Date.now();
+
+      // Giving one up needs no seat and costs nothing but the standing
+      // already spent. A captain who wants to deal with the other two again
+      // should not have to fly anywhere to stop being their enemy.
+      if (message.charter === '') {
+        pilot.letter = '';
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+        this.sendStanding(client.sessionId);
+        return { letter: '' };
+      }
+
+      if (port.seat !== true || port.owner !== message.charter) return ctx.reject('not-a-seat');
+      if (!isCharter(message.charter)) return ctx.reject('not-a-seat');
+      if (pilot.letter !== '') return ctx.reject('letter-held');
+
+      const standings = world().standings.of(pilot.accountId);
+      if (!mayHoldLetter(standings[message.charter], tuning)) {
+        return ctx.reject('standing-too-low');
+      }
+
+      try {
+        world().ledger.post(
+          {
+            accountId: pilot.accountId,
+            delta: -tuning.letters.cost,
+            category: 'letter-of-marque',
+            reason: `Letter of marque, ${port.name}`,
+          },
+          pilot,
+        );
+      } catch (error) {
+        if (error instanceof InsufficientMarks) return ctx.reject('cannot-afford');
+        throw error;
+      }
+
+      pilot.letter = message.charter;
+      // The other two hear about it at once. That is what a letter is.
+      for (const other of CHARTERS) {
+        if (other === message.charter) continue;
+        world().standings.shift(pilot.accountId, other, -tuning.letters.standingCost, now);
+      }
+      world().pilots.touch(pilot.accountId);
+
+      this.sendPurse(client.sessionId);
+      this.sendStanding(client.sessionId);
+      return { letter: message.charter, cost: tuning.letters.cost };
+    }),
+
+    /**
      * Buy a hull licence.
      *
      * At a berth that keeps a Yard: a warrant is issued over a counter, and
@@ -896,10 +979,47 @@ export class SystemRoom extends Room<{
       const distance = Math.hypot(canister.x - ship.x, canister.y - ship.y);
       if (distance > SCOOP_RANGE) return ctx.reject('out-of-range');
 
-      // Until the Staple exists, the only cargo a hull carries is Ordnance.
-      if (canister.commodity === 'ordnance') runtime.ammo += canister.units;
-      this.state.canisters.delete(message.id);
-      return { commodity: canister.commodity, units: canister.units };
+      // Ordnance goes to the magazine, where a hull keeps it; everything
+      // else goes in the hold. This used to drop everything that was not
+      // Ordnance on the floor — written before the Staple existed, and never
+      // revisited once a hull had a hold to put things in.
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      let taken = canister.units;
+
+      if (canister.commodity === 'ordnance') {
+        const room = Math.max(0, content().tuning.ports.magazineCapacity - runtime.ammo);
+        taken = Math.min(taken, room);
+        runtime.ammo += taken;
+        if (pilot) pilot.ammo = runtime.ammo;
+      } else if (pilot) {
+        const room = Math.max(
+          0,
+          Math.floor(runtime.stats.cargoCapacity) -
+            world().market.cargoUnits(pilot.accountId),
+        );
+        taken = Math.min(taken, room);
+        if (taken > 0) {
+          // Scooped from a wreck, so it is prize cargo: it fetches a premium
+          // at the berths of whichever charter licensed the taking.
+          world().market.adjustCargo(pilot.accountId, canister.commodity, taken, {
+            prize: true,
+          });
+        }
+      } else {
+        taken = 0;
+      }
+
+      if (taken <= 0) return ctx.reject('no-room');
+
+      // What was not taken stays in space for somebody else.
+      if (taken < canister.units) canister.units -= taken;
+      else this.state.canisters.delete(message.id);
+
+      if (pilot) {
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+      }
+      return { commodity: canister.commodity, units: taken };
     }),
   };
 
@@ -1869,6 +1989,99 @@ export class SystemRoom extends Room<{
   }
 
   // --- Aftermath ----------------------------------------------------------
+
+  /**
+   * Patrols scan the traffic, and a letter lapses on its own.
+   *
+   * Run on the economy's cadence rather than every tick: a scan is a thing
+   * that happens to a captain now and then, not a thing that happens sixty
+   * times a second, and reading every hold at tick rate would be the kind of
+   * work spec section 3's budget is there to prevent.
+   *
+   * Only in the Home Roads, because that is the only place the monopolies
+   * bind. Outside them a patrol has nothing to look for.
+   */
+  runPatrolScans(): void {
+    this.patrolsScan();
+  }
+
+  private patrolsScan(): void {
+    const region = this.system?.region;
+    if (region !== 'home-roads') return;
+
+    const { tuning } = content();
+    const now = Date.now();
+
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      // A letter whose issuer has stopped trusting its holder is waste paper,
+      // and finding that out should not need a trip to the seat.
+      if (pilot.letter !== '' && isCharter(pilot.letter)) {
+        const standing = world().standings.of(pilot.accountId)[pilot.letter];
+        if (letterLapsed(standing, tuning)) {
+          pilot.letter = '';
+          world().pilots.touch(pilot.accountId);
+          this.clients.get(sessionId)?.send('scanned', {
+            kind: 'letter-lapsed',
+            text: 'Your letter of marque has lapsed. The issuer no longer vouches for you.',
+          });
+          this.sendStanding(sessionId);
+        }
+      }
+
+      const ship = this.state.ships.get(sessionId);
+      if (!ship || ship.destroyedAt > 0) continue;
+
+      // A patrol has to actually be near enough to hail.
+      let nearest = Infinity;
+      for (const [id, other] of this.state.ships) {
+        if (!other.patrol || other.destroyedAt > 0 || id === sessionId) continue;
+        nearest = Math.min(nearest, Math.hypot(other.x - ship.x, other.y - ship.y));
+      }
+      if (nearest > tuning.letters.scanRange) continue;
+
+      // Not every pass. Smuggling that is always caught is not a decision,
+      // and smuggling that is never caught is not a risk.
+      const rng = new Rng(`scan:${this.roomId}:${sessionId}:${Math.floor(now / 10_000)}`);
+      if (rng.next() > tuning.letters.scanChance) continue;
+
+      const hold = world().market.cargoOf(pilot.accountId);
+      const found = contrabandIn(
+        hold,
+        region,
+        world().standings.of(pilot.accountId),
+        tuning,
+      );
+      if (found.length === 0) continue;
+
+      // Confiscation and a composition. The goods are gone — not sold, not
+      // moved to a stockpile: a patrol that resold contraband would be a
+      // trading partner, and the Prize Court is not one.
+      let seized = 0;
+      for (const row of found) {
+        world().market.adjustCargo(pilot.accountId, row.commodityId, -row.units);
+        seized += row.units;
+        world().standings.shift(
+          pilot.accountId,
+          row.holder,
+          tuning.standing.perSmugglingCaught,
+          now,
+        );
+      }
+
+      pilot.composition += Math.round(seized * tuning.law.compositionPerDamage);
+      world().pilots.touch(pilot.accountId);
+
+      this.clients.get(sessionId)?.send('scanned', {
+        kind: 'seized',
+        text:
+          `A patrol scanned your hull and took ${seized} units of monopoly goods. ` +
+          'The Prize Court has entered a composition against you.',
+        seized,
+      });
+      this.sendPurse(sessionId);
+      this.sendStanding(sessionId);
+    }
+  }
 
   /**
    * What a kill does to the killer's standing.

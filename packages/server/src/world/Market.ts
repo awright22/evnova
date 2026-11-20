@@ -17,6 +17,8 @@ import {
   capacityFor,
   content,
   isCharter,
+  prizePremium,
+  type Charter,
   driftStock,
   netRate,
   openingPile,
@@ -269,14 +271,32 @@ export class Market {
       const favour = isCharter(options.port.owner)
         ? (this.standings?.discount(options.pilot.accountId, options.port.owner) ?? 0)
         : 0;
+
+      // Prize cargo fetches more at the berths of the charter that licensed
+      // the taking of it, on the share of the parcel that actually came off
+      // a wreck. Spec section 19 keeps the premium well under the half of a
+      // hold lost when a hull is destroyed, so staging a capture loses money.
+      let prizeBonus = 0;
+      if (options.side === 'sell') {
+        const premium = prizePremium(
+          options.pilot.letter as Charter | undefined,
+          options.port.owner,
+          tuning,
+        );
+        if (premium > 0) {
+          const prizeHeld = this.prizeOf(options.pilot.accountId, commodity.id);
+          const share = carried > 0 ? Math.min(1, prizeHeld / carried) : 0;
+          prizeBonus = share * premium;
+        }
+      }
       const priced =
-        favour > 0
+        favour > 0 || prizeBonus > 0
           ? {
               ...quoted,
               marks:
                 options.side === 'buy'
                   ? Math.ceil(quoted.marks * (1 - favour))
-                  : Math.floor(quoted.marks * (1 + favour)),
+                  : Math.floor(quoted.marks * (1 + favour + prizeBonus)),
             }
           : quoted;
 
@@ -391,13 +411,41 @@ export class Market {
    * and freight arriving all go through here, so nothing else writes the
    * cargo table. Returns what the hold now holds.
    */
-  adjustCargo(accountId: string, commodityId: string, delta: number): number {
+  adjustCargo(
+    accountId: string,
+    commodityId: string,
+    delta: number,
+    options: { prize?: boolean } = {},
+  ): number {
     return this.store.transaction(() => {
       const carried = this.cargoOf(accountId).get(commodityId) ?? 0;
-      const next = Math.max(0, carried + Math.trunc(delta));
-      this.writeCargo(accountId, commodityId, next);
-      return next;
+      const held = Math.max(0, carried + Math.trunc(delta));
+      const wasPrize = this.prizeOf(accountId, commodityId);
+
+      // Prize units are the ones taken off a wreck, and only those sell at a
+      // letter's premium. Adding prize cargo adds to the count; taking any
+      // cargo out takes the prize share with it pro rata, because a hold
+      // does not keep its contents in labelled boxes.
+      const prize =
+        delta > 0 && options.prize === true
+          ? wasPrize + Math.trunc(delta)
+          : carried > 0
+            ? Math.round((wasPrize * held) / carried)
+            : 0;
+
+      this.writeCargo(accountId, commodityId, held, Math.min(held, prize));
+      return held;
     });
+  }
+
+  /** How many units of this good in a captain's hold came off a wreck. */
+  prizeOf(accountId: string, commodityId: string): number {
+    const row = this.store.db
+      .select({ prize: schema.cargo.prize })
+      .from(schema.cargo)
+      .where(and(eq(schema.cargo.accountId, accountId), eq(schema.cargo.commodityId, commodityId)))
+      .get();
+    return row?.prize ?? 0;
   }
 
   /**
@@ -572,8 +620,14 @@ export class Market {
       .run();
   }
 
-  private writeCargo(accountId: string, commodityId: string, units: number): void {
+  private writeCargo(
+    accountId: string,
+    commodityId: string,
+    units: number,
+    prize = 0,
+  ): void {
     const value = Math.max(0, Math.round(units));
+    const taken = Math.max(0, Math.min(value, Math.round(prize)));
 
     if (value === 0) {
       this.store.db
@@ -587,10 +641,10 @@ export class Market {
 
     this.store.db
       .insert(schema.cargo)
-      .values({ accountId, commodityId, units: value })
+      .values({ accountId, commodityId, units: value, prize: taken })
       .onConflictDoUpdate({
         target: [schema.cargo.accountId, schema.cargo.commodityId],
-        set: { units: value },
+        set: { units: value, prize: taken },
       })
       .run();
   }

@@ -33,6 +33,8 @@ export interface Pilot {
   ammo: number;
   propellant: number;
   licence: string;
+  /** The charter whose letter of marque this captain holds, or empty. */
+  letter: string;
   /** Owed to the Prize Court. Non-zero means posted. */
   composition: number;
 }
@@ -76,6 +78,7 @@ export class PilotStore {
       ammo: row.pilot.ammo,
       propellant: row.pilot.propellant,
       licence: row.pilot.licence,
+      letter: row.pilot.letter,
       composition: row.pilot.composition,
     };
 
@@ -156,6 +159,7 @@ export class PilotStore {
             ammo: Math.max(0, Math.round(pilot.ammo)),
             propellant: Math.max(0, Math.round(pilot.propellant)),
             licence: pilot.licence,
+            letter: pilot.letter,
             composition: Math.max(0, Math.round(pilot.composition)),
             updatedAt: now,
           })

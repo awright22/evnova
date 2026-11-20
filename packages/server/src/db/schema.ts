@@ -80,6 +80,14 @@ export const pilots = sqliteTable(
 
     /** Hull licence held, which caps what can be built. */
     licence: text('licence').notNull().default('open-ticket'),
+    /**
+     * The charter whose letter of marque this captain holds, or empty.
+     *
+     * A letter is a company's instrument rather than a possession: it lapses
+     * on its own when standing with the issuer falls, so this is written as
+     * often as it is read.
+     */
+    letter: text('letter').notNull().default(''),
 
     /** Composition owed to the Prize Court. Non-zero means posted. */
     composition: integer('composition').notNull().default(0),
@@ -156,6 +164,15 @@ export const cargo = sqliteTable(
     commodityId: text('commodity_id').notNull(),
     /** Units aboard. Never negative. */
     units: integer('units').notNull(),
+    /**
+     * How many of those units were scooped from a wreck.
+     *
+     * Prize cargo sells at a premium at the issuer's berths, and spec section
+     * 19 is specific that only cargo taken off a destroyed hull counts — so
+     * the hold has to remember where its contents came from. Never more than
+     * `units`.
+     */
+    prize: integer('prize').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.accountId, table.commodityId] })],
 );
@@ -289,7 +306,7 @@ export const meta = sqliteTable('meta', {
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /**
  * Migrations, applied in order.
@@ -454,6 +471,13 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (account_id, charter)
       );
+    `,
+  },
+  {
+    version: 8,
+    up: `
+      ALTER TABLE pilots ADD COLUMN letter TEXT NOT NULL DEFAULT '';
+      ALTER TABLE cargo ADD COLUMN prize INTEGER NOT NULL DEFAULT 0;
     `,
   },
 ];

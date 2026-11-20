@@ -213,5 +213,27 @@
     "perSmugglingCaught": -120,
     "decayPerDay": 6,
     "$decayComment": "Standing drifts back toward nothing when a captain stops dealing with a company at all, so an old grudge and an old favour both fade."
+  },
+  "letters": {
+    "$comment": "Monopoly goods and letters of marque, as spec section 19 describes them. The monopolies bind only in the Home Roads; outside them there is no contraband at all, because there is nobody to enforce it.",
+    "monopolies": {
+      "kessler": "leaf",
+      "thirty": "alloy",
+      "reprisal": "ordnance"
+    },
+    "goodStanding": 150,
+    "$goodStandingComment": "Standing with the holder at which carrying its monopoly good through the Home Roads stops being smuggling. A captain the company deals with is a captain it licenses.",
+    "scanChance": 0.35,
+    "$scanChanceComment": "Chance a patrol scans a hull it passes close to. Not every hull every time: smuggling that is always caught is not a decision.",
+    "scanRange": 900,
+    "cost": 240000,
+    "$costComment": "What a letter costs at a company's seat.",
+    "requiresStanding": 300,
+    "lapsesBelow": 100,
+    "$lapsesComment": "A letter lapses if standing with its issuer falls this low. It is a company's instrument, not a possession.",
+    "standingCost": 200,
+    "$standingCostComment": "Taking a letter costs this much standing with each of the other two charters, at once. It is a declaration.",
+    "prizePremium": 0.15,
+    "$prizePremiumComment": "What prize cargo fetches above the quote at the issuer's berths. Well below the half of a hold that is lost when a hull is destroyed, so a capture staged between friends loses money \u2014 which is the whole reason the number is small."
   }
 }

@@ -307,6 +307,18 @@ export const Tuning = z.object({
     maxHops: z.int().positive(),
   }),
   manufacturers: z.record(ManufacturerId, z.string().min(1)),
+  letters: z.object({
+    /** Which good each charter holds the monopoly on, in the Home Roads. */
+    monopolies: z.record(z.string(), CommodityId),
+    goodStanding: z.number(),
+    scanChance: z.number().min(0).max(1),
+    scanRange: z.number().positive(),
+    cost: z.int().nonnegative(),
+    requiresStanding: z.number(),
+    lapsesBelow: z.number(),
+    standingCost: z.number().nonnegative(),
+    prizePremium: z.number().min(0).max(0.5),
+  }),
   standing: z.object({
     floor: z.number(),
     ceiling: z.number(),
@@ -526,6 +538,14 @@ export const PortDef = z
      * every berth with a Yard and absent on one without.
      */
     yardStock: z.partialRecord(ManufacturerId, z.int().min(1).max(3)).optional(),
+    /**
+     * A company's seat, where its letters of marque are issued.
+     *
+     * Spec section 19 names exactly three: Countinghouse, Quorum and
+     * Barratry. Marked in data rather than listed in code so the one place
+     * that decides is the content.
+     */
+    seat: z.boolean().optional(),
     surfaceColour: HexColour,
     accentColour: HexColour,
     description: z.string().min(1),

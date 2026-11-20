@@ -11,13 +11,18 @@ import { world } from './world/World.ts';
 
 import { config } from './config.ts';
 import { routes } from './routes.ts';
-import { SystemRoom, refreshEveryBourse } from './rooms/SystemRoom.ts';
+import { SystemRoom, refreshEveryBourse, scanEveryLane } from './rooms/SystemRoom.ts';
 
 // The Bourse moves on the world's own clock, not on a captain's action, so
 // the rooms are told when it has. Registered here because the World does not
 // know about rooms and the rooms do not know about each other.
 world().onBourseTick = () => {
   refreshEveryBourse();
+};
+
+// Patrols look at the traffic on the same cadence the world moves on.
+world().onEconomyTick = () => {
+  scanEveryLane();
 };
 
 export const server = defineServer({

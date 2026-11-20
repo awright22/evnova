@@ -88,6 +88,9 @@ export class World {
    */
   onBourseTick: ((dividends: { ticker: string; marks: number }[]) => void) | undefined;
 
+  /** Called after the economy moves, for work the rooms own. */
+  onEconomyTick: (() => void) | undefined;
+
   constructor(
     readonly clock: WorldClock = SYSTEM_CLOCK,
     databaseUrl: string = config.databaseUrl,
@@ -155,6 +158,7 @@ export class World {
       // An old grudge and an old favour both fade, at the same measured rate
       // the rest of the world moves at.
       this.standings.decayAll(hours, now);
+      this.onEconomyTick?.();
     } catch (error) {
       // A failed drift must not stop the world; the next one covers the gap,
       // because the elapsed time is measured and not assumed.

@@ -136,7 +136,8 @@
             "HRC": 3,
             "RPO": 1,
             "SLP": 2
-          }
+          },
+          "seat": true
         },
         {
           "id": "demurrage",
@@ -539,7 +540,8 @@
             "HRC": 2,
             "RPO": 2,
             "SLP": 3
-          }
+          },
+          "seat": true
         },
         {
           "id": "specie",
@@ -1067,7 +1069,8 @@
             "HRC": 1,
             "RPO": 3,
             "SLP": 2
-          }
+          },
+          "seat": true
         },
         {
           "id": "salvage",
