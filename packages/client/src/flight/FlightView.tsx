@@ -167,6 +167,17 @@ export function FlightView({
   const [prizeAlongside, setPrizeAlongside] = useState(false);
   const sawPrize = useRef(false);
   const [writtenOff, setWrittenOff] = useState<WrittenOff | undefined>(undefined);
+  /**
+   * The same thing the frame loop can read.
+   *
+   * The loop runs off refs, not state, and it is the loop that decides what
+   * the refusal line says. Clearing `lastRefusal` once when the hull goes
+   * only takes down the refusal that was already there — the next one to
+   * arrive while the panel is up puts the line straight back, which is how
+   * "The port declined that" came to be sitting under "Written off at
+   * Parity" again, on the screen the avoid list was written about.
+   */
+  const writtenOffRef = useRef(false);
 
   // The frame loop is started once; these keep it reading current values
   // rather than the ones captured when it started.
@@ -473,6 +484,7 @@ export function FlightView({
           // known straight away is where it happened and who did it.
           const killer = session!.shipViews().find((v) => v.id === event.killedBy);
           setWrittenOff({ system: system.name, by: killer?.callsign ?? '' });
+          writtenOffRef.current = true;
           // Hold the berth the respawn is about to put us on until the
           // captain has read what the loss cost, and take down whatever was
           // last refused: it is not what this moment is about.
@@ -773,7 +785,11 @@ export function FlightView({
           readout.linkOk = telemetry.status !== 'diverging';
           readout.shieldMax = shieldCapacityOf(self.blueprint);
           readout.integrity = integrityOf(self);
-          readout.refusal = liveRef.current.notice ?? session.lastRefusal;
+          // A state that takes over the screen keeps the smaller notices it
+          // has made irrelevant off it, for as long as it is up.
+          readout.refusal = writtenOffRef.current
+            ? undefined
+            : (liveRef.current.notice ?? session.lastRefusal);
           readout.propellant = liveRef.current.purse.propellant;
           readout.propellantCapacity = liveRef.current.purse.propellantCapacity;
           readout.marks = liveRef.current.purse.marks;
@@ -949,6 +965,7 @@ export function FlightView({
           event={writtenOff}
           onGoAshore={() => {
             setWrittenOff(undefined);
+            writtenOffRef.current = false;
             onGoAshore();
           }}
         />

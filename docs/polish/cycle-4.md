@@ -112,12 +112,36 @@ passing is evidence of nothing. The seal tests check structure — how many
 repeats, how far out, nothing at dead centre — and none of them could have
 told anyone what the mark looked like. Only looking at it could.
 
+**M2. The refusal is back under the write-off panel, on the screen the rule
+was written about.** `docs/ART_DIRECTION.md` has carried this entry since
+cycle 2:
+
+> A refusal left standing under a panel about something else... the
+> write-off capture photographed "The port declined that" sitting under
+> "Written off at Parity". A state that takes over the screen clears the
+> smaller notices it has made irrelevant.
+
+Cycle 3 fixed it by clearing `session.lastRefusal` when the hull goes. This
+sweep's `written-off` capture shows "REFUSED The port declined that." under
+"Written off at Parity" again.
+
+Clearing once was the wrong shape of fix. It takes down the refusal that
+happened to be there at the moment of the write-off and does nothing about
+the next one: the frame loop sets the refusal line from `lastRefusal` every
+frame, and the capture's own act tries to land while the panel is up, which
+is refused, which puts the line straight back. The panel now suppresses the
+refusal line for as long as it is up, rather than clearing it once.
+
+Worth stating plainly: cycle 3 recorded this as fixed on the strength of the
+change, not on the strength of a capture. The screen it is about is captured
+by name in every sweep, and nobody looked at it.
+
 ## Minors
 
 **N1. `verify:bourse` built a draught with no propellant tank.** Refused
 `no-tank` under every licence, and four checks depended on that build —
 including invariant 6's self-dealing test, which had therefore not been run.
-The fixture gained a tank.
+The fixture gained a tank, and all 17 checks now hold.
 
 The loop that built it caught the refusal with `catch { break; }` and
 reported "0 marks of Slipway fittings". The Yard had already said exactly
