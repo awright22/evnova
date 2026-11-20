@@ -1,0 +1,195 @@
+/**
+ * The Factor's board. Three columns: what is posted, the one being read, and
+ * what the captain is already carrying — the same page a shipping clerk
+ * would keep, read left to right.
+ */
+
+.board {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  outline: none;
+}
+
+.board__panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-1-5);
+  width: min(1100px, 100%);
+  max-height: 100%;
+  padding: var(--space-2);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.board__head-right {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.board__columns {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 260px;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.board__posted,
+.board__held {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-1);
+  min-height: 0;
+}
+
+.board__reading {
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  gap: var(--space-1-5);
+  align-content: start;
+  min-height: 0;
+  padding: 0 var(--space-1-5);
+  overflow-y: auto;
+  border-right: var(--border-width) solid var(--rule-faint);
+  border-left: var(--border-width) solid var(--rule-faint);
+}
+
+.board__list {
+  display: grid;
+  gap: var(--space-0-5);
+  align-content: start;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.board__offer {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-1);
+  font: inherit;
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid transparent;
+}
+
+.board__offer:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+/*
+ * The one being read. A wash and a rule rather than a fill: it marks a
+ * position in a list, and this screen's amber belongs to taking the work on.
+ */
+.board__offer--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.board__offer-title {
+  color: inherit;
+}
+
+.board__offer-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  color: var(--text-muted);
+}
+
+.board__offer-foot .data {
+  font-variant-numeric: tabular-nums;
+}
+
+.board__reading h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.board__brief {
+  margin: 0;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+.board__terms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: var(--space-1-5) 0;
+  border-top: var(--border-width) solid var(--rule-faint);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.board__terms div {
+  display: grid;
+  gap: 0;
+}
+
+.board__terms dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.board__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.board__actions .micro {
+  color: var(--text-muted);
+}
+
+.board__carried {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-1);
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.board__carried .micro {
+  color: var(--text-muted);
+}
+
+/* A row action, so a plain button: the amber belongs to taking work on. */
+.board__give-up {
+  justify-self: start;
+  min-height: 22px;
+  margin-top: var(--space-0-5);
+  padding: 0 var(--space-1);
+  font-size: var(--size-label);
+}
+
+.board__none {
+  margin: 0;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-muted);
+}
+
+.board__notice {
+  margin: 0;
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-secondary);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}

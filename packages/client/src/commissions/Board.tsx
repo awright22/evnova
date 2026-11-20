@@ -1,0 +1,217 @@
+/**
+ * The Factor's board.
+ *
+ * What this berth is paying for, and what the captain already has in hand.
+ * Both on one screen, because a board a captain cannot read their own work
+ * against is half a screen: the first question anybody asks at a counter is
+ * whether they can take another job.
+ *
+ * Nothing here is authoritative. The server rebuilds the offer from its own
+ * board when a commission is taken, so what is shown is the quote and not
+ * the contract.
+ */
+
+import { useMemo, useState } from 'react';
+
+import './board.css';
+
+/** An offer as the server posts it. */
+export interface BoardOffer {
+  readonly id: string;
+  readonly kind: string;
+  readonly charter: string | undefined;
+  readonly title: string;
+  readonly brief: string;
+  readonly pay: number;
+  readonly hours: number;
+  readonly units: number;
+  readonly commodityId: string;
+  readonly toPortId: string;
+  readonly toSystemId: string;
+  readonly target: string;
+}
+
+/** One in hand, with the clock it is against. */
+export interface HeldOffer extends BoardOffer {
+  readonly takenAt: number;
+  readonly dueAt: number;
+}
+
+export interface BoardProps {
+  readonly offers: readonly BoardOffer[];
+  readonly held: readonly HeldOffer[];
+  readonly berthName: string;
+  readonly busy: boolean;
+  readonly notice: string | undefined;
+  onTake: (id: string) => void;
+  onAbandon: (id: string) => void;
+  onClose: () => void;
+}
+
+/** What each kind of work is, in a word a captain can scan a column by. */
+const KINDS: Record<string, string> = {
+  delivery: 'Carriage',
+  passengers: 'Passage',
+  bounty: 'Bounty',
+  escort: 'Escort',
+  smuggling: 'Running',
+};
+
+const CHARTERS: Record<string, string> = {
+  kessler: 'Kessler & Daughters',
+  thirty: 'The Thirty',
+  reprisal: 'The Reprisal Company',
+};
+
+export function Board({
+  offers,
+  held,
+  berthName,
+  busy,
+  notice,
+  onTake,
+  onAbandon,
+  onClose,
+}: BoardProps): React.JSX.Element {
+  const [reading, setReading] = useState<string | undefined>(undefined);
+
+  const chosen = useMemo(
+    () => offers.find((offer) => offer.id === reading) ?? offers[0],
+    [offers, reading],
+  );
+
+  return (
+    <main className="board">
+      <section className="board__panel panel">
+        <header className="panel-header">
+          <h2>The Factor</h2>
+          <div className="board__head-right">
+            <span className="micro">{berthName}</span>
+            <button type="button" className="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="board__columns">
+          {/* --- What is posted ------------------------------------------- */}
+          <div className="board__posted">
+            <span className="label">Posted here</span>
+            {offers.length === 0 ? (
+              <p className="board__none">
+                Nothing is posted. A Factor writes the board up through the day; come back
+                later, or try a berth with more traffic.
+              </p>
+            ) : (
+              <ul className="board__list">
+                {offers.map((offer) => (
+                  <li key={offer.id}>
+                    <button
+                      type="button"
+                      className={`board__offer${
+                        offer.id === chosen?.id ? ' board__offer--on' : ''
+                      }`}
+                      onClick={() => setReading(offer.id)}
+                    >
+                      <span className="board__offer-title">{offer.title}</span>
+                      <span className="board__offer-foot micro">
+                        <span>{KINDS[offer.kind] ?? offer.kind}</span>
+                        <span className="data">{offer.pay.toLocaleString()}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* --- The one being read --------------------------------------- */}
+          <div className="board__reading">
+            {chosen === undefined ? (
+              <p className="board__none">Nothing to read.</p>
+            ) : (
+              <>
+                <h3>{chosen.title}</h3>
+                <p className="board__brief">{chosen.brief}</p>
+
+                <dl className="board__terms">
+                  <div>
+                    <dt className="label">Pays</dt>
+                    <dd className="data">{chosen.pay.toLocaleString()} marks</dd>
+                  </div>
+                  <div>
+                    <dt className="label">Posted by</dt>
+                    <dd>{chosen.charter ? CHARTERS[chosen.charter] : 'the berth'}</dd>
+                  </div>
+                  {chosen.units > 0 && (
+                    <div>
+                      <dt className="label">To carry</dt>
+                      <dd className="data">{chosen.units} units</dd>
+                    </div>
+                  )}
+                  {chosen.toSystemId !== '' && (
+                    <div>
+                      <dt className="label">To</dt>
+                      <dd>{chosen.toPortId}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="label">Within</dt>
+                    <dd>
+                      {chosen.hours > 0 ? `${Math.round(chosen.hours)} hours` : 'no deadline'}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="board__actions">
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy}
+                    onClick={() => onTake(chosen.id)}
+                  >
+                    Take it on
+                  </button>
+                  <span className="micro">
+                    The terms are fixed when you take it, not when you deliver.
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* --- What is already in hand ---------------------------------- */}
+          <div className="board__held">
+            <span className="label">In hand</span>
+            {held.length === 0 ? (
+              <p className="board__none">You are carrying no commissions.</p>
+            ) : (
+              <ul className="board__list">
+                {held.map((row) => (
+                  <li key={row.id} className="board__carried">
+                    <span className="board__offer-title">{row.title}</span>
+                    <span className="board__offer-foot micro">
+                      <span>{KINDS[row.kind] ?? row.kind}</span>
+                      <span className="data">{row.pay.toLocaleString()}</span>
+                    </span>
+                    {row.toSystemId !== '' && <span className="micro">to {row.toPortId}</span>}
+                    <button
+                      type="button"
+                      className="button board__give-up"
+                      disabled={busy}
+                      onClick={() => onAbandon(row.id)}
+                    >
+                      Give it up
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {notice !== undefined && <p className="board__notice">{notice}</p>}
+      </section>
+    </main>
+  );
+}

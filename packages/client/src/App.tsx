@@ -24,6 +24,7 @@ import { Staple } from './port/Staple.tsx';
 import { Editor } from './yard/Editor.tsx';
 import { Moorings } from './yard/Moorings.tsx';
 import { Bourse } from './bourse/Bourse.tsx';
+import { Board } from './commissions/Board.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -44,6 +45,7 @@ export function App(): React.JSX.Element {
   const [yardOpen, setYardOpen] = useState(false);
   const [mooringsOpen, setMooringsOpen] = useState(false);
   const [bourseOpen, setBourseOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -78,6 +80,7 @@ export function App(): React.JSX.Element {
       setYardOpen(false);
       setMooringsOpen(false);
       setBourseOpen(false);
+      setBoardOpen(false);
     }
   }, [mode.kind]);
 
@@ -166,6 +169,7 @@ export function App(): React.JSX.Element {
               mooredHere: (snapshot.yard?.ships ?? []).filter(
                 (hull) => hull.portId === port.id,
               ).length,
+              posted: snapshot.commissions?.board.length ?? 0,
               busy: false,
               notice: snapshot.notice,
             }}
@@ -176,11 +180,25 @@ export function App(): React.JSX.Element {
             onOpenYard={() => setYardOpen(true)}
             onOpenMoorings={() => setMooringsOpen(true)}
             onOpenBourse={() => setBourseOpen(true)}
+            onOpenBoard={() => setBoardOpen(true)}
             hasYard={port.services.includes('yard')}
             hasMoorings={port.services.includes('moorings')}
             hasBourse={port.services.includes('bourse')}
+            hasFactor={port.services.includes('factor')}
             standing={snapshot.standing}
           />
+          {boardOpen && (
+            <Board
+              offers={snapshot.commissions?.board ?? []}
+              held={snapshot.commissions?.held ?? []}
+              berthName={snapshot.commissions?.berthName ?? port.name}
+              busy={false}
+              notice={snapshot.notice}
+              onTake={(id) => void client.takeCommission(id)}
+              onAbandon={(id) => void client.abandonCommission(id)}
+              onClose={() => setBoardOpen(false)}
+            />
+          )}
           {bourseOpen && (
             <Bourse
               listings={snapshot.bourse?.listings ?? []}

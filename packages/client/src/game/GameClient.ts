@@ -13,6 +13,8 @@
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import type { Headline, Listing, Placement, Problem, Standing } from '@marque/shared';
 
+import type { BoardOffer, HeldOffer } from '../commissions/Board.tsx';
+
 import {
   CHAT_BACKLOG,
   REJECTIONS,
@@ -93,6 +95,22 @@ export interface StapleState {
   readonly holdUsed: number;
 }
 
+/** A berth's board, and what the captain already has in hand. */
+export interface CommissionState {
+  readonly board: readonly BoardOffer[];
+  readonly held: readonly HeldOffer[];
+  readonly berthName: string;
+}
+
+/** What a Factor said when a commission was answered, or was not. */
+export interface CommissionNews {
+  readonly id: string;
+  readonly title: string;
+  readonly outcome: 'done' | 'failed';
+  readonly text: string;
+  readonly pay?: number;
+}
+
 /** What the three charters think of this captain, and what to call it. */
 export interface StandingState {
   readonly standings: Record<string, number>;
@@ -162,6 +180,10 @@ export interface GameSnapshot {
   readonly bourse: BourseState | undefined;
   /** Where this captain stands with the three charters. */
   readonly standing: StandingState | undefined;
+  /** The berth's board and what the captain is carrying, while alongside. */
+  readonly commissions: CommissionState | undefined;
+  /** The last word from a Factor about a commission, for the hub to show. */
+  readonly commissionNews: CommissionNews | undefined;
   /** What the server's survey found, when it refused a build. */
   readonly surveyProblems: readonly Problem[];
 }
@@ -214,6 +236,8 @@ export class GameClient {
   private yard: YardState | undefined;
   private bourse: BourseState | undefined;
   private standing: StandingState | undefined;
+  private commissions: CommissionState | undefined;
+  private commissionNews: CommissionNews | undefined;
   private surveyProblems: readonly Problem[] = [];
   private disposed = false;
 
@@ -256,6 +280,8 @@ export class GameClient {
       yard: this.yard,
       bourse: this.bourse,
       standing: this.standing,
+      commissions: this.commissions,
+      commissionNews: this.commissionNews,
       surveyProblems: this.surveyProblems,
     };
   }
@@ -435,6 +461,18 @@ export class GameClient {
     // The three arrive separately but are one screen, so they are held
     // together and the parts that have not arrived yet read as empty rather
     // than as undefined.
+    room.onMessage('commissions', (payload) => {
+      this.commissions = payload as CommissionState;
+      this.emit();
+    });
+
+    room.onMessage('commission', (payload) => {
+      // A Factor's verdict. Held until the captain has seen it rather than
+      // replaced by the next push, because being paid is worth reading.
+      this.commissionNews = payload as CommissionNews;
+      this.emit();
+    });
+
     room.onMessage('standing', (payload) => {
       this.standing = payload as StandingState;
       this.emit();
@@ -661,6 +699,23 @@ export class GameClient {
   /** Take out a hull moored at this berth. */
   async switchShip(id: string): Promise<boolean> {
     return this.requestOk('switch-ship', { id });
+  }
+
+  /** Take a commission off the berth's board. */
+  async takeCommission(id: string): Promise<boolean> {
+    return this.requestOk('take-commission', { id });
+  }
+
+  /** Give one up. */
+  async abandonCommission(id: string): Promise<boolean> {
+    return this.requestOk('abandon-commission', { id });
+  }
+
+  /** Mark the Factor's last word as read. */
+  clearCommissionNews(): void {
+    if (this.commissionNews === undefined) return;
+    this.commissionNews = undefined;
+    this.emit();
   }
 
   /** Buy or sell shares on the Bourse. */

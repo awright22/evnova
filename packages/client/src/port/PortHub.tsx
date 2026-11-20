@@ -38,12 +38,12 @@ const CHARTER_NAMES: Record<string, string> = {
 };
 
 /** Services the hub gives a row of its own, so the footer does not repeat them. */
-const ROWED_ABOVE = new Set(['repair', 'staple', 'yard', 'bourse', 'moorings']);
+const ROWED_ABOVE = new Set(['repair', 'staple', 'yard', 'bourse', 'moorings', 'factor']);
 
 const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
   staple: { name: 'the Staple', trading: true },
   bourse: { name: 'the Bourse', trading: true },
-  factor: { name: 'the Factor', trading: false },
+  factor: { name: 'the Factor', trading: true },
   yard: { name: 'the Yard', trading: true },
   moorings: { name: 'the Moorings', trading: true },
   repair: { name: 'Repairs', trading: true },
@@ -62,6 +62,8 @@ export interface PortHubState {
   readonly hasStaple: boolean;
   /** How many of the captain's hulls are tied up at this berth. */
   readonly mooredHere: number;
+  /** How many commissions are posted here, for the row to say so. */
+  readonly posted: number;
   /**
    * What this berth charges for a unit of each, 0 when it keeps no Staple.
    *
@@ -86,10 +88,12 @@ export interface PortHubProps {
   onOpenYard: () => void;
   onOpenMoorings: () => void;
   onOpenBourse: () => void;
+  onOpenBoard: () => void;
   /** True while this berth keeps a Yard. */
   readonly hasYard: boolean;
   readonly hasMoorings: boolean;
   readonly hasBourse: boolean;
+  readonly hasFactor: boolean;
   /** Where this captain stands with the three charters, once it is known. */
   readonly standing: { standings: Record<string, number>; names: Record<string, string> } | undefined;
 }
@@ -103,9 +107,11 @@ export function PortHub({
   onOpenYard,
   onOpenMoorings,
   onOpenBourse,
+  onOpenBoard,
   hasYard,
   hasMoorings,
   hasBourse,
+  hasFactor,
   standing,
 }: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
@@ -239,6 +245,20 @@ export function PortHub({
                 action="Open the floor"
                 disabled={state.busy}
                 onAction={onOpenStaple}
+              />
+            )}
+
+            {hasFactor && (
+              <ServiceRow
+                name="the Factor"
+                detail={
+                  state.posted > 0
+                    ? `${state.posted} commissions posted`
+                    : 'Work posted by the companies and by the berth'
+                }
+                action="Read the board"
+                disabled={state.busy}
+                onAction={onOpenBoard}
               />
             )}
 
