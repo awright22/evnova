@@ -37,7 +37,8 @@
     "verify:range": "tsx tools/verify/src/range.ts",
     "verify:admin": "tsx tools/verify/src/admin.ts",
     "audio": "tsx tools/audio/src/main.ts",
-    "onboarding": "tsx tools/audio/src/onboarding.ts"
+    "play:new": "tsx tools/play/src/onboarding.ts",
+    "play:late": "tsx tools/play/src/late.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -17,11 +17,20 @@ import { isAimedAt, turnToward } from '@marque/shared';
 import type { BotBrain, BotView } from '../bot.ts';
 import type { ShipInput } from '@marque/shared';
 
-/** Where to stand off to while closing. Inside a turret's reach, outside ramming. */
-const STAND_OFF = 700;
+/**
+ * Where to stand off, and where to break off.
+ *
+ * Well inside a gun's 1,300-unit reach and well outside the mark's. The
+ * first version closed to 260, which against a hull that still has a gun
+ * means trading shots at point-blank with something that has nothing to
+ * lose — and the gunner lost, quietly, thirty seconds into a two-minute
+ * wait, which from the capture's side looked like a write-off that simply
+ * never happened.
+ */
+const STAND_OFF = 900;
 
 /** Closer than this and it brakes rather than running the mark down. */
-const BREAK_OFF = 260;
+const BREAK_OFF = 700;
 
 export function hunterBrain(callsign: string): BotBrain {
   let markId = '';
@@ -38,11 +47,17 @@ export function hunterBrain(callsign: string): BotBrain {
       // write-off fails, and it is invisible from the page's side. Say so
       // every few seconds: the harness keeps this log and prints it when
       // the screen does not come out.
-      if (view.step - saidAt > 180) {
+      if (view.step - saidAt > 300) {
         saidAt = view.step;
-        const names = [...view.ships.values()].map((ship) => ship.callsign).join(', ');
+        const mark = view.ships.get(markId);
+        const range = mark
+          ? Math.round(Math.hypot(mark.x - self.x, mark.y - self.y))
+          : -1;
+        const hp = mark ? [...mark.moduleHp].reduce((sum, v) => sum + v, 0) : -1;
         console.log(
-          `hunter: in ${view.systemId} after "${callsign}"; in the sky: ${names || 'nobody'}`,
+          `hunter: in ${view.systemId} after "${callsign}": `
+            + (mark ? `range ${range}, their structure ${hp}` : 'not in this sky')
+            + `; ${view.ships.size} hull(s) up`,
         );
       }
 
@@ -79,8 +94,10 @@ export function hunterBrain(callsign: string): BotBrain {
       cmd.turn = turnToward(self, bearing, profile);
       cmd.thrust = range > STAND_OFF && isAimedAt(self, bearing, 0.7) ? 1 : 0;
       cmd.brake = range < BREAK_OFF;
-      cmd.firePrimary = range < STAND_OFF * 1.4;
-      cmd.fireSecondary = isAimedAt(self, bearing, 0.3) && range < STAND_OFF * 2;
+      // Inside reach and pointed at it. The trigger stays down: a mount
+      // that is out of arc simply does not fire.
+      cmd.firePrimary = range < 1250;
+      cmd.fireSecondary = isAimedAt(self, bearing, 0.3) && range < 2400;
     },
   };
 }

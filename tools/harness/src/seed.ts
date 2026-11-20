@@ -32,6 +32,7 @@ import { CHARTERS, beltOf, content, placeAll, type Charter } from '@marque/share
 import { Accounts } from '@marque/server/src/accounts.ts';
 import { openStore, schema } from '@marque/server/src/db/index.ts';
 import { Convoys } from '@marque/server/src/world/Convoys.ts';
+import { Exchange } from '@marque/server/src/world/Exchange.ts';
 import { Ledger } from '@marque/server/src/world/Ledger.ts';
 import { Market } from '@marque/server/src/world/Market.ts';
 import { PilotStore } from '@marque/server/src/world/PilotStore.ts';
@@ -76,6 +77,15 @@ export interface SeedSpec {
   readonly chainDone?: string;
   /** Goods in the hold, by commodity id. */
   readonly cargo?: Record<string, number>;
+  /**
+   * Shares to hold, by ticker.
+   *
+   * Bought through the Exchange rather than written into the holdings
+   * table, so the pools, the ledger and the captain's purse are the ones
+   * those shares would really have left behind. A late-game session needs
+   * a portfolio, and a portfolio that does not add up is not one.
+   */
+  readonly holdings?: Record<string, number>;
   /** Draughts on this captain's books, by name. */
   readonly designs?: readonly string[];
   /**
@@ -144,6 +154,7 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
   const ledger = new Ledger(store);
   const market = new Market(store, ledger);
   const yard = new Yard(store, ledger, market);
+  const exchange = new Exchange(store, ledger);
 
   const tokens: Record<string, string> = {};
   /** How many captains have already been set down at each berth. */
@@ -241,6 +252,25 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
 
     for (const [commodityId, units] of Object.entries(spec.cargo ?? {})) {
       market.adjustCargo(accountId, commodityId, units);
+    }
+
+    for (const [ticker, shares] of Object.entries(spec.holdings ?? {})) {
+      if (shares < 1) continue;
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      // A parcel at a time, because the Exchange caps how much of a pool
+      // one order may take — the same cap a captain trades against.
+      let left = Math.round(shares);
+      let tries = 0;
+      while (left > 0 && tries < 40) {
+        tries += 1;
+        const parcel = Math.min(left, Math.max(1, Math.ceil(shares / 8)));
+        const fill = exchange.trade({ pilot, side: 'buy', ticker, shares: parcel });
+        if (fill.shares < 1) break;
+        left -= fill.shares;
+      }
+      pilots.touch(accountId);
+      pilots.flush();
     }
 
     for (const name of spec.designs ?? []) {

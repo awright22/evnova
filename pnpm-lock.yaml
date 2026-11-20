@@ -169,6 +169,22 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
 
+  tools/play:
+    dependencies:
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
+      '@marque/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@marque/shots':
+        specifier: workspace:*
+        version: link:../shots
+    devDependencies:
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
+
   tools/shots:
     dependencies:
       '@marque/harness':

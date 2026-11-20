@@ -8,23 +8,15 @@
  * all seven using only what the interface shows, and checks the ticket is
  * confirmed at the end.
  *
- *   pnpm onboarding
+ *   pnpm play:new
  *
- * It shares this tool's plumbing rather than the verify harnesses' because
- * those fly the bot client, which has no screens. Onboarding is screens.
+ * It is a browser rather than the verify harnesses' bot client, because
+ * those have no screens and onboarding is screens.
  */
-
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import type * as Playwright from 'playwright';
 
-import { findChromium, LAUNCH_ARGS } from '@marque/shots/browser';
-import { sleep, start, waitForHttp, type ManagedProcess } from '@marque/shots/processes';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '../../..');
+import { Notebook, openSession, sleep } from './harness.ts';
 
 const SERVER_PORT = 2579;
 const PREVIEW_PORT = 4175;
@@ -33,80 +25,28 @@ const CALLSIGN = 'First Voyage';
 /** The seven, in the order the clerk asks for them. */
 const ENDORSEMENTS = ['fly', 'land', 'buy', 'jump', 'sell', 'yard', 'bourse'] as const;
 
-interface Step {
-  readonly name: string;
-  readonly passed: boolean;
-  readonly detail: string;
-}
-
-const steps: Step[] = [];
+const book = new Notebook();
 
 function record(name: string, passed: boolean, detail = ''): void {
-  steps.push({ name, passed, detail });
-  console.log(`  ${passed ? 'ok  ' : 'FAIL'} ${name}${detail === '' ? '' : ` — ${detail}`}`);
+  book.record(name, passed, detail);
 }
 
 async function main(): Promise<void> {
-  const playwright = (await import('playwright')) as typeof Playwright;
-  const processes: ManagedProcess[] = [];
+  // Nothing seeded: a new player is new, and signs up through the Register
+  // like anybody else.
+  const session = await openSession({
+    name: 'onboarding',
+    serverPort: SERVER_PORT,
+    previewPort: PREVIEW_PORT,
+  });
 
   try {
-    console.log('Building client...');
-    const build = start('client build', 'pnpm', ['--filter', '@marque/client', 'run', 'build'], {
-      cwd: REPO_ROOT,
-      env: { MARQUE_SERVER_URL: `ws://127.0.0.1:${SERVER_PORT}` },
-    });
-    const code = await new Promise<number>((done) =>
-      build.child.on('exit', (exit) => done(exit ?? 1)),
-    );
-    if (code !== 0) throw new Error(`client build failed:\n${build.output()}`);
-
-    // Nothing seeded, nothing left over: a new player is new.
-    const scratchDb = resolve(REPO_ROOT, 'artifacts/onboarding.db');
-    await mkdir(resolve(REPO_ROOT, 'artifacts'), { recursive: true });
-    for (const suffix of ['', '-wal', '-shm']) {
-      await rm(`${scratchDb}${suffix}`, { force: true });
-    }
-
-    console.log('Starting game server...');
-    const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {
-      cwd: resolve(REPO_ROOT, 'packages/server'),
-      env: {
-        PORT: String(SERVER_PORT),
-        NODE_ENV: 'development',
-        DATABASE_URL: scratchDb,
-      },
-    });
-    processes.push(server);
-    await waitForHttp(server, `http://127.0.0.1:${SERVER_PORT}/matchmake/`);
-
-    console.log('Starting client preview...');
-    const preview = start(
-      'client preview',
-      'pnpm',
-      ['exec', 'vite', 'preview', '--port', String(PREVIEW_PORT), '--strictPort'],
-      { cwd: resolve(REPO_ROOT, 'packages/client') },
-    );
-    processes.push(preview);
-    const baseUrl = `http://127.0.0.1:${PREVIEW_PORT}`;
-    await waitForHttp(preview, baseUrl);
-
-    const executablePath = findChromium();
-    const browser = await playwright.chromium.launch({
-      args: [...LAUNCH_ARGS],
-      ...(executablePath ? { executablePath } : {}),
-    });
-
-    try {
-      await play(browser, baseUrl);
-    } finally {
-      await browser.close();
-    }
-
-    await report();
+    await play(session.browser, session.baseUrl);
   } finally {
-    await Promise.allSettled(processes.map((proc) => proc.stop()));
+    await session.close();
   }
+
+  await book.report('onboarding');
 }
 
 /** Play the first session, pressing only what a new captain would see. */
@@ -381,22 +321,6 @@ async function dismissHint(page: Playwright.Page): Promise<void> {
     await noted.first().click();
     await page.waitForTimeout(300);
   }
-}
-
-async function report(): Promise<void> {
-  const failed = steps.filter((step) => !step.passed);
-  console.log(`\n${steps.length - failed.length} of ${steps.length} step(s) passed.`);
-  if (failed.length > 0) {
-    console.error('Stuck at:');
-    for (const step of failed) console.error(`  ${step.name} ${step.detail}`);
-  }
-
-  await writeFile(
-    resolve(REPO_ROOT, 'artifacts/onboarding.json'),
-    `${JSON.stringify({ ranAt: new Date().toISOString(), steps }, null, 2)}\n`,
-  );
-  console.log('Written to artifacts/onboarding.json');
-  if (failed.length > 0) process.exitCode = 1;
 }
 
 await main();
