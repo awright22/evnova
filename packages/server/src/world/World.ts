@@ -12,10 +12,14 @@
 import { readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { content } from '@marque/shared';
+
 import { Accounts } from '../accounts.ts';
 import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
 import { ChatLog } from './ChatLog.ts';
+import { Exchange } from './Exchange.ts';
+import { Gazette } from './Gazette.ts';
 import { Ledger } from './Ledger.ts';
 import { Freight } from './Freight.ts';
 import { Market } from './Market.ts';
@@ -60,6 +64,8 @@ export class World {
   readonly market: Market;
   readonly freight: Freight;
   readonly yard: Yard;
+  readonly exchange: Exchange;
+  readonly gazette = new Gazette();
   readonly chat = new ChatLog();
 
   private flushTimer: NodeJS.Timeout | undefined;
@@ -68,6 +74,17 @@ export class World {
   private lastEconomyAt = 0;
   private snapshotTimer: NodeJS.Timeout | undefined;
   private lastSnapshotDay = '';
+  /** When the Bourse last ticked, so an accelerated clock ticks it faster. */
+  private lastBourseAt = 0;
+
+  /**
+   * Called after a market tick, so rooms can push the new prices out.
+   *
+   * The World does not know about rooms, and should not: it hands the event
+   * to whoever registered, which is the server's wiring rather than this
+   * class's business.
+   */
+  onBourseTick: ((dividends: { ticker: string; marks: number }[]) => void) | undefined;
 
   constructor(
     readonly clock: WorldClock = SYSTEM_CLOCK,
@@ -80,7 +97,17 @@ export class World {
     this.market = new Market(this.store, this.ledger);
     this.freight = new Freight(this.market);
     this.yard = new Yard(this.store, this.ledger, this.market);
+    this.exchange = new Exchange(this.store, this.ledger);
+    // The Staple and the Yard credit companies for what actually leaves a
+    // stockpile and what is actually spent on fittings, so they need the
+    // Bourse. Set after construction because the Exchange needs the ledger,
+    // which they also hold.
+    this.market.exchange = this.exchange;
+    this.yard.exchange = this.exchange;
+    this.freight.exchange = this.exchange;
+    this.exchange.seed();
     this.lastEconomyAt = this.clock.now();
+    this.lastBourseAt = this.clock.now();
   }
 
   /** Start the background work: flushing and snapshots. */
@@ -120,12 +147,39 @@ export class World {
       // Then the Reach's own freighters even it out, which is what keeps a
       // berth that only eats something from running out for good.
       this.freight.run(hours, now);
+      this.tickBourse(now);
     } catch (error) {
       // A failed drift must not stop the world; the next one covers the gap,
       // because the elapsed time is measured and not assumed.
       this.lastEconomyAt = now - (hours / config.economyTimeScale) * 3_600_000;
       console.error('drifting the economy failed:', error);
     }
+  }
+
+  /**
+   * Move the Bourse on, if a market tick's worth of time has passed.
+   *
+   * Driven from the same measured clock as the economy, so the soak's
+   * accelerated time moves prices as fast as it moves stockpiles and a month
+   * of market ticks happens in a month of simulated time rather than in a
+   * month of real seconds.
+   */
+  private tickBourse(now: number): void {
+    const { tickSeconds } = content().tuning.exchange;
+    const elapsed = ((now - this.lastBourseAt) / 1000) * config.economyTimeScale;
+    const due = Math.floor(elapsed / tickSeconds);
+    if (due <= 0) return;
+
+    this.lastBourseAt = now;
+    const paid: { ticker: string; marks: number }[] = [];
+    // Capped: a server that was stopped for a week should not run a thousand
+    // market ticks in one pass and reprice the whole Bourse in a frame.
+    for (let i = 0; i < Math.min(due, 20); i++) {
+      const result = this.exchange.tick(now);
+      this.gazette.report(result.events, result.dividends, now);
+      paid.push(...result.dividends);
+    }
+    this.onBourseTick?.(paid);
   }
 
   /**

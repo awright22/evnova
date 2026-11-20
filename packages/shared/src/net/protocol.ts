@@ -56,6 +56,11 @@ export const REJECTIONS = {
   'unknown-fitting': 'That draught calls for a fitting the Register does not list.',
   'unknown-captain': 'No captain of that callsign is on the Register.',
   'give-to-self': 'You already have it.',
+  'no-such-listing': 'The Bourse lists no such company.',
+  'no-bourse': 'This berth keeps no Bourse.',
+  'holding-capped': 'You may not hold more of one company than that.',
+  'not-holding': 'You do not hold that many shares.',
+  'market-too-thin': 'The pool will not take an order that size. Try a smaller parcel.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -152,6 +157,73 @@ export const BuildIntent = z.object({
 });
 export type BuildIntent = z.infer<typeof BuildIntent>;
 
+/**
+ * Buy or sell shares on the Bourse.
+ *
+ * `shares` is what the captain is asking for; the Bourse fills what it can and
+ * answers with what it actually did, because the pool's price moves as the
+ * order walks it and a captain must be told what they really paid.
+ */
+export const BourseIntent = z.object({
+  side: z.enum(['buy', 'sell']),
+  ticker: z.string().max(8),
+  shares: z.int().min(1).max(100_000_000),
+});
+export type BourseIntent = z.infer<typeof BourseIntent>;
+
+/** A listing as the interface draws it. */
+export interface Listing {
+  readonly ticker: string;
+  readonly name: string;
+  readonly parent: string;
+  readonly sector: string;
+  readonly description: string;
+  /** Marks a share, as quoted now. */
+  readonly price: number;
+  /** What the Exchange thinks it is worth, which the price drifts toward. */
+  readonly fairValue: number;
+  /** Earnings a tick, smoothed. */
+  readonly earnings: number;
+  /** Price a market tick ago, so the interface can show the move. */
+  readonly previous: number;
+  /** Recent prices, oldest first, for the chart. */
+  readonly history: readonly number[];
+  /** Shares in issue, and the most one captain may hold. */
+  readonly float: number;
+  readonly holdingCap: number;
+  /** What this captain holds, and what they paid for it in total. */
+  readonly held: number;
+  readonly costBasis: number;
+  /** Dividends this captain has been paid on it, all told. */
+  readonly dividends: number;
+  /** Shares the pool can still sell, so the ticket can bound its field. */
+  readonly available: number;
+}
+
+/** A headline in the Gazette. */
+export interface Headline {
+  readonly id: string;
+  /** The listing it is about, or empty for a general notice. */
+  readonly ticker: string;
+  readonly text: string;
+  /** Server wall-clock, for ordering and for "two minutes ago". */
+  readonly at: number;
+  /** Which way it moved the company, for the interface's accent. */
+  readonly direction: 'up' | 'down' | 'flat';
+}
+
+/** A line on the leaderboard. */
+export interface Standing {
+  readonly callsign: string;
+  /** Marks, plus shares at the quoted price, plus hulls at their build cost. */
+  readonly worth: number;
+  readonly marks: number;
+  readonly shares: number;
+  readonly hulls: number;
+  /** True for the captain reading it, so their own line can be marked. */
+  readonly isSelf: boolean;
+}
+
 /** Buy a hull licence. Only upward, and only what the Register issues. */
 export const BuyLicenceIntent = z.object({
   licence: z.string().max(64),
@@ -232,6 +304,9 @@ export const SERVER_MESSAGES = [
   'yard',
   'survey',
   'given-design',
+  'bourse',
+  'news',
+  'standings',
 ] as const;
 
 /** A line as it reaches the other captains. */

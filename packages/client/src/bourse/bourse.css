@@ -1,0 +1,1011 @@
+/**
+ * The Bourse. A ledger page with a chart on it, in the idiom of the Staple
+ * and the Moorings: dense rows of tabular figures, read down the column.
+ *
+ * Six panels on one grid. The market column runs the full height of the left
+ * side, the selected company and its ticket take the middle, the Gazette runs
+ * as a document column down the right, and the captain's own book sits under
+ * the ticket that writes to it.
+ *
+ * The one amber fill on the screen is the confirm button on the ticket.
+ * Everything else amber touches is the captain's own position: their marks,
+ * the row they have selected, their line on the Register, and the focus ring.
+ */
+
+.bourse {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr) 360px;
+  grid-template-rows: auto minmax(200px, 1fr) auto auto;
+  grid-template-areas:
+    'head     head     head'
+    'market   company  gazette'
+    'market   ticket   gazette'
+    'register book     gazette';
+  gap: var(--space-2);
+  padding: var(--space-2);
+  overflow: hidden;
+  background: var(--void);
+  outline: none;
+}
+
+.bourse > .panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bourse__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1-5) var(--space-2);
+  background: var(--raised);
+}
+
+.bourse__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+}
+
+.bourse__title h1 {
+  font-size: var(--size-h1);
+  line-height: var(--leading-h1);
+}
+
+.bourse__purse {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.bourse__purse div {
+  display: grid;
+  gap: 0;
+  justify-items: end;
+}
+
+.bourse__purse dd {
+  font-size: var(--size-data-lg);
+  line-height: var(--leading-h2);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bourse__marks {
+  color: var(--amber);
+}
+
+/* --- The regions --------------------------------------------------------- */
+
+.bourse__market {
+  grid-area: market;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.bourse__company {
+  grid-area: company;
+}
+
+.bourse__ticket {
+  grid-area: ticket;
+}
+
+.bourse__book {
+  grid-area: book;
+}
+
+.bourse__gazette {
+  grid-area: gazette;
+}
+
+.bourse__register {
+  grid-area: register;
+}
+
+.bourse__scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/*
+ * The two bottom panels share a row, so each is capped and scrolls inside
+ * itself. Without the cap a captain holding ten companies would squeeze the
+ * chart out of the middle column.
+ */
+.bourse__book .bourse__scroll,
+.bourse__register .bourse__scroll {
+  max-height: 240px;
+}
+
+/* The book is the widest table here: it scrolls in its own panel, never the
+   page. */
+.bourse__scroll--wide {
+  overflow-x: auto;
+}
+
+/*
+ * An empty region says what would be in it, and the panel sizes to that
+ * sentence rather than reserving a field around it.
+ */
+.bourse__empty {
+  margin: var(--space-1-5);
+  padding: var(--space-1-5);
+  max-width: 54ch;
+  color: var(--text-muted);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  border: var(--border-width) dashed var(--rule);
+}
+
+/* The floor's standing terms, under the listings. */
+.bourse__terms {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1-5);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.bourse__terms dl {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.bourse__terms dl div {
+  display: grid;
+  gap: 0;
+}
+
+.bourse__terms dd {
+  color: var(--text-primary);
+}
+
+.bourse__terms p {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+/* --- Tabs: the Gazette's filter ------------------------------------------ */
+
+.bourse__tabs {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+.bourse__tab {
+  min-width: 48px;
+  padding: 2px var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.bourse__tab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.bourse__tab--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+.bourse__tab:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* --- The market column --------------------------------------------------- */
+
+.market {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--size-body-sm);
+}
+
+.market thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  background: var(--panel);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.market__sort {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-0-5) var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.market__sort:hover {
+  color: var(--text-primary);
+}
+
+.market__figure .market__sort {
+  justify-content: flex-end;
+}
+
+.market__caret {
+  display: inline-block;
+  min-width: 8px;
+  color: var(--amber-dim);
+}
+
+.market__row td,
+.market__row th {
+  padding: var(--space-0-5) var(--space-1);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.market__row th {
+  padding: 0;
+}
+
+.market__row:hover td,
+.market__row:hover th {
+  background: color-mix(in srgb, var(--hover) 55%, transparent);
+}
+
+/* The selected listing, which is what the middle and right columns are about. */
+.market__row--on td,
+.market__row--on th {
+  background: var(--amber-wash);
+}
+
+.market__row--on th {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+/* The whole name cell is the handle, so the row is reachable by keyboard. */
+.market__pick {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-areas:
+    'ticker name'
+    'ticker sector';
+  align-items: center;
+  gap: 0 var(--space-1);
+  width: 100%;
+  padding: var(--space-0-5) var(--space-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.market__ticker {
+  grid-area: ticker;
+  font-family: var(--font-condensed);
+  font-size: var(--size-body-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-h3);
+  color: var(--text-primary);
+}
+
+.market__name {
+  grid-area: name;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.market__sector {
+  grid-area: sector;
+}
+
+.market__figure {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.market__none {
+  color: var(--text-disabled);
+}
+
+/* --- The selected company ------------------------------------------------ */
+
+.company__title {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.company__title h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.company__ticker {
+  color: var(--amber-dim);
+  letter-spacing: var(--track-h3);
+}
+
+.company__read {
+  flex: none;
+  min-height: 24px;
+  padding: 0 var(--space-1-5);
+  font-size: var(--size-label);
+}
+
+.company__body {
+  display: grid;
+  grid-template-rows: auto auto minmax(120px, 1fr);
+  gap: var(--space-1-5);
+  min-height: 0;
+  padding: var(--space-1-5);
+  overflow-y: auto;
+}
+
+.company__description {
+  max-width: 96ch;
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-secondary);
+}
+
+.company__figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1-5) 0;
+  border-top: var(--border-width) solid var(--rule-faint);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.company__figures div {
+  display: grid;
+  gap: 0;
+}
+
+.company__figures dd {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.company__quote {
+  font-size: var(--size-data-lg);
+  line-height: var(--leading-h2);
+  font-weight: 600;
+}
+
+.company__note {
+  display: block;
+  text-transform: none;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The chart ----------------------------------------------------------- */
+
+.chart {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-0-5);
+  min-height: 0;
+}
+
+.chart__well {
+  position: relative;
+  min-height: 132px;
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule);
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.chart__grid {
+  stroke: var(--rule-faint);
+  stroke-width: 1;
+}
+
+/* Fair value: the one thing on the chart worth an axis emphasis. */
+.chart__fair {
+  stroke: var(--amber-dim);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.chart__area {
+  stroke: none;
+}
+
+.chart__area--up {
+  fill: var(--gain-wash);
+}
+
+.chart__area--down {
+  fill: var(--danger-wash);
+}
+
+/* The last reading. A square dot, which is the one filled glyph allowed. */
+.chart__mark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.chart__mark--up {
+  background: var(--gain);
+}
+
+.chart__mark--down {
+  background: var(--danger);
+}
+
+.chart__fair-label,
+.chart__bound {
+  position: absolute;
+  right: var(--space-0-5);
+  padding: 0 2px;
+  background: color-mix(in srgb, var(--inset) 86%, transparent);
+  pointer-events: none;
+}
+
+.chart__fair-label {
+  transform: translateY(-50%);
+  color: var(--amber-dim);
+}
+
+.chart__bound--high {
+  top: 2px;
+}
+
+.chart__bound--low {
+  bottom: 2px;
+}
+
+.chart__thin {
+  position: absolute;
+  inset: auto var(--space-2) 50% var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  text-align: center;
+}
+
+.chart__caption {
+  text-align: right;
+}
+
+/* --- The order ticket ---------------------------------------------------- */
+
+.ticket__sides {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+/*
+ * Buy and Sell are a segmented control, not two primary actions: the selected
+ * side is washed and ruled rather than filled, so the only amber fill on the
+ * screen stays on the one button that commits the order.
+ */
+.ticket__side {
+  min-width: 56px;
+  min-height: 24px;
+  padding: 0 var(--space-1-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.ticket__side:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.ticket__side--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+.ticket__body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1-5);
+  min-height: 0;
+  padding: var(--space-1-5);
+  overflow-y: auto;
+}
+
+.ticket__entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.ticket__field {
+  width: 140px;
+  min-height: 28px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--size-data-lg);
+  font-weight: 600;
+  text-align: right;
+  color: var(--text-primary);
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-strong);
+}
+
+.ticket__field:focus-visible {
+  border-color: var(--amber);
+}
+
+.ticket__field:disabled {
+  color: var(--text-disabled);
+  border-color: var(--rule);
+}
+
+.ticket__parcels {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+.ticket__parcel {
+  min-width: 52px;
+  min-height: 24px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.ticket__parcel:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.ticket__parcel:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.ticket__ceiling {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The impact, which is the whole reason the ticket previews anything. */
+.ticket__preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1-5);
+  background: var(--raised);
+  border-left: 2px solid var(--rule-strong);
+}
+
+.ticket__preview div {
+  display: grid;
+  gap: 0;
+}
+
+.ticket__preview dd {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket__total {
+  font-size: var(--size-data-lg);
+  line-height: var(--leading-h2);
+  font-weight: 600;
+}
+
+.ticket__impact {
+  display: block;
+  text-transform: none;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The fill. The ticket collapses to one line saying what the floor did, which
+ * need not be what was asked for, and the line arrives moving toward the book
+ * underneath it.
+ */
+.ticket__fill {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-primary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  font-variant-numeric: tabular-nums;
+  background: var(--amber-wash);
+  border-left: 2px solid var(--amber);
+  animation: ticket-fill var(--motion-base) var(--ease-emphasis) both;
+}
+
+.ticket__fill .dot {
+  color: var(--amber);
+}
+
+@keyframes ticket-fill {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* No offset entrances under reduced motion; the fade remains. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ticket-fill {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+.ticket__notice {
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text-secondary);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}
+
+.ticket__confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.ticket__confirm .micro {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  color: var(--text-muted);
+}
+
+/* --- The book ------------------------------------------------------------ */
+
+.book {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--size-body-sm);
+}
+
+.book thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-0-5) var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  line-height: var(--leading-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  background: var(--panel);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.book tbody td,
+.book tbody th {
+  padding: 0 var(--space-1);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.book tbody th {
+  padding: 0;
+}
+
+.book__row:hover td,
+.book__row:hover th {
+  background: color-mix(in srgb, var(--hover) 55%, transparent);
+}
+
+/* The row the last order moved, while its receipt is still up. */
+.book__row--filled td,
+.book__row--filled th {
+  background: var(--amber-wash);
+}
+
+.book__pick {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-0-5) var(--space-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.book__ticker {
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  letter-spacing: var(--track-h3);
+  color: var(--text-primary);
+}
+
+.book__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.book__figure {
+  padding: var(--space-0-5) var(--space-1);
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.book thead .book__figure {
+  text-align: right;
+}
+
+.book__note {
+  display: block;
+  color: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+/* A dividend that landed while the screen was open. */
+.book__paid {
+  display: block;
+  color: var(--gain);
+  text-transform: none;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+  animation: book-paid var(--motion-slow) var(--ease-emphasis) both;
+}
+
+@keyframes book-paid {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.book tfoot th,
+.book tfoot td {
+  padding: var(--space-0-5) var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.book tfoot .book__figure {
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+/* --- The Gazette: an in-world document, so it is set in the serif -------- */
+
+.gazette {
+  display: grid;
+  gap: 0;
+  padding: 0 var(--space-1-5);
+  list-style: none;
+}
+
+.gazette__item {
+  padding: var(--space-1-5) 0 var(--space-1-5) var(--space-1-5);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+  border-left: 2px solid var(--rule);
+}
+
+.gazette__item:last-child {
+  border-bottom: none;
+}
+
+.gazette__item--up {
+  border-left-color: var(--gain);
+}
+
+.gazette__item--down {
+  border-left-color: var(--danger);
+}
+
+.gazette__item--flat {
+  border-left-color: var(--rule-strong);
+}
+
+/* A line about the company in the middle column reads brighter, in place of
+   hiding the rest of the floor's news behind a filter. */
+.gazette__item--selected {
+  background: color-mix(in srgb, var(--raised) 60%, transparent);
+}
+
+.gazette__text {
+  font-family: var(--font-document);
+  font-size: var(--size-doc);
+  line-height: var(--leading-doc);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.gazette__item--selected .gazette__text {
+  color: var(--text-primary);
+}
+
+.gazette__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin-top: var(--space-0-5);
+  color: var(--text-muted);
+}
+
+/* --- The Register -------------------------------------------------------- */
+
+.register {
+  display: grid;
+  gap: 0;
+  list-style: none;
+}
+
+.register__line {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-0-5) var(--space-1-5);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.register__rank {
+  color: var(--text-disabled);
+  font-size: var(--size-body-sm);
+  text-align: right;
+}
+
+.register__who {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.register__callsign {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--size-body-sm);
+  color: var(--text-primary);
+}
+
+.register__parts {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.register__worth {
+  font-size: var(--size-body-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* The captain reading it, marked the way the Moorings marks the hull flown. */
+.register__line--self {
+  box-shadow: inset 2px 0 0 var(--amber);
+  background: var(--amber-wash);
+}
+
+.register__line--self .register__callsign {
+  color: var(--amber);
+}
+
+/* --- Gain, loss, neither ------------------------------------------------- */
+
+.is-gain {
+  color: var(--gain) !important;
+}
+
+.is-loss {
+  color: var(--danger) !important;
+}
+
+.is-flat {
+  color: var(--text-muted) !important;
+}

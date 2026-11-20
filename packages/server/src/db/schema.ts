@@ -8,7 +8,7 @@
  * Tables arrive with the milestone that needs them. These are M3's.
  */
 
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * An account.
@@ -211,12 +211,63 @@ export const ships = sqliteTable(
 );
 
 /** Schema version, so a migration knows what it is upgrading. */
+/**
+ * A listed company's market state.
+ *
+ * The pool is the whole order book: its shares and marks are the exchange's,
+ * not any captain's, so nothing here is part of the player credit total. The
+ * smoothed earnings figure is what fair value is derived from, and the period
+ * figure accumulates between market ticks.
+ */
+export const listings = sqliteTable('listings', {
+  ticker: text('ticker').primaryKey(),
+  /** Shares the pool holds and will sell. */
+  poolShares: integer('pool_shares').notNull(),
+  /** Marks the pool holds and will pay out. */
+  poolMarks: integer('pool_marks').notNull(),
+  /** Earnings a tick, smoothed, which fair value is a multiple of. */
+  smoothedEarnings: real('smoothed_earnings').notNull(),
+  /** Earnings banked since the last market tick, folded in at the next one. */
+  periodEarnings: real('period_earnings').notNull().default(0),
+  /** Earnings set aside for the next dividend. */
+  undistributed: real('undistributed').notNull().default(0),
+  /** The quoted price a tick ago, so the interface can show the move. */
+  previousPrice: real('previous_price').notNull(),
+  /** Recent prices as a JSON array, oldest first, for the chart. */
+  history: text('history').notNull().default('[]'),
+  /** Market ticks since the listing opened, for the dividend cadence. */
+  ticks: integer('ticks').notNull().default(0),
+});
+
+/** What a captain holds in one company. */
+export const holdings = sqliteTable(
+  'holdings',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    ticker: text('ticker').notNull(),
+    shares: integer('shares').notNull().default(0),
+    /**
+     * Total marks paid for the shares still held, fees included.
+     *
+     * Reduced proportionally on a sale rather than by the sale's proceeds, so
+     * it stays the cost of what remains and a partial sale cannot make the
+     * basis negative.
+     */
+    costBasis: integer('cost_basis').notNull().default(0),
+    /** Dividends received on this listing, all told. */
+    dividends: integer('dividends').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.ticker] })],
+);
+
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * Migrations, applied in order.
@@ -339,6 +390,36 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         built_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS ships_account ON ships (account_id);
+    `,
+  },
+  {
+    version: 6,
+    up: `
+      CREATE TABLE IF NOT EXISTS listings (
+        ticker TEXT PRIMARY KEY,
+        pool_shares INTEGER NOT NULL,
+        pool_marks INTEGER NOT NULL,
+        smoothed_earnings REAL NOT NULL,
+        period_earnings REAL NOT NULL DEFAULT 0,
+        undistributed REAL NOT NULL DEFAULT 0,
+        previous_price REAL NOT NULL,
+        history TEXT NOT NULL DEFAULT '[]',
+        ticks INTEGER NOT NULL DEFAULT 0,
+        CHECK (pool_shares > 0),
+        CHECK (pool_marks > 0)
+      );
+
+      CREATE TABLE IF NOT EXISTS holdings (
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        ticker TEXT NOT NULL,
+        shares INTEGER NOT NULL DEFAULT 0,
+        cost_basis INTEGER NOT NULL DEFAULT 0,
+        dividends INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (account_id, ticker),
+        CHECK (shares >= 0),
+        CHECK (cost_basis >= 0)
+      );
+      CREATE INDEX IF NOT EXISTS holdings_ticker ON holdings (ticker);
     `,
   },
 ];

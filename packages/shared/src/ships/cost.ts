@@ -24,6 +24,15 @@ export interface BuildCost {
   readonly premium: number;
   /** Marks refunded for modules taken off, in a refit. */
   readonly refund: number;
+  /**
+   * Marks spent on each maker's fittings, net of what was stripped.
+   *
+   * Spec section 10: a manufacturer earns the marks captains spend on its
+   * modules, net of refunds. A refit that takes a Reprisal gun off and puts a
+   * Slipway engine on earns Slipway and costs Reprisal, which is the whole
+   * point of netting it — so this can go negative.
+   */
+  readonly byMaker: ReadonlyMap<string, number>;
   /** Marks owed in total: modules plus premium, less the refund, never below nothing. */
   readonly marks: number;
   /** Commodities the yard needs, after anything removed is credited back. */
@@ -68,11 +77,17 @@ export function buildCost(
   let added = 0;
   let removed = 0;
   const bill: Bill = new Map();
+  const byMaker = new Map<string, number>();
 
   for (const [moduleId, delta] of counts) {
     if (delta === 0) continue;
     const def = modules.get(moduleId);
     if (!def) continue;
+
+    // Net per maker, counted on the full price of what went on and the full
+    // price of what came off rather than on the refund: the maker loses the
+    // order, not the fraction the yard hands back.
+    byMaker.set(def.manufacturer, (byMaker.get(def.manufacturer) ?? 0) + def.cost * delta);
 
     if (delta > 0) {
       added += def.cost * delta;
@@ -93,7 +108,7 @@ export function buildCost(
   const refund = Math.floor(removed * tuning.yard.refundFraction);
   const marks = Math.max(0, added + premium - refund);
 
-  return { modules: added, premium, refund, marks, bill };
+  return { modules: added, premium, refund, marks, bill, byMaker };
 }
 
 /** What is still needed after the hold is counted. */

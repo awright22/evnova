@@ -26,6 +26,7 @@ import {
   type SystemDef,
 } from '@marque/shared';
 
+import type { Exchange } from './Exchange.ts';
 import type { Market } from './Market.ts';
 
 /** One load, as the report and the news feed describe it. */
@@ -35,6 +36,14 @@ export interface Shipment {
   readonly toPortId: string;
   readonly units: number;
 }
+
+/**
+ * The carrier's cut of what it delivers.
+ *
+ * Freight earns on the haulage, not on the cargo: a carrier that earned the
+ * full value of everything it moved would be worth more than the goods.
+ */
+const FREIGHT_MARGIN = 0.08;
 
 /** A berth with a surplus or a shortage of one commodity. */
 interface Candidate {
@@ -46,6 +55,16 @@ interface Candidate {
 }
 
 export class Freight {
+  /**
+   * The Bourse, once the world has one.
+   *
+   * Set after construction rather than injected, because the Exchange and
+   * this service both hold the ledger and the World builds them in one pass.
+   * Optional so a test can exercise this service without an exchange behind
+   * it; an earnings event with nobody listening is simply not reported.
+   */
+  exchange: Exchange | undefined;
+
   constructor(private readonly market: Market) {}
 
   /**
@@ -116,6 +135,21 @@ export class Freight {
           toPortId: needy.port.id,
           units,
         });
+
+        // The carrier for the destination's region earns on freight actually
+        // delivered — the units arriving, valued at the good's base price, so
+        // a carrier's earnings follow the traffic rather than the local
+        // price, which a captain could move on their own.
+        const ticker = this.exchange?.carrierOf(needy.system.region);
+        if (ticker !== undefined) {
+          this.exchange?.credit({
+            ticker,
+            marks: Math.round(units * commodity.basePrice * FREIGHT_MARGIN),
+            kind: 'freight',
+            where: needy.port.name,
+            what: needy.system.region,
+          });
+        }
 
         remaining -= units;
         low++;

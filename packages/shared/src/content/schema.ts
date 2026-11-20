@@ -307,6 +307,32 @@ export const Tuning = z.object({
     maxHops: z.int().positive(),
   }),
   manufacturers: z.record(ManufacturerId, z.string().min(1)),
+  exchange: z.object({
+    /** Seconds between market ticks. */
+    tickSeconds: z.number().positive(),
+    /** Taken on every trade and destroyed. */
+    feeRate: z.number().min(0).max(0.2),
+    /** Fair value is smoothed earnings times this. */
+    multiple: z.number().positive(),
+    /** And never below this, in marks a share. */
+    valueFloor: z.number().positive(),
+    /** Fraction of the gap to fair value the house trader covers a tick. */
+    houseRate: z.number().positive().max(1),
+    /** How much of a tick's earnings counts toward the smoothed figure. */
+    smoothing: z.number().positive().max(1),
+    /** Most of a float one captain may hold. */
+    holdingCap: z.number().positive().max(1),
+    /** Most of a pool's shares one order may take. */
+    maxPoolFraction: z.number().positive().max(1),
+    /** Share of earnings paid out when a dividend falls. */
+    dividendFraction: z.number().min(0).max(1),
+    /** Dividends fall every this many market ticks. */
+    dividendEvery: z.int().positive(),
+    /** Headlines kept for the feed. */
+    newsKeep: z.int().positive(),
+    /** Price readings kept per listing, for the chart. */
+    historyKeep: z.int().positive(),
+  }),
   yard: z.object({
     /** Liveries a yard delivers a built hull in, chosen by the hull's id. */
     liveries: z
@@ -379,6 +405,77 @@ export const PortTrade = z.object({
   consumes: z.record(z.string(), z.number().nonnegative()).default({}),
 });
 export type PortTrade = z.infer<typeof PortTrade>;
+
+/**
+ * What a listed company earns from.
+ *
+ * Spec section 10: earnings come only from events that are costly to fake.
+ * Each of these names one such event class, and the Exchange credits the
+ * company when one happens — never on gross trade volume, which wash trading
+ * can inflate for nothing.
+ */
+export const EarningsRule = z.discriminatedUnion('kind', [
+  z.object({
+    /** Goods actually leaving this company's ports' stockpiles to buyers. */
+    kind: z.literal('goods-sold'),
+    commodities: z.array(CommodityId).min(1),
+  }),
+  z.object({
+    /** Marks captains spend on this company's fittings, net of refunds. */
+    kind: z.literal('modules-sold'),
+    manufacturer: ManufacturerId,
+  }),
+  z.object({
+    /** Freight delivered in these regions, less freight destroyed there. */
+    kind: z.literal('freight'),
+    regions: z.array(RegionId).min(1),
+  }),
+  z.object({
+    /** Cargo scooped from wrecks and sold, which is salvage. */
+    kind: z.literal('salvage'),
+  }),
+  z.object({
+    /** Hull insurance premiums taken, less claims settled. */
+    kind: z.literal('insurance'),
+  }),
+]);
+export type EarningsRule = z.infer<typeof EarningsRule>;
+
+export const CompanyDef = z.object({
+  /** Three letters, as the Gazette prints them. */
+  ticker: z.string().regex(/^[A-Z]{3}$/),
+  name: z.string().min(1),
+  /** Which charter it belongs to, or independent. */
+  parent: z.enum(['kessler', 'thirty', 'reprisal', 'independent']),
+  sector: z.string().min(1),
+  /**
+   * Whose ports count as "its ports" for a goods-sold rule.
+   *
+   * Three companies share each charter's berths, so the rule also names the
+   * commodities: Daughters' Provision earns on Grain at a Kessler berth and
+   * the Chandlery earns on Circuitry at the same one.
+   */
+  ports: PortOwner.optional(),
+  earns: z.array(EarningsRule).min(1),
+  /** Shares in issue. A captain may hold only a fraction of this. */
+  float: z.int().positive(),
+  /** Shares the pool opens holding. The rest are notionally in other hands. */
+  poolShares: z.int().positive(),
+  /**
+   * Earnings a market tick, as the company opens.
+   *
+   * The opening price follows from this through `fairValue`, so a listing
+   * starts at what it is worth rather than at a number written beside it and
+   * then lurching on the first tick.
+   */
+  openingEarnings: z.number().positive(),
+  description: z.string().min(1),
+});
+export type CompanyDef = z.infer<typeof CompanyDef>;
+
+export const CompanyRegister = z.object({
+  companies: z.array(CompanyDef).min(1),
+});
 
 export const PortDef = z
   .object({

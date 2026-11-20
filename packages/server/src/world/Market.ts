@@ -30,6 +30,7 @@ import {
 } from '@marque/shared';
 
 import { schema, type Store } from '../db/index.ts';
+import type { Exchange } from './Exchange.ts';
 import { InsufficientMarks, type Ledger } from './Ledger.ts';
 import type { Pilot } from './PilotStore.ts';
 
@@ -113,6 +114,16 @@ export interface TradeResult {
 }
 
 export class Market {
+  /**
+   * The Bourse, once the world has one.
+   *
+   * Set after construction rather than injected, because the Exchange and
+   * this service both hold the ledger and the World builds them in one pass.
+   * Optional so a test can exercise this service without an exchange behind
+   * it; an earnings event with nobody listening is simply not reported.
+   */
+  exchange: Exchange | undefined;
+
   constructor(
     private readonly store: Store,
     private readonly ledger: Ledger,
@@ -261,6 +272,24 @@ export class Market {
       }
 
       this.writeStock(options.port.id, commodity.id, priced.stockAfter, options.now);
+
+      // The producer earns when goods actually leave its berth's stockpile to
+      // a buyer — spec section 10's one costly-to-fake event for a producer.
+      // Only on a purchase: a captain *selling* into a berth is adding to the
+      // pile, not taking from it, and crediting both directions is exactly
+      // the wash trade the rule exists to rule out.
+      if (options.side === 'buy') {
+        const ticker = this.exchange?.producerOf(options.port.owner, commodity.id);
+        if (ticker !== undefined) {
+          this.exchange?.credit({
+            ticker,
+            marks: priced.marks,
+            kind: 'goods-sold',
+            where: options.port.name,
+            what: commodity.id,
+          });
+        }
+      }
 
       // Into the hold unless the caller is filling tanks or a magazine, which
       // the hull carries elsewhere and counts separately.

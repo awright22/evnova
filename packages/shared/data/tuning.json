@@ -170,5 +170,26 @@
       "contested": 2,
       "lawless": 4
     }
+  },
+  "exchange": {
+    "$comment": "The Bourse. Spec section 10. A market tick is one pass of the house trader and one fold of the period's earnings into the smoothed figure; dividends fall on every dividendEvery-th tick.",
+    "tickSeconds": 20,
+    "feeRate": 0.004,
+    "multiple": 400,
+    "valueFloor": 2,
+    "$valueFloorComment": "Marks a share at the smallest. A company that earns nothing for a while is cheap, not worthless, and a price of zero is a price no pool can quote out of.",
+    "houseRate": 0.12,
+    "$houseRateComment": "Fraction of the gap to fair value the house trader covers each tick. At 0.12 a price is most of the way there in about twenty ticks, which is long enough for a captain to trade ahead of it and short enough that the news explains the move while it is still moving.",
+    "smoothing": 0.02,
+    "holdingCap": 0.1,
+    "$holdingCapComment": "Most of a company's float one captain may hold, so no one player can corner a listing \u2014 and the ceiling on what self-dealing could ever capture.",
+    "maxPoolFraction": 0.25,
+    "$maxPoolFractionComment": "Most of a pool's shares one order may take. Without it a single order walks the curve to an absurd price and the next captain finds a market that cannot be traded.",
+    "dividendFraction": 0.35,
+    "dividendEvery": 9,
+    "newsKeep": 60,
+    "historyKeep": 180,
+    "$invariant6Comment": "smoothing * multiple * holdingCap must stay below 1, or self-dealing pays: a captain could buy shares, spend to lift that company's earnings, and sell for more than they spent. At 0.02 * 400 * 0.10 = 0.8 they recover at most eighty marks of share value per hundred spent, before the Staple's spread and the Bourse's own fees. The content loader refuses to start if this is violated.",
+    "$multipleComment": "Marks of value per mark of earnings a tick. Large because a tick is twenty seconds and a company is worth rather more than twenty seconds of trading; fairValue divides by the float, so this is a company-wide figure and not a price."
   }
 }

@@ -8,9 +8,12 @@
 
 import blueprintData from '../../data/blueprints.json' with { type: 'json' };
 import commodityData from '../../data/commodities.json' with { type: 'json' };
+import companyData from '../../data/companies.json' with { type: 'json' };
 import moduleData from '../../data/modules.json' with { type: 'json' };
 import systemData from '../../data/systems.json' with { type: 'json' };
 import tuningData from '../../data/tuning.json' with { type: 'json' };
+
+import { selfDealingReturn } from '../economy/pool.ts';
 
 import type {
   Blueprint,
@@ -18,10 +21,12 @@ import type {
 import {
   BlueprintLibrary,
   CommodityCatalogue,
+  CompanyRegister,
   ModuleCatalogue,
   SystemLibrary,
   Tuning,
   type CommodityDef,
+  type CompanyDef,
   type LicenceId,
   type ModuleDef,
   type SystemDef,
@@ -34,6 +39,8 @@ export interface Content {
   readonly licences: ReadonlyMap<LicenceId, LicenceDef>;
   readonly systems: ReadonlyMap<string, SystemDef>;
   readonly commodities: ReadonlyMap<string, CommodityDef>;
+  /** The listed companies, by ticker. */
+  readonly companies: ReadonlyMap<string, CompanyDef>;
 }
 
 /**
@@ -53,6 +60,7 @@ export function loadContent(): Content {
   const catalogue = parse(ModuleCatalogue, stripComments(moduleData), 'data/modules.json');
   const library = parse(BlueprintLibrary, stripComments(blueprintData), 'data/blueprints.json');
   const systemLibrary = parse(SystemLibrary, stripComments(systemData), 'data/systems.json');
+  const register = parse(CompanyRegister, stripComments(companyData), 'data/companies.json');
 
   const modules = new Map<string, ModuleDef>();
   for (const module of catalogue.modules) {
@@ -127,7 +135,56 @@ export function loadContent(): Content {
     }
   }
 
-  return { tuning, modules, blueprints, licences, systems, commodities };
+  // Invariant 6 is a property of the tuning, not of the code around it: if
+  // this product reaches one, a captain can buy shares, spend to lift that
+  // company's earnings, and sell for more than they spent, and no amount of
+  // care elsewhere will stop them. Refusing to boot is the only honest
+  // response to a world that cannot hold its own invariant.
+  const capture = selfDealingReturn(
+    tuning.exchange.smoothing,
+    tuning.exchange.multiple,
+    tuning.exchange.holdingCap,
+  );
+  if (capture >= 1) {
+    throw new Error(
+      `data/tuning.json: exchange.smoothing * multiple * holdingCap is ${capture.toFixed(3)}, ` +
+        'which is one or more. Self-dealing would pay: a captain could lift a company\'s ' +
+        'earnings by a mark and gain at least a mark on their own holding. Invariant 6 ' +
+        'requires this below one.',
+    );
+  }
+
+  const companies = new Map<string, CompanyDef>();
+  for (const company of register.companies) {
+    if (companies.has(company.ticker)) {
+      throw new Error(`duplicate ticker "${company.ticker}"`);
+    }
+    // A listing that earns on its modules must name a maker the catalogue
+    // knows, or the Exchange would credit nobody and the stock would sit at
+    // its floor for ever with no way to tell why.
+    for (const rule of company.earns) {
+      if (rule.kind === 'modules-sold') {
+        const made = [...modules.values()].some((m) => m.manufacturer === rule.manufacturer);
+        if (!made) throw new Error(`${company.ticker} earns on "${rule.manufacturer}", which makes nothing`);
+      }
+      if (rule.kind === 'goods-sold') {
+        for (const commodityId of rule.commodities) {
+          if (!commodities.has(commodityId)) {
+            throw new Error(`${company.ticker} earns on "${commodityId}", which is not a good`);
+          }
+        }
+        if (company.ports === undefined) {
+          throw new Error(`${company.ticker} earns on goods leaving its ports but names none`);
+        }
+      }
+    }
+    if (company.poolShares > company.float) {
+      throw new Error(`${company.ticker}'s pool holds more shares than are in issue`);
+    }
+    companies.set(company.ticker, company);
+  }
+
+  return { tuning, modules, blueprints, licences, systems, commodities, companies };
 }
 
 /**

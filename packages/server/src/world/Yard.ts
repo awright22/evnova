@@ -32,6 +32,7 @@ import {
 } from '@marque/shared';
 
 import { schema, type Store } from '../db/index.ts';
+import type { Exchange } from './Exchange.ts';
 import { InsufficientMarks, type Ledger } from './Ledger.ts';
 import { TradeRefused, type Market } from './Market.ts';
 import type { Pilot } from './PilotStore.ts';
@@ -102,6 +103,16 @@ const MAX_DESIGNS = 40;
 const MAX_SHIPS = 12;
 
 export class Yard {
+  /**
+   * The Bourse, once the world has one.
+   *
+   * Set after construction rather than injected, because the Exchange and
+   * this service both hold the ledger and the World builds them in one pass.
+   * Optional so a test can exercise this service without an exchange behind
+   * it; an earnings event with nobody listening is simply not reported.
+   */
+  exchange: Exchange | undefined;
+
   constructor(
     private readonly store: Store,
     private readonly ledger: Ledger,
@@ -558,6 +569,28 @@ export class Yard {
           },
           options.pilot,
         );
+      }
+
+      // The makers earn what was actually spent on their fittings, net of
+      // what was stripped, and the Hall earns the premium. Both are
+      // costly-to-fake by construction: a captain cannot move either without
+      // buying or selling a real hull at a real yard.
+      for (const [manufacturer, spent] of cost.byMaker) {
+        const ticker = this.exchange?.makerOf(manufacturer);
+        if (ticker !== undefined && spent !== 0) {
+          this.exchange?.credit({
+            ticker,
+            marks: spent,
+            kind: 'modules-sold',
+            where: port.name,
+          });
+        }
+      }
+      if (cost.premium > 0) {
+        const insurer = this.exchange?.insurer;
+        if (insurer !== undefined) {
+          this.exchange?.credit({ ticker: insurer, marks: cost.premium, kind: 'insurance' });
+        }
       }
 
       // Hit points for the hull as it now stands. A hull leaves the yard

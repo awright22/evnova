@@ -1,0 +1,202 @@
+{
+  "$comment": "The ten listed companies, from spec section 19's table. A company earns only from events that are costly to fake: goods actually leaving its ports' stockpiles, marks spent on its fittings, freight delivered, salvage, and premiums less claims. Gross trade volume never counts. The opening price follows from openingEarnings through fairValue, so a listing starts at what it is worth. Floats are sized so the opening price lands in a readable range at the exchange multiple; a share is a real claim on a small company, not a lottery ticket.",
+  "companies": [
+    {
+      "ticker": "KSC",
+      "name": "Kessler Carriage",
+      "parent": "kessler",
+      "sector": "Freight",
+      "earns": [
+        {
+          "kind": "freight",
+          "regions": [
+            "home-roads",
+            "concessions"
+          ]
+        }
+      ],
+      "float": 300,
+      "poolShares": 120,
+      "openingEarnings": 46.0,
+      "description": "The oldest haulage house in settled space, and the one that writes the contracts everyone else signs. Its convoys keep to schedule because the schedule is a clause."
+    },
+    {
+      "ticker": "DPR",
+      "name": "Daughters' Provision",
+      "parent": "kessler",
+      "sector": "Agriculture",
+      "ports": "kessler",
+      "earns": [
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "grain",
+            "provisions",
+            "leaf"
+          ]
+        }
+      ],
+      "float": 350,
+      "poolShares": 140,
+      "openingEarnings": 38.0,
+      "description": "Grain, ship's provisions and the Leaf monopoly. Feeds the Home Roads and prices accordingly, which nobody has yet found grounds to contest."
+    },
+    {
+      "ticker": "HRC",
+      "name": "Home Roads Chandlery",
+      "parent": "kessler",
+      "sector": "Ship fittings",
+      "ports": "kessler",
+      "earns": [
+        {
+          "kind": "modules-sold",
+          "manufacturer": "HRC"
+        },
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "circuitry"
+          ]
+        }
+      ],
+      "float": 410,
+      "poolShares": 164,
+      "openingEarnings": 52.0,
+      "description": "Bridges, hull sections, holds and tanks, sold from a counter that has not moved in four generations. If a part is dull and it works, the Chandlery makes it."
+    },
+    {
+      "ticker": "TLY",
+      "name": "Tally Extraction",
+      "parent": "thirty",
+      "sector": "Mining",
+      "ports": "thirty",
+      "earns": [
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "ore",
+            "ice"
+          ]
+        }
+      ],
+      "float": 710,
+      "poolShares": 284,
+      "openingEarnings": 41.0,
+      "description": "Ore and ice, counted twice on the way out. Every working is a line item and every line item is voted on, which is why the diggings open late and close on time."
+    },
+    {
+      "ticker": "TFA",
+      "name": "Thirtyfold Alloy",
+      "parent": "thirty",
+      "sector": "Refining",
+      "ports": "thirty",
+      "earns": [
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "alloy",
+            "machinery"
+          ]
+        }
+      ],
+      "float": 340,
+      "poolShares": 136,
+      "openingEarnings": 58.0,
+      "description": "Takes the Thirty's ore and sells it back as alloy and machinery at a margin the board reviews quarterly. Holds the Alloy monopoly in the Home Roads."
+    },
+    {
+      "ticker": "SLP",
+      "name": "Slipway Thirty",
+      "parent": "thirty",
+      "sector": "Heavy yards",
+      "earns": [
+        {
+          "kind": "modules-sold",
+          "manufacturer": "SLP"
+        }
+      ],
+      "float": 270,
+      "poolShares": 108,
+      "openingEarnings": 64.0,
+      "description": "Reactors, engines, thrusters and plate, built to tolerances the subscribers can read off a sheet. Nothing it sells is light and nothing it sells is cheap."
+    },
+    {
+      "ticker": "RPO",
+      "name": "Reprisal Ordnance",
+      "parent": "reprisal",
+      "sector": "Arms",
+      "ports": "reprisal",
+      "earns": [
+        {
+          "kind": "modules-sold",
+          "manufacturer": "RPO"
+        },
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "ordnance"
+          ]
+        }
+      ],
+      "float": 390,
+      "poolShares": 156,
+      "openingEarnings": 55.0,
+      "description": "Guns, turrets, racks and the generators to survive them. Holds the Ordnance monopoly in the Home Roads and sells to both sides of everything else."
+    },
+    {
+      "ticker": "MQP",
+      "name": "Marque Propellant",
+      "parent": "reprisal",
+      "sector": "Fuel",
+      "ports": "reprisal",
+      "earns": [
+        {
+          "kind": "goods-sold",
+          "commodities": [
+            "propellant"
+          ]
+        }
+      ],
+      "float": 440,
+      "poolShares": 176,
+      "openingEarnings": 34.0,
+      "description": "Cracks ice into propellant at the edge of the chart and sells it to whoever arrives thirsty. Its prices move with the traffic and it does not apologise for either."
+    },
+    {
+      "ticker": "PZS",
+      "name": "Prize & Salvage",
+      "parent": "reprisal",
+      "sector": "Frontier freight",
+      "earns": [
+        {
+          "kind": "freight",
+          "regions": [
+            "marque"
+          ]
+        },
+        {
+          "kind": "salvage"
+        }
+      ],
+      "float": 640,
+      "poolShares": 256,
+      "openingEarnings": 29.0,
+      "description": "Hauls what nobody else will insure and recovers what is left when the haulage fails. Its two lines of business are related in a way the prospectus does not dwell on."
+    },
+    {
+      "ticker": "UWH",
+      "name": "Underwriters' Hall",
+      "parent": "independent",
+      "sector": "Insurance",
+      "earns": [
+        {
+          "kind": "insurance"
+        }
+      ],
+      "float": 240,
+      "poolShares": 96,
+      "openingEarnings": 44.0,
+      "description": "Insures every hull in settled space and is itself listed, so a bad year on the frontier shows up in its own share price before it shows up in anyone's claim."
+    }
+  ]
+}
