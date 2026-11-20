@@ -1,6 +1,13 @@
 /**
  * The price chart on the Bourse's detail view.
  *
+ * Its class block is `plot`, not `chart`: `.chart` belongs to the galaxy map,
+ * where it is a full-screen scrim — `position: absolute; inset: 0` over a
+ * wash of the void. Every stylesheet in this client is global, so a figure
+ * named `chart` here took those rules, left the column it was supposed to sit
+ * in empty, and hung a dark sheet over the whole panel. That was the chart
+ * drawing itself across the figures.
+ *
  * A quote history is a short series — a few dozen readings, no gaps, no
  * timestamps — so it is drawn as one line rather than candles, with fair value
  * laid across it as a reference. The two together are the whole question a
@@ -131,10 +138,10 @@ export function PriceChart({
   const thin = figure.line === '';
 
   return (
-    <figure className="chart">
-      <div className="chart__well">
+    <figure className="plot">
+      <div className="plot__well">
         <svg
-          className="chart__svg"
+          className="plot__svg"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           role="img"
@@ -143,7 +150,7 @@ export function PriceChart({
           {[20, 40, 60, 80].map((at) => (
             <line
               key={at}
-              className="chart__grid"
+              className="plot__grid"
               x1="0"
               y1={at}
               x2="100"
@@ -154,13 +161,13 @@ export function PriceChart({
 
           {figure.area !== '' && (
             <polygon
-              className={`chart__area chart__area--${figure.direction}`}
+              className={`plot__area plot__area--${figure.direction}`}
               points={figure.area}
             />
           )}
 
           <line
-            className="chart__fair"
+            className="plot__fair"
             x1="0"
             y1={figure.fairY}
             x2="100"
@@ -170,7 +177,7 @@ export function PriceChart({
 
           {figure.line !== '' && (
             <polyline
-              className="chart__line"
+              className="plot__line"
               points={figure.line}
               vectorEffect="non-scaling-stroke"
             />
@@ -184,24 +191,24 @@ export function PriceChart({
         */}
         {figure.last && (
           <span
-            className={`chart__mark chart__mark--${figure.direction}`}
+            className={`plot__mark plot__mark--${figure.direction}`}
             style={{ left: `${figure.last.x}%`, top: `${figure.last.y}%` }}
           />
         )}
 
-        <span className="chart__fair-label micro" style={{ top: `${figure.fairY}%` }}>
+        <span className="plot__fair-label micro" style={{ top: `${figure.fairY}%` }}>
           Fair {formatQuote(fairValue)}
         </span>
 
-        <span className="chart__bound chart__bound--high micro">
+        <span className="plot__bound plot__bound--high micro">
           {formatQuote(figure.high)}
         </span>
-        <span className="chart__bound chart__bound--low micro">
+        <span className="plot__bound plot__bound--low micro">
           {formatQuote(figure.low)}
         </span>
 
         {thin && (
-          <p className="chart__thin">
+          <p className="plot__thin">
             {history.length === 1
               ? 'One quote recorded. The line begins at the next market tick.'
               : 'No quotes recorded yet. The line begins at the next market tick.'}
@@ -209,8 +216,8 @@ export function PriceChart({
         )}
       </div>
 
-      <figcaption className="chart__caption micro">
-        {history.length} quotes, oldest at the left &middot; dashed line is fair value
+      <figcaption className="plot__caption micro">
+        {history.length} quotes &middot; dashed is fair value
       </figcaption>
     </figure>
   );

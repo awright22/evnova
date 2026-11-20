@@ -226,7 +226,7 @@ export function PortHub({
               <ServiceRow
                 name="the Bourse"
                 detail="Shares in the ten listed companies, and the Gazette"
-                action="Open the floor"
+                action="Open the Bourse"
                 disabled={state.busy}
                 onAction={onOpenBourse}
               />

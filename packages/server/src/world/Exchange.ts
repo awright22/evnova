@@ -537,7 +537,14 @@ export class Exchange {
 
   // --- Reading ------------------------------------------------------------
 
-  /** Every listing, as the interface draws it for this captain. */
+  /**
+   * Every listing, as the interface draws it for this captain.
+   *
+   * One query for the listings and one for the holdings. It used to read a
+   * row per company, which is ten statements per captain per market tick —
+   * cheap in a test and not cheap when every captain alongside is sent the
+   * board on the room's own tick.
+   */
   listingsFor(accountId: string | undefined): Listing[] {
     const { companies, tuning } = content();
     const held = new Map<string, typeof schema.holdings.$inferSelect>();
@@ -551,9 +558,17 @@ export class Exchange {
       }
     }
 
+    const rows = new Map(
+      this.store.db
+        .select()
+        .from(schema.listings)
+        .all()
+        .map((row) => [row.ticker, row]),
+    );
+
     const out: Listing[] = [];
     for (const company of companies.values()) {
-      const row = this.rowFor(company.ticker);
+      const row = rows.get(company.ticker);
       if (!row) continue;
 
       const pool: Pool = { shares: row.poolShares, marks: row.poolMarks };

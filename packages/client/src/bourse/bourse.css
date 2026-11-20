@@ -17,13 +17,25 @@
   inset: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) 360px;
-  grid-template-rows: auto minmax(200px, 1fr) auto auto;
+  grid-template-columns: 390px minmax(0, 1fr) 360px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /*
+   * The ledger strip runs the width of the foot, and the middle column holds
+   * two panels, not three.
+   *
+   * At the harness's 1440x900 the four rows leave about 600px for rows two
+   * and three together. Three stacked panels in the middle column needed
+   * more than that, so the company's body was handed what was left — nothing
+   * — and its description, figures and chart spilled out of a zero-height box
+   * and drew over each other. The book is the panel that does not need to sit
+   * beside the chart, so it goes to the foot, where its eight columns have
+   * the room they want anyway.
+   */
   grid-template-areas:
     'head     head     head'
     'market   company  gazette'
     'market   ticket   gazette'
-    'register book     gazette';
+    'book     book     register';
   gap: var(--space-2);
   padding: var(--space-2);
   overflow: hidden;
@@ -90,6 +102,11 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/*
+ * The company panel takes the shared template — header, then body — and the
+ * body divides itself. Stacking the reading above the chart cost more height
+ * than the row has; side by side they share one band.
+ */
 .bourse__company {
   grid-area: company;
 }
@@ -116,13 +133,13 @@
 }
 
 /*
- * The two bottom panels share a row, so each is capped and scrolls inside
- * itself. Without the cap a captain holding ten companies would squeeze the
- * chart out of the middle column.
+ * The two panels in the foot share a row, so each is capped and scrolls
+ * inside itself. Without the cap a captain holding ten companies would
+ * squeeze the chart out of the middle column.
  */
 .bourse__book .bourse__scroll,
 .bourse__register .bourse__scroll {
-  max-height: 240px;
+  max-height: 136px;
 }
 
 /* The book is the widest table here: it scrolls in its own panel, never the
@@ -355,6 +372,15 @@
   min-width: 0;
 }
 
+/*
+ * The name is the heading and the ticker beside it is deliberately muted, so
+ * the name states its own colour rather than inheriting it: the two sit in
+ * one `h2` and only one of them is chrome.
+ */
+.company__name {
+  color: var(--text-primary);
+}
+
 .company__title h2 {
   display: flex;
   align-items: baseline;
@@ -378,17 +404,41 @@
   font-size: var(--size-label);
 }
 
+/*
+ * The description across the top, then the figures beside the chart.
+ *
+ * Stacked in one column — description, six figures, a well — the body wanted
+ * half again the height this row of the screen has, and whatever was last in
+ * the column was pushed out of the panel. Across the top the description
+ * takes two lines instead of four, and the two dense things share the band
+ * below it, which also gives the chart a landscape well rather than a strip.
+ */
 .company__body {
   display: grid;
-  grid-template-rows: auto auto minmax(120px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-1-5);
   min-height: 0;
   padding: var(--space-1-5);
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.company__panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+/* The chart column. It stretches to the band's height, and the well inside
+   it takes what is left after the caption. */
+.company__plot {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
 }
 
 .company__description {
-  max-width: 96ch;
+  max-width: 108ch;
   font-size: var(--size-body-sm);
   line-height: var(--leading-body-sm);
   color: var(--text-secondary);
@@ -396,11 +446,12 @@
 
 .company__figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  align-content: start;
   gap: var(--space-1) var(--space-2);
-  padding: var(--space-1-5) 0;
+  min-width: 0;
+  padding-top: var(--space-1);
   border-top: var(--border-width) solid var(--rule-faint);
-  border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
 .company__figures div {
@@ -427,65 +478,78 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* --- The chart ----------------------------------------------------------- */
+/* --- The chart, whose class block is `plot` ----------------------------------------------------------- */
 
-.chart {
+.plot {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--space-0-5);
   min-height: 0;
 }
 
-.chart__well {
+/*
+ * The well is sized by the layout and the plot is poured into it.
+ *
+ * The SVG carries `viewBox="0 0 100 100"`, so it has an intrinsic aspect
+ * ratio of 1:1. In flow, with `height: 100%` against a parent of
+ * indeterminate height, that percentage is not a height and the SVG took its
+ * own square shape instead — as tall as the column is wide — which is what
+ * drew the chart across the figures. Taking it out of flow ends the
+ * dependency in the right direction: the well can only give the plot a size,
+ * and the plot can no longer give the well one.
+ */
+.plot__well {
   position: relative;
-  min-height: 132px;
+  min-height: 110px;
   background: var(--inset);
   border: var(--border-width) solid var(--rule);
 }
 
-.chart__svg {
+.plot__svg {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.chart__grid {
+.plot__grid {
   stroke: var(--rule-faint);
   stroke-width: 1;
 }
 
 /* Fair value: the one thing on the chart worth an axis emphasis. */
-.chart__fair {
+.plot__fair {
   stroke: var(--amber-dim);
   stroke-width: 1;
   stroke-dasharray: 4 4;
 }
 
-.chart__line {
+.plot__line {
   fill: none;
   stroke: var(--text-primary);
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
 
-.chart__area {
+.plot__area {
   stroke: none;
 }
 
-.chart__area--up {
+.plot__area--up {
   fill: var(--gain-wash);
 }
 
-.chart__area--down {
+.plot__area--down {
   fill: var(--danger-wash);
 }
 
-.chart__area--flat {
+.plot__area--flat {
   fill: var(--rule-faint);
 }
 
 /* The last reading. A square dot, which is the one filled glyph allowed. */
-.chart__mark {
+.plot__mark {
   position: absolute;
   width: 6px;
   height: 6px;
@@ -493,20 +557,20 @@
   pointer-events: none;
 }
 
-.chart__mark--up {
+.plot__mark--up {
   background: var(--gain);
 }
 
-.chart__mark--down {
+.plot__mark--down {
   background: var(--danger);
 }
 
-.chart__mark--flat {
+.plot__mark--flat {
   background: var(--text-muted);
 }
 
-.chart__fair-label,
-.chart__bound {
+.plot__fair-label,
+.plot__bound {
   position: absolute;
   right: var(--space-0-5);
   padding: 0 2px;
@@ -519,20 +583,20 @@
  * the art direction lists for chart axis emphasis, but a derived shade never
  * sets type: amber-dim reaches only about 4:1 on the well.
  */
-.chart__fair-label {
+.plot__fair-label {
   transform: translateY(-50%);
   color: var(--text-muted);
 }
 
-.chart__bound--high {
+.plot__bound--high {
   top: 2px;
 }
 
-.chart__bound--low {
+.plot__bound--low {
   bottom: 2px;
 }
 
-.chart__thin {
+.plot__thin {
   position: absolute;
   inset: auto var(--space-2) 50% var(--space-2);
   color: var(--text-muted);
@@ -541,7 +605,7 @@
   text-align: center;
 }
 
-.chart__caption {
+.plot__caption {
   text-align: right;
 }
 
@@ -587,7 +651,7 @@
 .ticket__body {
   display: grid;
   align-content: start;
-  gap: var(--space-1-5);
+  gap: var(--space-1);
   min-height: 0;
   padding: var(--space-1-5);
   overflow-y: auto;
@@ -663,9 +727,9 @@
 /* The impact, which is the whole reason the ticket previews anything. */
 .ticket__preview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: var(--space-1) var(--space-2);
-  padding: var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
   background: var(--raised);
   border-left: 2px solid var(--rule-strong);
 }

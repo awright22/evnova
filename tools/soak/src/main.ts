@@ -22,6 +22,8 @@ import { parseArgs } from 'node:util';
 import { Bot, type BotBrain, type BotTelemetry } from '@marque/bot/bot.ts';
 import { circleBrain } from '@marque/bot/brains/circle.ts';
 import { fighterBrain } from '@marque/bot/brains/fighter.ts';
+import { exploiterBrain } from '@marque/bot/brains/exploiter.ts';
+import { investorBrain } from '@marque/bot/brains/investor.ts';
 import { traderBrain } from '@marque/bot/brains/trader.ts';
 import { wanderBrain } from '@marque/bot/brains/wander.ts';
 import { TICK_RATE } from '@marque/shared';
@@ -47,6 +49,7 @@ interface Options {
   outDir: string;
   fight: boolean;
   trade: boolean;
+  invest: boolean;
   economyTimeScale: number;
   warmupSeconds: number;
   startingSystem: string;
@@ -76,6 +79,9 @@ function parseOptions(): Options {
       fight: { type: 'boolean', default: false },
       // Trading bots, which is what the economy milestone's soak is for.
       trade: { type: 'boolean', default: false },
+      // Honest traders, honest investors and exploiters in one run, so the
+      // three can be compared at the end.
+      invest: { type: 'boolean', default: false },
       // A month of world time in a couple of minutes.
       'economy-scale': { type: 'string', default: '900' },
       // Seconds to let the world drift before the bots arrive. A brand-new
@@ -106,6 +112,7 @@ function parseOptions(): Options {
     outDir: resolve(REPO_ROOT, values.out),
     fight: values.fight === true,
     trade: values.trade === true,
+    invest: values.invest === true,
     economyTimeScale: Number(values['economy-scale']),
     warmupSeconds: Number(values.warmup),
     startingSystem: values['start-system'],
@@ -149,6 +156,10 @@ async function main(): Promise<void> {
     databaseUrl: soakDb,
     economyTimeScale: options.economyTimeScale,
     ...(options.trade ? { startingSystem: options.startingSystem } : {}),
+    // An investor with a new captain's float can buy a share or two and
+    // nothing else, which measures nothing. Spending is what this run is
+    // about, so they open with enough to spend.
+    ...(options.invest ? { startingMarks: 3_000_000 } : {}),
   });
   const bots: Bot[] = [];
   const samples: Sample[] = [];
@@ -200,7 +211,7 @@ async function main(): Promise<void> {
               callsign: old.telemetry.callsign,
               brain,
               deviceToken,
-              account: options.trade,
+              account: options.trade || options.invest,
               systemId,
               onJumped: follow(index, brain),
             });
@@ -212,24 +223,37 @@ async function main(): Promise<void> {
 
     for (let i = 0; i < options.bots; i++) {
       const hammers = options.trade && i % 4 === 0;
-      const brain = options.trade
-        ? traderBrain({ seed: `soak-${i}`, stay: hammers, lot: hammers ? 20 : 10 })
-        : options.fight
-          ? fighterBrain(`soak-${i}`)
-          : i % 2 === 0
-            ? circleBrain(i % 4 === 0 ? 1 : -1)
-            : wanderBrain({ seed: `soak-${i}` });
+      // With `--invest` the run is three populations at once: honest traders
+      // hauling cargo, honest investors reading the Bourse, and exploiters
+      // trying what the invariants forbid. The comparison between them at the
+      // end is the point — spec section 15's invariant 6 says the exploiters
+      // must not come out ahead.
+      const role = options.invest ? (i % 3 === 2 ? 'exploiter' : i % 3 === 1 ? 'investor' : 'trader') : 'trader';
+      const brain = options.invest
+        ? role === 'exploiter'
+          ? exploiterBrain(`soak-${i}`)
+          : role === 'investor'
+            ? investorBrain(`soak-${i}`)
+            : traderBrain({ seed: `soak-${i}`, stay: false, lot: 10 })
+        : options.trade
+          ? traderBrain({ seed: `soak-${i}`, stay: hammers, lot: hammers ? 20 : 10 })
+          : options.fight
+            ? fighterBrain(`soak-${i}`)
+            : i % 2 === 0
+              ? circleBrain(i % 4 === 0 ? 1 : -1)
+              : wanderBrain({ seed: `soak-${i}` });
 
       bots.push(
         await Bot.connect({
           endpoint: `ws://127.0.0.1:${options.port}`,
           // A trading bot opens an account, and the Register refuses a
           // callsign it already holds, so the run stamps its own.
-          callsign: options.trade
-            ? `Soak ${stamp}-${String(i + 1).padStart(2, '0')}`
-            : `Soak-${String(i + 1).padStart(2, '0')}`,
+          callsign:
+            options.trade || options.invest
+              ? `Soak ${stamp}-${String(i + 1).padStart(2, '0')}`
+              : `Soak-${String(i + 1).padStart(2, '0')}`,
           brain,
-          account: options.trade,
+          account: options.trade || options.invest,
           systemId: options.trade ? options.startingSystem : 'parity',
           ...(options.trade ? { onJumped: follow(i, brain) } : {}),
         }),
@@ -248,7 +272,9 @@ async function main(): Promise<void> {
         atSeconds,
         server: await fetchMetrics(options.port),
         bots: bots.map((bot) => bot.telemetry),
-        ...(options.trade ? { economy: await fetchEconomy(options.port) } : {}),
+        ...(options.trade || options.invest
+          ? { economy: await fetchEconomy(options.port) }
+          : {}),
       });
       process.stdout.write(`  t+${atSeconds}s\r`);
     }
@@ -381,6 +407,68 @@ function economySections(options: Options, samples: readonly Sample[]): string {
   const perCaptain = last.ledger.captains > 0 ? grew / last.ledger.captains : 0;
   const reconciles = last.ledger.net === last.ledger.heldByCaptains;
 
+  // Invariant 3 over the run: a pool's product is at least what it opened
+  // at, for every listing.
+  const openedWith = new Map((first.listings ?? []).map((row) => [row.ticker, row]));
+  const poolsFallen = (last.listings ?? []).filter(
+    (row) => row.product < (openedWith.get(row.ticker)?.product ?? 0),
+  ).length;
+  const atFloor = (last.listings ?? []).filter((row) => row.price <= 2.001).length;
+
+  const listingRows = (last.listings ?? [])
+    .map((row) => {
+      const was = openedWith.get(row.ticker);
+      const fell = row.product < (was?.product ?? 0);
+      return (
+        `| ${row.ticker} | ${row.price.toFixed(2)} | ${(was?.price ?? 0).toFixed(2)} | ` +
+        `${Math.round(row.product).toLocaleString()} | ${Math.round(was?.product ?? 0).toLocaleString()} | ` +
+        `${fell ? '**fell**' : 'held'} |`
+      );
+    })
+    .join('\n');
+
+  // Net worth by strategy. Marks plus shares at the quote: a captain's
+  // wealth can sit in either, and counting only the purse would call an
+  // investor halfway through a position a pauper.
+  const worthOf = (bot: { marks: number; sharesWorth?: number }): number =>
+    bot.marks + (bot.sharesWorth ?? 0);
+
+  const byStrategy = new Map<string, number[]>();
+  for (const bot of samples.at(-1)?.bots ?? []) {
+    const list = byStrategy.get(bot.brain) ?? [];
+    list.push(worthOf(bot));
+    byStrategy.set(bot.brain, list);
+  }
+
+  const median = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)] ?? 0;
+  };
+
+  const strategyRows = [...byStrategy.entries()]
+    .sort((a, b) => median(b[1]) - median(a[1]))
+    .map(
+      ([name, worths]) =>
+        `| ${name} | ${worths.length} | ${Math.round(median(worths)).toLocaleString()} | ` +
+        `${Math.round(Math.max(...worths)).toLocaleString()} | ` +
+        `${Math.round(Math.min(...worths)).toLocaleString()} |`,
+    )
+    .join('\n');
+
+  const exploiters = byStrategy.get('exploiter') ?? [];
+  const honest = [...byStrategy.entries()]
+    .filter(([name]) => name !== 'exploiter')
+    .flatMap(([, worths]) => worths);
+  const honestMedian = median(honest);
+  const exploitersAhead = exploiters.filter((worth) => worth > honestMedian).length;
+  const exploitVerdict =
+    exploiters.length === 0 || honest.length === 0
+      ? 'not run (use --invest)'
+      : Math.max(...exploiters) > Math.max(...honest)
+        ? `**the exploiter is ahead** (${Math.round(Math.max(...exploiters)).toLocaleString()} against ${Math.round(Math.max(...honest)).toLocaleString()})`
+        : `honest ahead (${Math.round(Math.max(...honest)).toLocaleString()} against ${Math.round(Math.max(...exploiters)).toLocaleString()})`;
+
   const tradedBots = (samples.at(-1)?.bots ?? []).filter((bot) => bot.trades > 0);
   const totalOrders = tradedBots.reduce((sum, bot) => sum + bot.trades, 0);
   const refusedOrders = tradedBots.reduce((sum, bot) => sum + bot.refusedTrades, 0);
@@ -403,6 +491,39 @@ should be. The spec's bar is that no price sits at one for long.
 | Good | base | range now | mean | floor/ceiling | berths at each | samples clamped | stock in the Reach | empty/full berths |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 ${priceRows}
+
+### Honest captains against exploiters
+
+Spec section 15's invariant 6 says self-dealing loses money and that wash
+trading moves no earnings. The exploiter bot spends the whole run trying
+both, plus churning a berth's Staple, against honest traders hauling cargo
+and honest investors reading the Bourse. The bar is that it does not come
+out ahead of them.
+
+| Strategy | captains | median worth | best | worst |
+|---|---:|---:|---:|---:|
+${strategyRows}
+
+| Measure | Value |
+|---|---|
+| Exploiters ahead of the honest median | ${exploitersAhead === 0 ? 'none' : `**${exploitersAhead}**`} |
+| Best exploiter against the best honest captain | ${exploitVerdict} |
+
+### The Bourse
+
+Invariant 3 says a pool's product never falls. Over a run that means every
+listing's product is at least what it opened at, and no quote has run to
+nothing or without bound.
+
+| Listing | quote now | quote at the start | product now | product at the start | held |
+|---|---:|---:|---:|---:|---:|
+${listingRows}
+
+| Measure | Value |
+|---|---|
+| Pools whose product fell | ${poolsFallen === 0 ? 'none' : `**${poolsFallen}**`} |
+| Listings at the value floor | ${atFloor} of ${(last.listings ?? []).length} |
+| Shares held by captains | ${(last.sharesHeld?.total ?? 0).toLocaleString()} |
 
 ### Marks
 
@@ -571,7 +692,9 @@ function buildReport(
     ? economySections(options, samples) +
       decaySection(options, samples) +
       recoverySection(options, restedFrom, restedTo)
-    : '';
+    : options.invest
+      ? economySections(options, samples)
+      : '';
 
   return `# Soak report
 

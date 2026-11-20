@@ -502,7 +502,14 @@ export function Bourse({
       <header className="bourse__head panel">
         <div className="bourse__title">
           <h1>the Bourse</h1>
-          <span className="micro">{berthName}</span>
+          {/*
+            The floor at Parity is itself called the Bourse, so saying both
+            prints the same words twice. Where the berth has another name it
+            is worth knowing which one a captain is standing on.
+          */}
+          {berthName.toLowerCase() !== 'the bourse' && (
+            <span className="micro">{berthName}</span>
+          )}
         </div>
 
         <dl className="bourse__purse">
@@ -571,9 +578,8 @@ export function Bourse({
             </div>
           </dl>
           <p className="micro">
-            Each stock trades against a pool of shares and marks, so a quote
-            always exists. Every market tick the house trader moves each quote a
-            step toward fair value; your own orders push it the other way.
+            Every market tick the house trader moves each quote a step toward
+            fair value. Your own orders push it the other way.
           </p>
         </footer>
       </section>
@@ -785,7 +791,7 @@ function Market({ rows, selected, sort, onSort, onSelect }: MarketProps): React.
                 </button>
               </th>
               <td className="market__figure data">{formatQuote(listing.price)}</td>
-              <td className={`market__figure data ${toneOf(move)}`}>
+              <td className={`market__figure data ${toneOf(move, PERCENT_NOISE)}`}>
                 {formatPercent(move)}
               </td>
               <td className="market__figure data">
@@ -822,7 +828,12 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
         <div className="company__title">
           <h2>
             <span className="company__ticker">{listing.ticker}</span>
-            {listing.name}
+            {/*
+              Named in its own class rather than left to inherit: the ticker
+              beside it is deliberately muted, and the company's name was
+              coming out the same weight as the sector under it.
+            */}
+            <span className="company__name">{listing.name}</span>
           </h2>
           <span className="micro">
             {listing.parent} &middot; {listing.sector}
@@ -844,63 +855,72 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
       <div className="company__body">
         <p className="company__description">{listing.description}</p>
 
-        <dl className="company__figures">
-          <div>
-            <dt className="label">Quote</dt>
-            <dd className="data company__quote">{formatQuote(listing.price)}</dd>
-          </div>
-          <div>
-            <dt className="label">Since last tick</dt>
-            <dd className={`data company__quote ${toneOf(move)}`}>
-              {formatPercent(move)}
-            </dd>
-          </div>
-          <div>
-            <dt className="label">Fair value</dt>
-            <dd className="data">
-              {formatQuote(listing.fairValue)}
-              {/*
-                The gap is the trade, so it is stated rather than left to be
-                worked out: unsigned, because the word carries the direction.
-              */}
-              <span className="company__note micro">
-                quote {formatRate(Math.abs(against))}{' '}
-                {against >= 0 ? 'above' : 'below'}
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt className="label">Earnings a tick</dt>
-            <dd className="data">{formatMarks(listing.earnings)}</dd>
-          </div>
-          <div>
-            <dt className="label">Float</dt>
-            <dd className="data">
-              {formatMarks(listing.float)}
-              <span className="company__note micro">
-                one captain may hold {formatMarks(listing.holdingCap)}
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt className="label">You hold</dt>
-            <dd className="data">
-              {listing.held > 0 ? formatMarks(listing.held) : '—'}
-              <span className="company__note micro">
-                {listing.held > 0
-                  ? `worth ${formatMarks(listing.held * listing.price)} marks`
-                  : 'nothing yet'}
-              </span>
-            </dd>
-          </div>
-        </dl>
+        <div className="company__panes">
+          <dl className="company__figures">
+            <div>
+              <dt className="label">Quote</dt>
+              <dd className="data company__quote">{formatQuote(listing.price)}</dd>
+            </div>
+            <div>
+              <dt className="label">Since last tick</dt>
+              <dd className={`data company__quote ${toneOf(move, PERCENT_NOISE)}`}>
+                {formatPercent(move)}
+              </dd>
+            </div>
+            <div>
+              <dt className="label">Fair value</dt>
+              <dd className="data">
+                {formatQuote(listing.fairValue)}
+                {/*
+                  The gap is the trade, so it is stated rather than left to be
+                  worked out: unsigned, because the word carries the direction.
+                */}
+                <span className="company__note micro">
+                  quote {formatRate(Math.abs(against))}{' '}
+                  {against >= 0 ? 'above' : 'below'}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="label">Earnings a tick</dt>
+              <dd className="data">{formatMarks(listing.earnings)}</dd>
+            </div>
+            <div>
+              <dt className="label">Float</dt>
+              <dd className="data">
+                {formatMarks(listing.float)}
+                <span className="company__note micro">
+                  cap {formatMarks(listing.holdingCap)}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="label">You hold</dt>
+              <dd className="data">
+                {listing.held > 0 ? formatMarks(listing.held) : '—'}
+                {listing.held > 0 && (
+                  <span className="company__note micro">
+                    worth {formatMarks(listing.held * listing.price)} marks
+                  </span>
+                )}
+              </dd>
+            </div>
+          </dl>
 
-        <PriceChart
-          history={listing.history}
-          price={listing.price}
-          fairValue={listing.fairValue}
-          name={listing.name}
-        />
+          {/*
+            The figures and the chart share a band, with the description
+            across the top of both: stacked in one column they wanted half
+            again the height this row of the screen has.
+          */}
+          <div className="company__plot">
+            <PriceChart
+              history={listing.history}
+              price={listing.price}
+              fairValue={listing.fairValue}
+              name={listing.name}
+            />
+          </div>
+        </div>
       </div>
     </>
   );
@@ -1296,11 +1316,24 @@ function Register({ standings }: { readonly standings: readonly Standing[] }): R
 // --- Shared trimmings ----------------------------------------------------
 
 /** Gain, loss or neither, as a class. Colour never carries it alone. */
-function toneOf(value: number): string {
+/**
+ * The tone a figure is shown in.
+ *
+ * `below` is what counts as nothing. It matters because a quote that has
+ * moved by a ten-thousandth prints as "0.0%" and was still being coloured:
+ * the board showed a column of red and green noughts, which says a company
+ * rose or fell when it did neither. The tone follows the figure a captain
+ * can actually read, not the one behind it.
+ */
+function toneOf(value: number, below = 0): string {
+  if (Math.abs(value) <= below) return 'is-flat';
   if (value > 0) return 'is-gain';
   if (value < 0) return 'is-loss';
   return 'is-flat';
 }
+
+/** Half of the last place a percent is printed to, so 0.04% reads as flat. */
+const PERCENT_NOISE = 0.0005;
 
 /** A signed figure, so a loss reads as one without its colour. */
 function signed(marks: number): string {

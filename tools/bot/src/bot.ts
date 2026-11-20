@@ -26,6 +26,8 @@ import {
   deriveStats,
   placeAll,
   stepFlight,
+  type Listing,
+  type Placement,
   type ShipProfile,
   type ShipState,
 } from "@marque/shared";
@@ -93,6 +95,8 @@ export interface BotView {
   readonly purse: BotPurse;
   /** The berth's Staple, while alongside one that keeps a market. */
   readonly market: BotMarket | undefined;
+  /** The Bourse, while alongside a berth that keeps one. */
+  readonly bourse: readonly Listing[] | undefined;
 
   readonly land: (portId: string) => void;
   readonly launch: () => void;
@@ -106,6 +110,10 @@ export interface BotView {
     name: "propellant" | "ordnance" | "repair" | "composition",
   ) => void;
   readonly jump: (systemId: string) => void;
+  /** Buy or sell shares, through the same intent a captain uses. */
+  readonly deal: (side: "buy" | "sell", ticker: string, shares: number) => void;
+  /** Build a hull, which is how a brain spends on a maker. */
+  readonly build: (name: string, placements: readonly Placement[]) => void;
 }
 
 /** What the server says the bot has. */
@@ -198,6 +206,11 @@ async function berthOf(endpoint: string, deviceToken: string): Promise<string> {
 
 /** Netcode health, sampled from the SDK's own telemetry. */
 export interface BotTelemetry {
+  /** Orders placed on the Bourse, and how many it refused. */
+  readonly deals: number;
+  readonly refusedDeals: number;
+  /** What this captain's shares are worth at the quote. */
+  readonly sharesWorth: number;
   readonly callsign: string;
   readonly brain: string;
   readonly status: DriftStatus;
@@ -284,6 +297,7 @@ export class Bot {
     const inbox = {
       purse: undefined as Partial<BotPurse> | undefined,
       market: undefined as BotMarket | undefined,
+      bourse: undefined as readonly Listing[] | undefined,
       landedAt: undefined as string | undefined,
       jumpedTo: undefined as string | undefined,
       /** The bot, once it exists. The handlers above close over this. */
@@ -305,6 +319,10 @@ export class Bot {
     room.onMessage("market", (payload) => {
       inbox.market = payload as BotMarket;
       inbox.bot?.noteMarket(inbox.market);
+    });
+    room.onMessage("bourse", (payload) => {
+      inbox.bourse = (payload as { listings: Listing[] }).listings;
+      inbox.bot?.noteBourse(inbox.bourse);
     });
     for (const type of ["landed", "at-port"] as const) {
       room.onMessage(type, (payload) => {
@@ -419,6 +437,10 @@ export class Bot {
     this.market = market;
   }
 
+  noteBourse(listings: readonly Listing[]): void {
+    this.bourse = listings;
+  }
+
   noteLanded(port: string): void {
     this.landedAt = port === "" ? undefined : port;
   }
@@ -464,6 +486,7 @@ export class Bot {
     landedPort: "",
   };
   private market: BotMarket | undefined;
+  private bourse: readonly Listing[] | undefined;
   private landedAt: string | undefined;
   /** The hull the predictor is bound to, so a relaunch can rebind. */
   private boundTo: ShipState | undefined;
@@ -499,6 +522,8 @@ export class Bot {
   }
   /** Orders sent and orders refused, for the soak's report. */
   private trades = 0;
+  deals = 0;
+  refusedDeals = 0;
   private refusedTrades = 0;
   private refusals = 0;
   private lastRefusal = "";
@@ -573,6 +598,7 @@ export class Bot {
       landedAt: this.landedAt,
       purse: this.purse,
       market: this.market,
+      bourse: this.bourse,
       land: (portId: string) => {
         this.send("land", { port: portId });
       },
@@ -592,6 +618,17 @@ export class Bot {
       },
       jump: (systemId: string) => {
         this.send("jump", { system: systemId });
+      },
+      deal: (side, ticker, shares) => {
+        this.deals++;
+        this.send(
+          "bourse",
+          { side, ticker, shares },
+          () => this.refusedDeals++,
+        );
+      },
+      build: (name, placements) => {
+        this.send("build", { name, placements });
       },
     };
   }
@@ -613,6 +650,14 @@ export class Bot {
       marks: this.purse.marks,
       trades: this.trades,
       refusedTrades: this.refusedTrades,
+      deals: this.deals,
+      refusedDeals: this.refusedDeals,
+      // Shares at the quote, so a captain who has put everything into a
+      // parcel of Slipway is not reported as poor.
+      sharesWorth: (this.bourse ?? []).reduce(
+        (sum, listing) => sum + listing.held * listing.price,
+        0,
+      ),
       refusals: this.refusals,
       lastRefusal: this.lastRefusal,
       landedAt: this.landedAt ?? "",

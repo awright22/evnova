@@ -88,6 +88,9 @@ import { YardRefused } from '../world/Yard.ts';
 const STARTER_BLUEPRINT = 'prudent-return';
 
 /** Draughts the Unlettered fly: whatever they could get. */
+/** How often the leaderboard is re-derived. It is a board, not a readout. */
+const STANDINGS_INTERVAL_MS = 15_000;
+
 const RAIDER_BLUEPRINTS = ['short-measure', 'force-majeure'] as const;
 
 /** What the Prize Court puts on patrol. It is faster than what it chases. */
@@ -217,6 +220,10 @@ export class SystemRoom extends Room<{
    * cargo a captain can board; this is the earnings half of it.
    */
   private readonly consignments = new Map<string, { commodityId: string; units: number }>();
+
+  /** The leaderboard, and when it was last worked out. */
+  private standings: (Standing & { accountId: string })[] | undefined;
+  private standingsAt = -Infinity;
   private nextNpcId = 1;
   private rng = new Rng('system');
 
@@ -1398,8 +1405,23 @@ export class SystemRoom extends Room<{
    * knows; a second-hand market would give a better one and there is not one.
    */
   private standingsFor(accountId: string): Standing[] {
+    // Recomputed on a cadence, not on every push.
+    //
+    // This walks every captain on the books and re-derives the build cost of
+    // every hull they own, which is not a thing to do on the room's tick
+    // path: with the Bourse pushing on each market tick it took the p99 over
+    // the 4ms budget in spec section 3. The board is a leaderboard — a few
+    // seconds stale is not a thing anybody can see.
+    const now = this.clock.elapsedTime;
+    if (this.standings !== undefined && now - this.standingsAt < STANDINGS_INTERVAL_MS) {
+      return this.standings.map((line) => ({
+        ...line,
+        isSelf: line.accountId === accountId,
+      }));
+    }
+
     const { modules, tuning } = content();
-    const out: Standing[] = [];
+    const out: (Standing & { accountId: string })[] = [];
 
     for (const account of world().pilots.everyone()) {
       const shares = world().exchange.portfolioValue(account.accountId);
@@ -1414,16 +1436,22 @@ export class SystemRoom extends Room<{
       }
 
       out.push({
+        accountId: account.accountId,
         callsign: account.callsign,
         worth: account.marks + shares + hulls,
         marks: account.marks,
         shares,
         hulls,
-        isSelf: account.accountId === accountId,
+        isSelf: false,
       });
     }
 
-    return out.sort((a, b) => b.worth - a.worth).slice(0, 20);
+    this.standings = out.sort((a, b) => b.worth - a.worth).slice(0, 20);
+    this.standingsAt = now;
+    return this.standings.map((line) => ({
+      ...line,
+      isSelf: line.accountId === accountId,
+    }));
   }
 
   /** Write a captain's hull state back to their row. */

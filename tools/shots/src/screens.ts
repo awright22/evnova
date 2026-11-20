@@ -462,6 +462,49 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'bourse',
+    description:
+      'The Bourse: the ten listings, the company in hand with its chart and order ticket, '
+      + "the captain's book, the Gazette and the Register.",
+    path: '/?callsign=Subscriber',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Bourse")');
+      await page.waitForSelector('.bourse', { timeout: 20_000 });
+      // Long enough for the entry motion to have finished: a capture taken
+      // mid-transition shows two states at once and reads as a layout fault.
+      await page.waitForTimeout(2500);
+    },
+  },
+  {
+    name: 'bourse-ticket',
+    description:
+      'An order on the ticket: what the parcel costs, the average a share, the fee, and '
+      + 'where the quote ends up — all before anything is confirmed.',
+    path: '/?callsign=Buying%20In',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Bourse")');
+      await page.waitForSelector('.bourse', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+
+      // Put a real parcel in the ticket so the preview has figures in it.
+      const field = page.locator('.bourse input[inputmode="numeric"]').first();
+      await field.fill('500');
+      await page.waitForTimeout(500);
+    },
+  },
+  {
     name: 'chat',
     description: 'The chat overlay: the composer open on the global channel, with the log behind it.',
     path: '/?callsign=Say%20Again',

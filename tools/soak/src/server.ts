@@ -69,6 +69,14 @@ export async function startServer(options: {
    * captains where goods are made.
    */
   startingSystem?: string;
+  /**
+   * Marks a captain opens with.
+   *
+   * A run about what captains do with money needs them to have some: an
+   * investor on a new captain's float can buy a share or two and nothing
+   * else, which measures nothing.
+   */
+  startingMarks?: number;
 }): Promise<RunningServer> {
   const child: ChildProcess = spawnGroup('pnpm', ['exec', 'tsx', 'src/main.ts'], {
     cwd: resolve(REPO_ROOT, 'packages/server'),
@@ -82,6 +90,9 @@ export async function startServer(options: {
         : {}),
       ...(options.startingSystem !== undefined
         ? { STARTING_SYSTEM: options.startingSystem }
+        : {}),
+      ...(options.startingMarks !== undefined
+        ? { STARTING_MARKS: String(options.startingMarks) }
         : {}),
       ...(options.latencyMs > 0 ? { COLYSEUS_LATENCY: String(options.latencyMs) } : {}),
     },
@@ -143,7 +154,18 @@ export interface BerthReport {
   goods: { commodityId: string; stock: number; target: number; price: number }[];
 }
 
+/** One listing's pool, as `/economy` reports it. */
+export interface ListingReport {
+  readonly ticker: string;
+  readonly product: number;
+  readonly price: number;
+}
+
 export interface EconomyReport {
+  /** Every listing's pool, for invariant 3 over a whole run. */
+  readonly listings?: readonly ListingReport[];
+  /** Shares captains hold, all told. */
+  readonly sharesHeld?: { readonly total: number };
   commodities: CommodityReport[];
   berths: BerthReport[];
   ledger: {

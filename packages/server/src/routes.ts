@@ -172,6 +172,16 @@ export const routes = createRouter({
       json({
         commodities: world_.market.survey(),
         berths: world_.market.berthSurvey(),
+        // Every pool's product and quote, so the soak can check invariant 3
+        // over a whole run rather than over one function call, and say
+        // whether any listing ran to nothing or without bound.
+        listings: world_.exchange.products(),
+        // What captains hold in shares, valued at the quote. Counted apart
+        // from marks and cargo because a captain's wealth can sit in any of
+        // the three and a report that missed one would call them poor.
+        sharesHeld: world_.store.raw
+          .prepare('SELECT COALESCE(SUM(shares), 0) AS total FROM holdings')
+          .get() as { total: number },
         ledger: {
           categories,
           // Faucets minus sinks. Invariant 4 says this equals the marks every
