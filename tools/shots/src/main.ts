@@ -522,15 +522,18 @@ async function capture(
       await page.screenshot({ path: resolve(options.outDir, file) });
     }
 
+    return file;
+  } finally {
     if (consoleErrors.length > 0) {
       // Not fatal to the capture, but the spec forbids raw error text and
       // unhandled failures, so they must be visible in the run output.
+      //
+      // In the `finally`, not after the screenshot: a screen that never
+      // settled throws before it, and that is exactly the screen whose
+      // console errors explain why.
       console.warn(`  ! ${screen.name} logged ${consoleErrors.length} console error(s):`);
       for (const error of consoleErrors.slice(0, 5)) console.warn(`    ${error}`);
     }
-
-    return file;
-  } finally {
     await context.close();
   }
 }

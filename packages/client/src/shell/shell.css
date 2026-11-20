@@ -44,6 +44,24 @@
   grid-column: 1 / -1;
 }
 
+/*
+ * The two tables, side by side where there is room.
+ *
+ * Keys and Gamepad are the same table of the same eleven actions, and
+ * stacking them full-width put the second one two screens down where
+ * nobody would find it. On a narrow window the auto-fit grid drops them
+ * back into one column, which is the right answer there.
+ */
+.shell__block--pair {
+  grid-column: span 1;
+}
+
+@media (width >= 1180px) {
+  .shell__block--pair {
+    grid-column: span 2;
+  }
+}
+
 .shell__rows {
   display: grid;
   gap: var(--space-1-5);

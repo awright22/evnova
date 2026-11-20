@@ -174,26 +174,39 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
   record('the provisional ticket is on screen', true);
 
   // --- 1. Under way ----------------------------------------------------
+  //
+  // The endorsement wants the hull genuinely moving, so this burns until
+  // the instruments say it is rather than for a guessed number of seconds:
+  // a slow hull on a slow machine is not a captain who did not press the
+  // key, and the failure said nothing about which it was.
   await page.focus('body');
   await page.keyboard.down('ArrowUp');
-  await page.waitForTimeout(2200);
+  let fastest = 0;
+  // Polled tightly and let go the moment it is moving: the endorsement
+  // wants sixty units a second, and every extra second of burn is distance
+  // from the berth the next endorsement needs.
+  for (let i = 0; i < 40; i += 1) {
+    await page.waitForTimeout(150);
+    fastest = Math.max(fastest, await speedOf(page));
+    if (fastest > 65) break;
+  }
   await page.keyboard.up('ArrowUp');
-  record('under way', await endorsed('fly'));
+  record('under way', await endorsed('fly'), `reached ${Math.round(fastest)} u/s`);
 
-  // Back toward the berth, so the next one is reachable. Turning about and
-  // burning is what a captain would do, and it is what the prompt says.
-  await page.keyboard.down('ArrowLeft');
-  await page.waitForTimeout(1500);
-  await page.keyboard.up('ArrowLeft');
-  await page.keyboard.down('ArrowUp');
-  await page.waitForTimeout(2600);
-  await page.keyboard.up('ArrowUp');
+  // Brake back to a stop rather than turning about and burning home. A new
+  // captain starts within reach of a berth, and the first version of this
+  // flew out of reach getting the feel of her and then spent sixty seconds
+  // waiting for a berth it had left behind.
   await page.keyboard.down('ArrowDown');
-  await page.waitForTimeout(2500);
+  for (let i = 0; i < 30; i += 1) {
+    await page.waitForTimeout(200);
+    if ((await speedOf(page)) < 15) break;
+  }
   await page.keyboard.up('ArrowDown');
 
   // --- 2. Alongside ----------------------------------------------------
-  await page.waitForSelector('.hud__travel', { timeout: 60_000 });
+  await bringHer(page);
+  await page.waitForSelector('.hud__travel', { timeout: 30_000 });
   await page.keyboard.press('KeyL');
   await page.waitForSelector('.port', { timeout: 30_000 });
   record('alongside', await endorsed('land'));
@@ -275,6 +288,37 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
     console.warn(`  page errors:\n    ${problems.slice(0, 5).join('\n    ')}`);
   }
   await context.close();
+}
+
+/**
+ * Get back within reach of a berth.
+ *
+ * Normally a no-op: the burn above is short and the hull never leaves.
+ * When it has, this is what a captain does — turn about, burn, brake, look
+ * — rather than the harness reaching into the room for a position. The
+ * point of this session is that it only presses what a captain can see.
+ */
+async function bringHer(page: Playwright.Page): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if ((await page.locator('.hud__travel').count()) > 0) return;
+    await page.keyboard.down('ArrowLeft');
+    await page.waitForTimeout(900);
+    await page.keyboard.up('ArrowLeft');
+    await page.keyboard.down('ArrowUp');
+    await page.waitForTimeout(1200);
+    await page.keyboard.up('ArrowUp');
+    await page.keyboard.down('ArrowDown');
+    await page.waitForTimeout(1800);
+    await page.keyboard.up('ArrowDown');
+    await page.waitForTimeout(600);
+  }
+}
+
+/** What the instruments say the hull is doing. */
+async function speedOf(page: Playwright.Page): Promise<number> {
+  const text = await page.locator('.hud__speed-value').first().textContent();
+  const value = Number((text ?? '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(value) ? value : 0;
 }
 
 /** Open a counter from the berth, and wait for what it opens. */

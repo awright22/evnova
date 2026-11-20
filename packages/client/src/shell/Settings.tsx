@@ -215,7 +215,7 @@ export function Settings({
         </div>
       </section>
 
-      <section className="panel shell__block shell__block--wide" aria-label="Keys">
+      <section className="panel shell__block shell__block--pair" aria-label="Keys">
         <header className="panel-header">
           <h2>Keys</h2>
           <span className="micro">
@@ -270,7 +270,7 @@ export function Settings({
         </footer>
       </section>
 
-      <section className="panel shell__block shell__block--wide" aria-label="Gamepad">
+      <section className="panel shell__block shell__block--pair" aria-label="Gamepad">
         <header className="panel-header">
           <h2>Gamepad</h2>
           <span className="micro">

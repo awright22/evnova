@@ -607,6 +607,9 @@ function Game({
               }
               convoy={convoyCallsigns}
               bindings={settings.bindings}
+              // The ticket's first endorsement. Only the flight loop knows
+              // whether the hull is actually moving.
+              onUnderWay={() => endorsed('fly')}
               onLand={(portId) => client.land(portId)}
               onOpenChart={() => setChartOpen(true)}
               onJump={() => client.jumpPlotted()}
