@@ -993,7 +993,10 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.staple__table', { timeout: 20_000 });
       await page.waitForTimeout(400);
       await page.click('.staple__row:first-child .staple__order');
-      await page.waitForTimeout(900);
+      // As long as the board's, and for the same reason: at 900ms the
+      // capture caught the seal mid-strike across the control it had been
+      // pressed on. The stamp has its own frames; this screen is the floor.
+      await page.waitForTimeout(2400);
     },
   },
   {

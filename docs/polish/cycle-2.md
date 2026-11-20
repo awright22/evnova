@@ -205,12 +205,13 @@ so at a berth that keeps the lot, it listed nothing and left a labelled
 empty box, which reads as content that failed to load. The section is not
 drawn when it has nothing to say.
 
-**N3. The board's still was a photograph of an animation.** `board` takes a
-commission and waits 900ms, which is about right for the stamp's strike at
+**N3. Two stills were photographs of an animation.** `board` takes a
+commission and `staple` buys a lot, and both wait 900ms, which is about right for the stamp's strike at
 full speed and much too short under software rasterisation: the capture
 caught the seal mid-strike, across the control it had been pressed on and
 across the commission's own terms. The stamp has six frames of its own; this
-screen is the board, and it waits for the impression to settle now.
+screen is the board, and the other is the floor; both wait for the
+impression to settle now.
 
 **N4. The screen called `combat` was a photograph of no combat.** Two hulls
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
