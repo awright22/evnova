@@ -311,6 +311,27 @@ persistent 4px scorch decal.
 → shockwave (1px expanding ring with refraction, 320ms) → smoke (1.8s, 0.3
 alpha). Scale durations by `0.8 + 0.4 × hullSize`.
 
+**Beam.** A line from the muzzle along the mount's bearing for as long as the
+trigger is down. A core of 1.9px at full level in the weapon's colour mixed
+toward white, over three surround passes of 8px/6%, 4.5px/11% and 2.6px/28% —
+drawn, not blurred, because a blur pass per beam costs a render target. Energy
+runs along it as a ±9% wander in width and ±27% in alpha, travelling at about
+one length a second. Where it lands, two brighter discs. It rises over
+`--motion-instant` on `--ease-emphasis` and falls over `--motion-quick` on
+`--ease-exit`, in alpha and width only: **the length is never animated**, since
+a growing line reads as a round travelling, which is the one thing a beam must
+not look like. Colour follows allegiance and adds red for a hostile, unlike a
+round — a round is on screen for a tenth of a second, and a beam held on you is
+the most important thing in the view. Under reduced motion the wander freezes
+and the standing shape remains.
+
+**Point-defense intercept.** Where a round is shot down: an 80ms flash and five
+radial sparks at 0.35–0.8px over 80–120ms, in `--shield`. Blue because blue
+already means "something stopped it", and because it must never be mistaken for
+damage landing — it is shorter, smaller and radial where a hull hit is fanned
+along a normal, and **it never shakes the camera**, since a shake is precisely
+what says the hull took it.
+
 **Hyperjump.** Spool: a rising ring and radial streaks building over 4s.
 Release: the scene stretches along the jump axis over 260ms with chromatic
 separation, then a white wipe. Arrival: the reverse over 320ms.
@@ -368,6 +389,9 @@ cell is unfinished work. Minimum two channels per row.
 | Fire turret | Barrel swings to lead, muzzle flash | Softer report, slight pitch variance | Turret rotation eased over 120ms |
 | Fire missile | Rack door, launch bloom, thick trail | Rail clunk then a receding roar | 3px launch shove, rack count decrements |
 | Hit dealt | Impact spark on the target, damage ticks | Confirming thud, pitched by damage | Crosshair pips flare outward 120ms |
+| Hold a beam | Line from the muzzle, energy running along it, brighter where it lands | Continuous hum, gaining a rasp while it is on something | Rises over `--motion-instant`, falls over `--motion-quick`; length never animates |
+| Cut into rock | The same line, ending on a rock; the rock dulls and shrinks as it goes | Lower, grinding under the hum | Hold ring round the rock being worked |
+| Point defense intercepts | 80ms `--shield` flash and five small radial sparks where the round was | Short dry snap, quieter than a gun | No shake: a shake says the hull took it |
 | Hit taken on shields | Shield ripple at the impact point | Resonant shield ring | 2px shake, shield bar pulses |
 | Hit taken on hull | Sparks, white flash, scorch decal | Dull structural bang | 5px shake, hull bar pulses `--danger` |
 | Module disabled | Module greys, vents, status tile darkens | Power-down whine, warning chirp | Tile flips to its disabled face, 160ms |
