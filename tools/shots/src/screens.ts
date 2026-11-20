@@ -413,7 +413,22 @@ async function engageNearest(
       // the hull on the mark. A capture taken here shows a fight in progress
       // rather than its aftermath from across the system.
       const now = await read();
-      if (options.untilHit && now && now.markShield < shieldAtStart - 1) return true;
+      // Landing rounds is not enough: it has to *look* like a fight.
+      //
+      // `untilHit` used to return the instant a round told, which can be at
+      // the very edge of reach — and with the link at about a second under
+      // software rasterisation, the screenshot arrives after the rounds have
+      // gone and the hulls have drifted apart. Cycle 2's sweep photographed
+      // the screen called `combat` showing two ships a thousand units apart,
+      // nothing in flight, and a landing prompt. Close in first.
+      if (
+        options.untilHit
+        && now
+        && now.markShield < shieldAtStart - 1
+        && now.range <= CLOSE_ENOUGH_TO_PHOTOGRAPH
+      ) {
+        return true;
+      }
     }
   } finally {
     if (!options.untilHit) await page.keyboard.up('Space');
@@ -443,6 +458,14 @@ const AIM_RELEASE = 0.4;
 
 /** Inside this the starter's gun reaches, with room for the mark to move. */
 const GUN_REACH = 850;
+
+/**
+ * And how close a fight has to be before it is worth photographing.
+ *
+ * Well inside reach, so that the two hulls are both large on screen and the
+ * rounds between them have somewhere short to travel.
+ */
+const CLOSE_ENOUGH_TO_PHOTOGRAPH = 520;
 
 export const SCREENS: readonly Screen[] = [
   {
@@ -522,7 +545,9 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForTimeout(300);
       // Leaves the trigger down on the mark, so the capture is mid-fight.
       await engageNearest(page, 45, { untilHit: true });
-      await page.waitForTimeout(350);
+      // Short: the trigger is still down and the rounds are in the air, and
+      // every extra moment here is one in which they land and the hulls part.
+      await page.waitForTimeout(120);
     },
   },
   {

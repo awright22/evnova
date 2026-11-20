@@ -142,13 +142,23 @@ bottom edge only when there is in fact more there. Bottom only — every table
 here keeps a sticky header, and fading that would dim the column names.
 Applied to all four of the Bourse's scrollers.
 
-**N2. A refusal stood under a panel about something else.** The flight view
+**N2. The screen called `combat` was a photograph of no combat.** Two hulls
+1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
+zero, and a landing prompt across the bottom. The fight had happened: the
+mark's shield was down. But `untilHit` returned the instant a round told,
+which can be at the very edge of reach, and with the link at about a second
+under software rasterisation the screenshot arrives after the rounds have
+gone and the hulls have parted. It now closes to well inside reach before
+returning, and waits 120ms rather than 350 before the shutter. `beams` takes
+the same path and the same fix.
+
+**N3. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
 The write-off capture photographed "The port declined that" sitting under
 "Written off at Parity". A state that takes over the screen clears the
 smaller notices it has made irrelevant; named on the avoid list.
 
-**N3. The soak still logs one replay-buffer warning in three minutes.** Down
+**N4. The soak still logs one replay-buffer warning in three minutes.** Down
 from one every run at ten seconds, and the drift telemetry shows nothing:
 every client matched, worst EMA 0.0000. The remaining case looks like a
 client whose hull is written off mid-burst. Noise rather than a fault, and
