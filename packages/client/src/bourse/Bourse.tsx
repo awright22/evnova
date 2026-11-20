@@ -64,6 +64,15 @@ const PARCELS = [10, 100, 1000] as const;
 /** How long a dividend stays marked on its row, in milliseconds. */
 const DIVIDEND_BADGE_MS = 6000;
 
+/**
+ * How long a traded row stays washed before it settles.
+ *
+ * The art direction's stamp rests by fading the confirmed row back to its
+ * resting surface, so the wash is a beat, not a state. The receipt line on
+ * the ticket stays until the captain moves on.
+ */
+const SETTLE_MS = 2600;
+
 /** How often the Gazette's ages are redrawn. */
 const AGE_TICK_MS = 30_000;
 
@@ -276,6 +285,7 @@ export function Bourse({
   onTrade,
   onClose,
 }: BourseProps): React.JSX.Element {
+  const floor = useRef<HTMLElement | null>(null);
   const [selected, setSelected] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; descending: boolean }>({
     key: 'ticker',
@@ -285,6 +295,7 @@ export function Bourse({
   const [parcel, setParcel] = useState('');
   const [feed, setFeed] = useState<'all' | 'company'>('all');
   const [fill, setFill] = useState<Fill | undefined>(undefined);
+  const [settling, setSettling] = useState<string | undefined>(undefined);
   const [dividend, setDividend] = useState<{ ticker: string; marks: number } | undefined>(
     undefined,
   );
@@ -379,6 +390,7 @@ export function Bourse({
 
     sent.current = undefined;
     if (!listing || moved === 0) return;
+    setSettling(order.ticker);
     setFill({
       side: order.side,
       ticker: order.ticker,
@@ -422,6 +434,18 @@ export function Bourse({
     const timer = setTimeout(() => setDividend(undefined), DIVIDEND_BADGE_MS);
     return () => clearTimeout(timer);
   }, [dividend]);
+
+  useEffect(() => {
+    if (settling === undefined) return;
+    const timer = setTimeout(() => setSettling(undefined), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settling]);
+
+  // Landed screens take the keyboard on arrival: the chart overlay stops
+  // listening while a port screen is up, so Escape has to reach this element.
+  useEffect(() => {
+    floor.current?.focus();
+  }, []);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent): void => {
@@ -470,6 +494,7 @@ export function Bourse({
   return (
     <main
       className="bourse"
+      ref={floor}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       aria-label="the Bourse"
@@ -491,9 +516,7 @@ export function Bourse({
           </div>
           <div>
             <dt className="label">Unrealised</dt>
-            <dd className={`data ${toneOf(book.gain)}`}>
-              {book.gain === 0 ? formatMarks(0) : signed(book.gain)}
-            </dd>
+            <dd className={`data ${toneOf(book.gain)}`}>{signed(book.gain)}</dd>
           </div>
           <div>
             <dt className="label">Dividends drawn</dt>
@@ -522,7 +545,13 @@ export function Bourse({
               rows={rows}
               selected={current?.ticker ?? ''}
               sort={sort}
-              onSort={setSort}
+              onSort={(next) => {
+                // Pin what is on show before reordering, so a captain who has
+                // chosen nothing yet does not have the middle column change
+                // company under them.
+                if (selected === '' && current) setSelected(current.ticker);
+                setSort(next);
+              }}
               onSelect={setSelected}
             />
           )}
@@ -599,7 +628,7 @@ export function Bourse({
           <Portfolio
             holdings={holdings}
             book={book}
-            filled={fill?.ticker}
+            filled={settling}
             dividend={dividend}
             onSelect={setSelected}
           />
@@ -797,11 +826,17 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
             {listing.parent} &middot; {listing.sector}
           </span>
         </div>
-        <button type="button" className="button company__read" onClick={onReadGazette}>
-          {filed === 0
-            ? 'Nothing in the Gazette'
-            : `${filed} in the Gazette`}
-        </button>
+        {/*
+          A button that opens an empty feed is worse than no button, so with
+          nothing filed the count is stated as a fact instead.
+        */}
+        {filed === 0 ? (
+          <span className="micro company__filed">Nothing in the Gazette</span>
+        ) : (
+          <button type="button" className="button company__read" onClick={onReadGazette}>
+            {filed} in the Gazette
+          </button>
+        )}
       </header>
 
       <div className="company__body">
@@ -1012,8 +1047,12 @@ function Ticket({
             <dt className="label">Quote ends at</dt>
             <dd className="data">
               {formatQuote(quote.priceAfter)}
-              <span className={`ticket__impact micro ${toneOf(impact)}`}>
-                {formatPercent(impact, 2)}
+              {/*
+                Not toned: an order always moves the quote against the captain,
+                so neither direction is good news and the sign says enough.
+              */}
+              <span className="ticket__impact micro">
+                {formatPercent(impact, 2)} on this order
               </span>
             </dd>
           </div>

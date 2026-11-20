@@ -201,13 +201,14 @@ describe('plot', () => {
     const figure = plot([10, 12, 11, 14], 14, 12);
     expect(figure.line.startsWith('0,')).toBe(true);
     expect(figure.last?.x).toBe(100);
-    expect(figure.rising).toBe(true);
+    expect(figure.direction).toBe('up');
   });
 
   it('gives a flat series a range rather than one line of readings', () => {
     const figure = plot([20, 20, 20], 20, 20);
     expect(figure.high).toBeGreaterThan(figure.low);
-    expect(figure.rising).toBe(true);
+    // Flat is neither a gain nor a loss, so the wash is neither.
+    expect(figure.direction).toBe('flat');
   });
 
   it('draws nothing from nothing', () => {
@@ -218,6 +219,13 @@ describe('plot', () => {
   });
 
   it('marks a falling window as falling', () => {
-    expect(plot([30, 20, 10], 10, 10).rising).toBe(false);
+    expect(plot([30, 20, 10], 10, 10).direction).toBe('down');
+  });
+
+  it('calls a single reading neither way', () => {
+    const figure = plot([42], 42, 40);
+    expect(figure.line).toBe('');
+    expect(figure.last?.x).toBe(100);
+    expect(figure.direction).toBe('flat');
   });
 });

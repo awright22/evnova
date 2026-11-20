@@ -37,7 +37,7 @@ const HOLD: NpcCommand = {
   target: '',
 };
 
-export type NpcRole = 'unlettered' | 'patrol';
+export type NpcRole = 'unlettered' | 'patrol' | 'freighter';
 
 export interface NpcPilot {
   readonly id: string;
@@ -200,4 +200,57 @@ export function unletteredPilot(id: string, seed: string): NpcPilot {
  */
 export function patrolPilot(id: string, seed: string): NpcPilot {
   return hunter(id, seed, 'patrol', { holdsStation: true });
+}
+
+/**
+ * A freighter: carries a consignment between a berth and the lane, and never
+ * fights.
+ *
+ * It flies a slow circuit out from its station and back, which is enough to
+ * make it a thing in the sky that can be intercepted. It does not shoot, does
+ * not evade and does not take an interest in anybody — a hull that will not
+ * defend itself is the whole reason raiding one is worth doing, and the whole
+ * reason the companies mind.
+ *
+ * What it is carrying lives on the room, not here: this decides where it
+ * points, and the room decides what is lost when it does not arrive.
+ */
+export function freighterPilot(id: string, seed: string): NpcPilot {
+  const rng = new Rng(`npc:${seed}`);
+  // Each one runs its own leg, so a lane is not a column of identical hulls.
+  const legSeconds = rng.range(26, 44);
+  const bearing = rng.range(-Math.PI, Math.PI);
+  const reach = rng.range(2600, 4200);
+
+  return {
+    id,
+    role: 'freighter',
+
+    decide(self: ShipState, profile: ShipProfile, world: NpcWorld): NpcCommand {
+      const station = world.stationOf(id);
+      // Out and back on a slow cadence, measured from the room's clock so it
+      // is the same circuit on every client's screen.
+      const phase = Math.floor(world.now() / (legSeconds * 1000)) % 2;
+      const toward =
+        phase === 0
+          ? { x: station.x + Math.cos(bearing) * reach, y: station.y + Math.sin(bearing) * reach }
+          : station;
+
+      const dx = toward.x - self.x;
+      const dy = toward.y - self.y;
+      if (Math.hypot(dx, dy) <= ON_STATION_RANGE) return { ...HOLD, brake: true };
+
+      const heading = Math.atan2(dy, dx);
+      return {
+        turn: turnToward(self, heading, profile),
+        // Laden and unhurried: a freighter under full burn would outrun the
+        // raiders that are supposed to be able to catch it.
+        thrust: isAimedAt(self, heading, 0.6) ? 0.55 : 0,
+        brake: false,
+        firePrimary: false,
+        fireSecondary: false,
+        target: '',
+      };
+    },
+  };
 }

@@ -31,7 +31,7 @@
   outline: none;
 }
 
-.bourse > .panel {
+.bourse > :where(.panel) {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
@@ -132,17 +132,17 @@
 }
 
 /*
- * An empty region says what would be in it, and the panel sizes to that
- * sentence rather than reserving a field around it.
+ * An empty region states what would be in it and the panel shrinks to that
+ * statement: the columns here are fixed by the grid, so a ruled box around
+ * two lines of text would be a sentence adrift in a wide field, which is the
+ * fault the art direction's avoid list names.
  */
 .bourse__empty {
-  margin: var(--space-1-5);
+  max-width: 56ch;
   padding: var(--space-1-5);
-  max-width: 54ch;
   color: var(--text-muted);
   font-size: var(--size-body-sm);
   line-height: var(--leading-body-sm);
-  border: var(--border-width) dashed var(--rule);
 }
 
 /* The floor's standing terms, under the listings. */
@@ -259,23 +259,27 @@
   justify-content: flex-end;
 }
 
+/* Which column the table is ordered by. Not amber: a sort caret is chrome,
+   and the amber on this screen belongs to the captain's own position. */
 .market__caret {
   display: inline-block;
   min-width: 8px;
-  color: var(--amber-dim);
+  color: var(--text-primary);
 }
 
-.market__row td,
-.market__row th {
+.market__row td {
   padding: var(--space-0-5) var(--space-1);
-  font-weight: 400;
-  text-align: left;
   vertical-align: middle;
   border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
+/* The name cell is filled edge to edge by its button, so it carries none. */
 .market__row th {
   padding: 0;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
 .market__row:hover td,
@@ -358,8 +362,13 @@
 }
 
 .company__ticker {
-  color: var(--amber-dim);
+  color: var(--text-muted);
   letter-spacing: var(--track-h3);
+}
+
+.company__filed {
+  flex: none;
+  color: var(--text-disabled);
 }
 
 .company__read {
@@ -399,7 +408,7 @@
   gap: 0;
 }
 
-.company__figures dd {
+.company__figures :where(dd) {
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -412,6 +421,7 @@
 
 .company__note {
   display: block;
+  color: var(--text-muted);
   text-transform: none;
   letter-spacing: normal;
   font-variant-numeric: tabular-nums;
@@ -470,6 +480,10 @@
   fill: var(--danger-wash);
 }
 
+.chart__area--flat {
+  fill: var(--rule-faint);
+}
+
 /* The last reading. A square dot, which is the one filled glyph allowed. */
 .chart__mark {
   position: absolute;
@@ -487,6 +501,10 @@
   background: var(--danger);
 }
 
+.chart__mark--flat {
+  background: var(--text-muted);
+}
+
 .chart__fair-label,
 .chart__bound {
   position: absolute;
@@ -496,9 +514,14 @@
   pointer-events: none;
 }
 
+/*
+ * The label on the reference line. The line itself is `--amber-dim`, which
+ * the art direction lists for chart axis emphasis, but a derived shade never
+ * sets type: amber-dim reaches only about 4:1 on the well.
+ */
 .chart__fair-label {
   transform: translateY(-50%);
-  color: var(--amber-dim);
+  color: var(--text-muted);
 }
 
 .chart__bound--high {
@@ -652,7 +675,7 @@
   gap: 0;
 }
 
-.ticket__preview dd {
+.ticket__preview :where(dd) {
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -665,6 +688,7 @@
 
 .ticket__impact {
   display: block;
+  color: var(--text-muted);
   text-transform: none;
   letter-spacing: normal;
   font-variant-numeric: tabular-nums;
@@ -768,17 +792,23 @@
   border-bottom: var(--border-width) solid var(--rule);
 }
 
-.book tbody td,
-.book tbody th {
-  padding: 0 var(--space-1);
-  font-weight: 400;
-  text-align: left;
+.book tbody td {
+  padding: var(--space-0-5) var(--space-1);
   vertical-align: middle;
   border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
 .book tbody th {
   padding: 0;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.book__row td,
+.book__row th {
+  transition: background var(--motion-slow) var(--ease-standard);
 }
 
 .book__row:hover td,
@@ -786,7 +816,7 @@
   background: color-mix(in srgb, var(--hover) 55%, transparent);
 }
 
-/* The row the last order moved, while its receipt is still up. */
+/* The row the last order moved, washed for a beat and then settling. */
 .book__row--filled td,
 .book__row--filled th {
   background: var(--amber-wash);
@@ -821,14 +851,9 @@
 }
 
 .book__figure {
-  padding: var(--space-0-5) var(--space-1);
-  text-align: right !important;
+  text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.book thead .book__figure {
-  text-align: right;
 }
 
 .book__note {
@@ -863,20 +888,19 @@
 .book tfoot th,
 .book tfoot td {
   padding: var(--space-0-5) var(--space-1);
+  color: var(--text-muted);
+  border-top: var(--border-width) solid var(--rule);
+}
+
+.book tfoot th {
   font-family: var(--font-condensed);
   font-size: var(--size-label);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   text-align: left;
-  color: var(--text-muted);
-  border-top: var(--border-width) solid var(--rule);
 }
 
 .book tfoot .book__figure {
-  font-family: var(--font-sans);
-  font-size: var(--size-body-sm);
-  letter-spacing: normal;
-  text-transform: none;
   color: var(--text-primary);
 }
 
@@ -996,7 +1020,12 @@
   color: var(--amber);
 }
 
-/* --- Gain, loss, neither ------------------------------------------------- */
+/*
+ * Gain, loss, neither.
+ *
+ * A one-property utility that has to beat the `dd` colour each panel sets for
+ * its own figures, which is the case `!important` exists for.
+ */
 
 .is-gain {
   color: var(--gain) !important;

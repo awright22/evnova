@@ -74,7 +74,13 @@ import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
-import { patrolPilot, unletteredPilot, type NpcPilot, type NpcRole } from './npc.ts';
+import {
+  freighterPilot,
+  patrolPilot,
+  unletteredPilot,
+  type NpcPilot,
+  type NpcRole,
+} from './npc.ts';
 import { TradeRefused } from '../world/Market.ts';
 import { YardRefused } from '../world/Yard.ts';
 
@@ -87,9 +93,19 @@ const RAIDER_BLUEPRINTS = ['short-measure', 'force-majeure'] as const;
 /** What the Prize Court puts on patrol. It is faster than what it chases. */
 const PATROL_BLUEPRINTS = ['force-majeure'] as const;
 
+/**
+ * What the companies put on a milk run: slow, capacious and unarmed.
+ *
+ * Fair Wear and Tear is five holds and one engine, which is exactly the hull
+ * a company buys when the cargo is cheap and the lane is supposed to be safe.
+ */
+const FREIGHTER_BLUEPRINTS = ['fair-wear-and-tear'] as const;
+
 export interface SystemRoomOptions {
   /** Content id of the system to simulate. */
   systemId?: string;
+  /** Company freighters on the lane, for a harness that wants a known sky. */
+  freighters?: number;
   /** Raiders to keep in the system while captains are present. */
   raiders?: number;
   /** How many patrols stand here; defaults to what the security level says. */
@@ -189,6 +205,18 @@ export class SystemRoom extends Room<{
   private combat!: CombatSystem;
   private raiderTarget = 0;
   private patrolTarget = 0;
+  /** Company freighters on the lane here, from the system's own traffic. */
+  private freighterTarget = 0;
+
+  /**
+   * What each freighter is carrying.
+   *
+   * Only the room knows: a consignment is not on the synchronised state
+   * because nothing a captain can see should tell them which hull is worth
+   * intercepting before they have looked. Spec M7 gives freighters real
+   * cargo a captain can board; this is the earnings half of it.
+   */
+  private readonly consignments = new Map<string, { commodityId: string; units: number }>();
   private nextNpcId = 1;
   private rng = new Rng('system');
 
@@ -867,6 +895,15 @@ export class SystemRoom extends Room<{
     const security = this.system?.security;
     this.raiderTarget = options.raiders ?? (security ? raidersBySecurity[security] : 0);
     this.patrolTarget = options.patrols ?? (security ? patrolsBySecurity[security] : 0);
+    // Traffic follows trade: a system whose berths produce something has
+    // hulls carrying it out, and a system that produces nothing has none.
+    this.freighterTarget =
+      options.freighters ??
+      ((this.system?.ports ?? []).some((port) =>
+        Object.values(port.trade?.produces ?? {}).some((rate) => rate > 0),
+      )
+        ? 2
+        : 0);
     this.rng = new Rng(`system:${this.roomId}`);
 
     this.combat = new CombatSystem(
@@ -1035,7 +1072,26 @@ export class SystemRoom extends Room<{
   /** Whether a pilot of this role would engage that hull. */
   private engages(selfId: string, otherId: string, other: ShipState, role: NpcRole): boolean {
     if (otherId === selfId || other.destroyedAt > 0) return false;
-    return role === 'patrol' ? other.hostile || other.posted : !this.pilots.has(otherId);
+
+    switch (role) {
+      // A freighter carries cargo and nothing else. It is the reason the
+      // other two roles exist and it takes no part in what they do.
+      case 'freighter':
+        return false;
+
+      // The Prize Court answers for the Unlettered and for captains it has
+      // posted, and for nobody else.
+      case 'patrol':
+        return other.hostile || other.posted;
+
+      // The Unlettered rob the traffic: captains, and the company freighters
+      // that are the traffic. Not each other, and not the patrols — they
+      // shoot back and carry nothing.
+      case 'unlettered': {
+        const theirPilot = this.pilots.get(otherId);
+        return theirPilot === undefined || theirPilot.role === 'freighter';
+      }
+    }
   }
 
   /**
@@ -1719,6 +1775,7 @@ export class SystemRoom extends Room<{
 
     this.maintainRole('unlettered', captains > 0 ? this.raiderTarget : 0);
     this.maintainRole('patrol', captains > 0 ? this.patrolTarget : 0);
+    this.maintainRole('freighter', captains > 0 ? this.freighterTarget : 0);
   }
 
   private maintainRole(role: NpcRole, wanted: number): void {
@@ -1726,7 +1783,12 @@ export class SystemRoom extends Room<{
 
     if (held.length < wanted) {
       const id = `npc-${this.nextNpcId++}`;
-      if (role === 'patrol') {
+      if (role === 'freighter') {
+        this.spawnHull(id, this.rng.pick(FREIGHTER_BLUEPRINTS), freighterName(this.rng), false, role);
+        this.pilots.set(id, freighterPilot(id, `${this.roomId}:${id}`));
+        const consignment = this.consignmentFor(id);
+        if (consignment) this.consignments.set(id, consignment);
+      } else if (role === 'patrol') {
         this.spawnHull(id, this.rng.pick(PATROL_BLUEPRINTS), patrolName(this.rng), false, role);
         this.pilots.set(id, patrolPilot(id, `${this.roomId}:${id}`));
       } else {
@@ -1739,22 +1801,111 @@ export class SystemRoom extends Room<{
     }
   }
 
+  /**
+   * What a freighter is carrying.
+   *
+   * Drawn from what this system's berths actually produce, so a hull lost off
+   * a mining world costs the miner and a hull lost off a farm costs the
+   * farmer. Seeded from the hull's id, so the same freighter is carrying the
+   * same thing however many times its consignment is asked for.
+   */
+  private consignmentFor(id: string): { commodityId: string; units: number } | undefined {
+    const produced = new Set<string>();
+    for (const port of this.system?.ports ?? []) {
+      // `produces` is a rate per commodity, not a list; a rate of nothing is
+      // not production.
+      for (const [commodityId, rate] of Object.entries(port.trade?.produces ?? {})) {
+        if (rate > 0) produced.add(commodityId);
+      }
+    }
+    if (produced.size === 0) return undefined;
+
+    const rng = new Rng(`consignment:${this.roomId}:${id}`);
+    const commodityId = rng.pick([...produced].sort());
+    return { commodityId, units: Math.round(rng.range(30, 140)) };
+  }
+
   // --- Aftermath ----------------------------------------------------------
+
+  /**
+   * A freighter did not arrive.
+   *
+   * Two companies lose. The carrier for this region loses the haulage it will
+   * not now be paid for — spec section 10's "carriers ... lose on freight
+   * destroyed" — and the producer whose goods were aboard loses the sale,
+   * because those units never reach a buyer. That is what makes blockading a
+   * mining system show up on the mining company's price a few market ticks
+   * later, with a line in the Gazette saying why.
+   *
+   * The goods are gone from the world either way: part of the hold spills as
+   * canisters, and what is scooped is salvage rather than a sale.
+   */
+  private freightLost(id: string): void {
+    const consignment = this.consignments.get(id);
+    this.consignments.delete(id);
+    if (!consignment || !this.system) return;
+
+    const commodity = content().commodities.get(consignment.commodityId);
+    if (!commodity) return;
+
+    const value = Math.round(consignment.units * commodity.basePrice);
+    const exchange = world().exchange;
+
+    const carrier = exchange.carrierOf(this.system.region);
+    if (carrier !== undefined) {
+      exchange.credit({
+        ticker: carrier,
+        marks: -Math.round(value * 0.08),
+        kind: 'freight',
+        where: this.system.name,
+        what: this.system.region,
+      });
+    }
+
+    // Whichever company's berth here produces it is the one out of pocket.
+    for (const port of this.system.ports) {
+      if ((port.trade?.produces[consignment.commodityId] ?? 0) <= 0) continue;
+      const producer = exchange.producerOf(port.owner, consignment.commodityId);
+      if (producer !== undefined) {
+        exchange.credit({
+          ticker: producer,
+          marks: -value,
+          kind: 'goods-sold',
+          where: this.system.name,
+          what: consignment.commodityId,
+        });
+      }
+      break;
+    }
+  }
 
   private writeOff(id: string, killedBy: string): void {
     const ship = this.state.ships.get(id);
     const runtime = this.runtimes.get(id);
     if (!ship || !runtime) return;
 
+    // Read before it is cleared: the spill below needs to know what was
+    // aboard, and the companies need to be told what did not arrive.
+    const consignment = this.consignments.get(id);
+    this.freightLost(id);
+
     ship.destroyedAt = Math.round(this.clock.elapsedTime) || 1;
     ship.shield = 0;
     ship.target = '';
 
-    // Part of the hold spills. The Staple fills holds in M4; until then a
-    // wreck spills its Ordnance, which is the only cargo a hull carries.
+    // Part of the hold spills, which is what makes a wreck worth flying to.
+    const spilled: { commodity: string; units: number }[] = [];
     if (runtime.ammo > 0) {
-      this.combat.spill(ship, [{ commodity: 'ordnance', units: Math.ceil(runtime.ammo / 2) }], this.clock.elapsedTime);
+      spilled.push({ commodity: 'ordnance', units: Math.ceil(runtime.ammo / 2) });
     }
+    if (consignment) {
+      // Less than was aboard: spec section 8 says part of the cargo drops,
+      // and section 19's letters-of-marque rule depends on a capture being
+      // worth less than the cargo lost, or staging one between friends would
+      // pay. Half is the share the rest of the economy is tuned against.
+      spilled.push({ commodity: consignment.commodityId, units: Math.ceil(consignment.units / 2) });
+    }
+    if (spilled.length > 0) this.combat.spill(ship, spilled, this.clock.elapsedTime);
 
     this.combat.retireRoundsOf(id);
 
@@ -1893,4 +2044,25 @@ const PATROL_NAMES = [
 
 function patrolName(rng: Rng): string {
   return rng.pick(PATROL_NAMES);
+}
+
+/**
+ * Company freighters, named the way a company names a hull it will never see:
+ * after the clause that pays for it.
+ */
+const FREIGHTER_NAMES = [
+  'Net of Fees',
+  'Third Dividend',
+  'Errors and Omissions',
+  'Carriage Paid',
+  'Free on Board',
+  'Clean Bill',
+  'In Ballast',
+  'Laid Up',
+  'Running Days',
+  'Ullage and Tare',
+] as const;
+
+function freighterName(rng: Rng): string {
+  return rng.pick(FREIGHTER_NAMES);
 }

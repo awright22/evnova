@@ -31,8 +31,8 @@ export interface Plot {
   readonly last: { readonly x: number; readonly y: number } | undefined;
   /** Fair value's height in the box, 0 at the top. */
   readonly fairY: number;
-  /** Whether the window ends above where it started. */
-  readonly rising: boolean;
+  /** Where the window ended against where it started. */
+  readonly direction: 'up' | 'down' | 'flat';
 }
 
 /** Headroom above and below the readings, as a share of their span. */
@@ -77,6 +77,19 @@ export function plot(
   const first = points[0];
   const last = points[points.length - 1];
 
+  // A window that ended where it began is neither a gain nor a loss, and
+  // washing it green or red would read as news that did not happen.
+  const opened = readings[0];
+  const closed = readings[readings.length - 1];
+  const direction =
+    points.length < 2 || opened === undefined || closed === undefined
+      ? 'flat'
+      : closed > opened
+        ? 'up'
+        : closed < opened
+          ? 'down'
+          : 'flat';
+
   return {
     low,
     high,
@@ -87,7 +100,7 @@ export function plot(
         : '',
     last,
     fairY: y(fairValue),
-    rising: first !== undefined && last !== undefined ? last.y <= first.y : false,
+    direction,
   };
 }
 
@@ -141,7 +154,7 @@ export function PriceChart({
 
           {figure.area !== '' && (
             <polygon
-              className={`chart__area chart__area--${figure.rising ? 'up' : 'down'}`}
+              className={`chart__area chart__area--${figure.direction}`}
               points={figure.area}
             />
           )}
@@ -171,7 +184,7 @@ export function PriceChart({
         */}
         {figure.last && (
           <span
-            className={`chart__mark chart__mark--${figure.rising ? 'up' : 'down'}`}
+            className={`chart__mark chart__mark--${figure.direction}`}
             style={{ left: `${figure.last.x}%`, top: `${figure.last.y}%` }}
           />
         )}
