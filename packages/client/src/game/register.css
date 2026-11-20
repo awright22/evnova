@@ -1,23 +1,26 @@
 /** The Register: the only screen before a captain is flying. */
 
 /*
- * Centred on the viewport, whatever the boxes above it are doing.
+ * Centred, and under a name this screen actually owns.
  *
  * The capture showed this panel at the top of the screen with sixty per cent
- * of the viewport empty under it. The old rule was `place-items: center` on
- * `height: 100%`, which centres only if the container really is the
- * viewport's height — and here it was not, so the grid was its content's
- * height and "centred" meant nothing.
+ * of the viewport empty under it, and the cause was not in this file: the
+ * Bourse's ranking list also called itself `.register`, with
+ * `align-content: start`. Every stylesheet in the client is global, so the
+ * sign-up screen was silently taking the Bourse's rule. That list is
+ * `.ranking` now. This is the second time the Bourse has taken a block name
+ * another screen owns — the first was `chart` — and the avoid list in
+ * `docs/ART_DIRECTION.md` names the fault.
  *
- * `min-height: 100vh` makes the box the viewport's without depending on the
- * chain of `height: 100%` above it, and `place-content` distributes the free
- * space in the track as well as placing the item in it. Nobody had seen this
- * because this screen had not been captured since M9.
+ * `align-content` is stated here anyway, and `min-height: 100vh` rather than
+ * `height: 100%`, so the box is the viewport's without depending on the
+ * chain of heights above it. Nobody had seen any of this because this screen
+ * had not been captured since M9.
  */
 .register {
   display: grid;
   place-items: center;
-  place-content: center;
+  align-content: center;
   min-height: 100vh;
   padding: var(--space-3);
   background:

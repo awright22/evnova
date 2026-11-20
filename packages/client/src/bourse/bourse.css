@@ -1226,14 +1226,14 @@
 
 /* --- The Register -------------------------------------------------------- */
 
-.register {
+.ranking {
   display: grid;
   align-content: start;
   gap: 0;
   list-style: none;
 }
 
-.register__line {
+.ranking__line {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
   grid-template-areas:
@@ -1246,14 +1246,14 @@
   border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
-.register__rank {
+.ranking__rank {
   grid-area: rank;
   color: var(--text-disabled);
   font-size: var(--size-body-sm);
   text-align: right;
 }
 
-.register__callsign {
+.ranking__callsign {
   grid-area: callsign;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1262,14 +1262,14 @@
   color: var(--text-primary);
 }
 
-.register__parts {
+.ranking__parts {
   grid-area: parts;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.register__worth {
+.ranking__worth {
   grid-area: worth;
   font-size: var(--size-body-sm);
   color: var(--text-primary);
@@ -1277,12 +1277,12 @@
 }
 
 /* The captain reading it, marked the way the Moorings marks the hull flown. */
-.register__line--self {
+.ranking__line--self {
   box-shadow: inset 2px 0 0 var(--amber);
   background: var(--amber-wash);
 }
 
-.register__line--self .register__callsign {
+.ranking__line--self .ranking__callsign {
   color: var(--amber);
 }
 

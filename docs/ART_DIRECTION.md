@@ -513,8 +513,13 @@ whenever an unintended look appears, then fix it.
 - A block name another screen already owns. Every stylesheet in the client is
   global, so `chart`, `panel`, `card` and the like are one shared namespace. A
   collision does not fail loudly: the element silently takes the other
-  screen's rules. The Bourse's price chart called itself `chart`, which is the
-  galaxy map's overlay — `position: absolute; inset: 0` with a 78% `--void`
+  screen's rules. It has happened twice, both times from the Bourse. Its
+  ranking list called itself `register`, which the sign-up screen owns, and
+  handed that screen `align-content: start` — so the Register sat at the top
+  of the viewport with two thirds of the screen empty under it. There is a
+  test for this now: `packages/client/src/styles/namespace.test.ts` fails
+  with both file names. And its price chart called itself `chart`, which is
+  the galaxy map's overlay — `position: absolute; inset: 0` with a 78% `--void`
   wash — so it left its column, drew itself over the figures, and hung a sheet
   over the whole panel that read as a colour problem. It cost a day. Name a
   block after its screen.

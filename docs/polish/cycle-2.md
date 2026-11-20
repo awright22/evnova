@@ -190,13 +190,24 @@ same hole as M3: nobody had looked at them.
   thing a player sees. The plate keeps its left-aligned text and amber rule;
   it sits in the middle of the page now rather than against its edge.
 - **The Register sat at the top**, with sixty per cent of the viewport empty
-  under it. It asked for `place-items: center` on `height: 100%`, which
-  centres only if the container really is the viewport's height. It is
-  `min-height: 100vh` with `place-content` now, so it does not depend on the
-  chain of heights above it.
+  under it — in a file that says `place-items: center` and means it. The
+  cause was not in that file. The Bourse's ranking list also called itself
+  `.register`, with `align-content: start`, and every stylesheet in this
+  client is global, so the sign-up screen silently took the Bourse's rule.
+  That list is `.ranking` now.
 
 Between them that is the first screen a player sees and the first screen a
 player types into.
+
+This is the second time the Bourse has taken a block name another screen
+owns. The first was `chart`, which the galaxy map owns: it drew a
+full-screen overlay across the Bourse's own figures, and the avoid list in
+`docs/ART_DIRECTION.md` has named the fault ever since. Naming it was not
+enough, because a collision does not fail loudly — the element takes the
+other screen's rules and the symptom turns up somewhere else entirely. Both
+instances cost a capture to notice and a while to find, so there is a test
+for it now: every block name in the client's stylesheets must have one
+owner. It fails with both file names when it does not.
 
 ### Minors
 

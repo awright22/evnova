@@ -541,13 +541,36 @@ export const SCREENS: readonly Screen[] = [
     settle: '.hud',
     settleMs: 2500,
     bots: 2,
+    // A mark with its engines gone.
+    //
+    // Three runs photographed this screen with nothing happening in it,
+    // at ranges of 1090, 1414 and 1503. Holding one mark rather than
+    // re-picking the nearest fixed the aim and not the chase: traffic under
+    // way outruns a starter, and with the link at two seconds under
+    // software rasterisation the control loop cannot close the gap. A mark
+    // that cannot run removes the chase from the problem, which is what the
+    // write-off capture already does for the same reason.
+    companions: [
+      {
+        seed: {
+          callsign: 'Burden of Proof',
+          at: 'the-bourse',
+          flying: 'short-measure',
+          crippled: true,
+        },
+        act: async (page) => {
+          // Nothing to do but be there and be shot at.
+          await page.waitForSelector('.hud', { timeout: 120_000 });
+        },
+      },
+    ],
     act: async (page) => {
       // Mark the nearest hull and actually fight it, so the capture catches
       // rounds in flight and shields rippling rather than an empty sky.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
       // Leaves the trigger down on the mark, so the capture is mid-fight.
-      await engageNearest(page, 45, { untilHit: true });
+      await engageNearest(page, 45, { untilHit: true, mark: 'Burden of Proof' });
       // Short: the trigger is still down and the rounds are in the air, and
       // every extra moment here is one in which they land and the hulls part.
       await page.waitForTimeout(120);
@@ -574,6 +597,22 @@ export const SCREENS: readonly Screen[] = [
       at: 'respondentia',
       flying: 'close-order',
     },
+    // And a mark that holds still to be cut, for the reason given on
+    // `combat`: a beam reaches nine hundred units and traffic under way does
+    // not stay inside that.
+    companions: [
+      {
+        seed: {
+          callsign: 'Strict Construction',
+          at: 'respondentia',
+          flying: 'short-measure',
+          crippled: true,
+        },
+        act: async (page) => {
+          await page.waitForSelector('.hud', { timeout: 120_000 });
+        },
+      },
+    ],
     act: async (page) => {
       await page.waitForSelector('.hud', { timeout: 20_000 });
       await page.keyboard.press('Tab');
@@ -583,7 +622,7 @@ export const SCREENS: readonly Screen[] = [
       // Long enough to close: a beam reaches nine hundred units and a mark
       // picked at three thousand is a capture of two lines going off the
       // side of the screen at nothing.
-      await engageNearest(page, 55, { untilHit: true });
+      await engageNearest(page, 55, { untilHit: true, mark: 'Strict Construction' });
       await page.waitForTimeout(200);
     },
   },

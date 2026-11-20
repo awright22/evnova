@@ -1689,20 +1689,20 @@ function Register({ standings }: { readonly standings: readonly Standing[] }): R
   }
 
   return (
-    <ol className="register">
+    <ol className="ranking">
       {ranked.map((standing, index) => (
         <li
           key={standing.callsign}
-          className={`register__line${standing.isSelf ? ' register__line--self' : ''}`}
+          className={`ranking__line${standing.isSelf ? ' ranking__line--self' : ''}`}
         >
-          <span className="register__rank data">{index + 1}</span>
-          <span className="register__callsign">{standing.callsign}</span>
-          <span className="register__worth data">{formatMarks(standing.worth)}</span>
+          <span className="ranking__rank data">{index + 1}</span>
+          <span className="ranking__callsign">{standing.callsign}</span>
+          <span className="ranking__worth data">{formatMarks(standing.worth)}</span>
           {/*
             What the worth is made of, on its own line: beside the callsign it
             had a third of the column and was cut off mid-word.
           */}
-          <span className="register__parts micro">
+          <span className="ranking__parts micro">
             {formatMarks(standing.marks)} marks &middot;{' '}
             {formatMarks(standing.shares)} shares &middot;{' '}
             {formatMarks(standing.hulls)} hulls
