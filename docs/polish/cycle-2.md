@@ -5,6 +5,20 @@ starts there, because both turned out to be the same kind of fault — a
 harness that stops working and does not say so — and because the second of
 them was about to be filed as a combat-balance problem it was not.
 
+## What was run
+
+| | Result |
+|---|---|
+| `pnpm check` | green — typecheck, lint, 617 unit tests |
+| `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.12 ms**, no spike over 33 ms, 0 of 12 diverging, 0 grounded, drift EMA 0.0000 |
+| `pnpm audio` | **passes outright** — every expected sound, the bed playing, all six voyage checks |
+| `pnpm play:new` | 14 of 14 |
+| `pnpm play:late` | 27 of 27 |
+
+The soak's tick figure is the best of the project: 2.12 ms against a 4 ms
+budget, with twelve clients fighting at 150 ms and 2% of their input frames
+stalled. The catch-up cap below is most of why.
+
 ## The two threads
 
 **A bot whose hull is written off goes quiet for ever.** `frame()` returns
