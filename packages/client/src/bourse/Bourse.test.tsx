@@ -20,7 +20,7 @@ import {
   moveOf,
   poolOf,
 } from './Bourse.tsx';
-import { plot } from './chart.tsx';
+import { formatQuote, plot } from './chart.tsx';
 
 const FEE = 0.005;
 const FRACTION = 0.25;
@@ -218,6 +218,18 @@ describe('plot', () => {
     expect(figure.line).toBe('');
     expect(figure.area).toBe('');
     expect(figure.last).toBeUndefined();
+  });
+
+  it('holds a floor under the range, so a quiet market is not a dramatic chart', () => {
+    // Three thousandths of a mark on a 44-mark quote: without a floor this
+    // filled the well corner to corner and printed the same figure at both
+    // ends of the axis.
+    const figure = plot([43.9843, 43.9812], 43.9812, 43.98);
+    expect(figure.high - figure.low).toBeGreaterThan(0.8);
+    expect(formatQuote(figure.high)).not.toBe(formatQuote(figure.low));
+    // And the reference line still sits inside the well.
+    expect(figure.fairY).toBeGreaterThan(5);
+    expect(figure.fairY).toBeLessThan(95);
   });
 
   it('marks a falling window as falling', () => {

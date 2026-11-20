@@ -421,6 +421,7 @@ function economySections(options: Options, samples: readonly Sample[]): string {
       const fell = row.product < (was?.product ?? 0);
       return (
         `| ${row.ticker} | ${row.price.toFixed(2)} | ${(was?.price ?? 0).toFixed(2)} | ` +
+        `${Math.round(row.earnings ?? 0).toLocaleString()} | ${Math.round(row.period ?? 0).toLocaleString()} | ` +
         `${Math.round(row.product).toLocaleString()} | ${Math.round(was?.product ?? 0).toLocaleString()} | ` +
         `${fell ? '**fell**' : 'held'} |`
       );
@@ -515,8 +516,8 @@ Invariant 3 says a pool's product never falls. Over a run that means every
 listing's product is at least what it opened at, and no quote has run to
 nothing or without bound.
 
-| Listing | quote now | quote at the start | product now | product at the start | held |
-|---|---:|---:|---:|---:|---:|
+| Listing | quote now | at the start | earnings a tick | last tick | product now | product at the start | held |
+|---|---:|---:|---:|---:|---:|---:|---:|
 ${listingRows}
 
 | Measure | Value |

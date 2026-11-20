@@ -176,7 +176,7 @@
     "tickSeconds": 20,
     "feeRate": 0.004,
     "multiple": 400,
-    "valueFloor": 2,
+    "valueFloor": 0.4,
     "$valueFloorComment": "Marks a share at the smallest. A company that earns nothing for a while is cheap, not worthless, and a price of zero is a price no pool can quote out of.",
     "houseRate": 0.12,
     "$houseRateComment": "Fraction of the gap to fair value the house trader covers each tick. At 0.12 a price is most of the way there in about twenty ticks, which is long enough for a captain to trade ahead of it and short enough that the news explains the move while it is still moving.",

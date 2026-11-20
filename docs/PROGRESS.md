@@ -3,7 +3,7 @@
 Milestone checklist and current state. Scope lives in `docs/SPEC.md`; this file
 tracks what is done. Update it in the same commit that completes an item.
 
-**Current milestone: M6 — Exchange**
+**Current milestone: M7 — Living world**
 
 Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
@@ -145,19 +145,74 @@ Moorings, the warrant ladder, and every typed refusal.
   constants in `Yard.ts` rather than tuning data, because neither is a
   gameplay number a designer would reach for.
 
-## M6. Exchange
+## M6. Exchange — complete
 
-- [ ] The ten listed companies, earnings, fair value
-- [ ] Pools, the house trader
-- [ ] Dividends, holding caps
-- [ ] Bourse screens, the Gazette, the Register
-- [ ] Invariants 3 and 6 with tests
-- [ ] A soak run with investor and exploit bots
+- [x] The ten listed companies, earnings, fair value
+- [x] Constant-product pools, the house trader, dividends, holding caps
+- [x] Exchange screens, the news feed, the leaderboard
+- [x] Invariants 3 and 6 with tests
+- [x] A soak run with investor and exploit bots
 
 Done when:
-- [ ] Destroying freighters in a producer's system lowers that producer's price within a few market ticks and a headline explains it
-- [ ] A large module purchase lifts its manufacturer
-- [ ] No exploit bot ends the soak ahead of the honest trading bots
+- [x] Destroying freighters in a producer's system lowers that producer's price within a few market ticks and a headline explains it
+- [x] A large module purchase lifts its manufacturer
+- [x] No exploit bot ends the soak ahead of the honest trading bots
+
+### Report
+
+**What is now playable.** A captain alongside the Bourse at Parity can read
+ten listings, each at its own quote with the move since the last market tick,
+pick one and see its chart against fair value, place an order that shows what
+the parcel costs and where the quote ends up *before* confirming, and watch
+their book fill with cost basis, unrealised gain and dividends drawn. The
+Gazette explains every move — a run on a good, a yard's order book filling,
+freight lost in transit — and the Register ranks every captain by net worth
+in marks, shares and hulls.
+
+Underneath, a company earns only from things that are costly to fake: goods
+actually leaving its berths, marks actually spent on its fittings, freight
+actually delivered, premiums less claims. The house trader walks each quote
+toward fair value every tick, so prices answer the world with nobody trading.
+Company freighters now fly the lanes, carry consignments drawn from what
+their system produces, and cost two companies when they are destroyed — which
+is what makes blockading a mining system show up on the miner's price.
+
+**How to run it.**
+
+```bash
+pnpm dev
+```
+
+Land at the Bourse at Parity; it keeps the floor, a Yard and the Moorings.
+
+```bash
+pnpm verify:bourse
+```
+
+Seventeen checks over the real protocol, including a captain who builds a
+gunship, jumps three lanes to a contested mining system and interdicts its
+traffic.
+
+```bash
+pnpm sim -- --bots 9 --minutes 5 --invest
+```
+
+Honest traders, honest investors and exploiters in one run. The exploiters
+end it several hundred thousand marks down.
+
+**Known issues.**
+
+- In an accelerated soak the listings drift toward their going-concern floor:
+  a market tick is twenty world-seconds while earnings are credited every ten
+  real seconds, so the two cadences do not interleave the way they do at real
+  speed. Earnings are now spread across the ticks of a catch-up, which helps,
+  but a long accelerated run is still pessimistic about prices.
+- Slipway earns only when a captain builds. In a small group that is bursty by
+  design, but it means SLP spends most of its time near its floor and jumps on
+  each hull. Worth watching once people are actually playing.
+- The Gazette's column is tall at 1920x1080 and has only been seen with a
+  handful of headlines in it.
+
 
 ## M7. Living world
 

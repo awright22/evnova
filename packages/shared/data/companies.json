@@ -1,5 +1,5 @@
 {
-  "$comment": "The ten listed companies, from spec section 19's table. A company earns only from events that are costly to fake: goods actually leaving its ports' stockpiles, marks spent on its fittings, freight delivered, salvage, and premiums less claims. Gross trade volume never counts. The opening price follows from openingEarnings through fairValue, so a listing starts at what it is worth. Opening earnings are at the magnitude the world actually produces \u2014 a berth sells thousands of marks of one good across a tick, and the Reach's own freighters move more again \u2014 because a company valued from a figure far below its real earnings reprices by orders of magnitude on the first real week of trade, and its pool quantises to a handful of shares. Floats follow from the earnings and the target price, so a share is a real claim on a company rather than a lottery ticket.",
+  "$comment": "The ten listed companies, from spec section 19's table. A company earns only from events that are costly to fake: goods actually leaving its ports' stockpiles, marks spent on its fittings, freight delivered, salvage, and premiums less claims. Gross trade volume never counts. The opening price follows from openingEarnings through fairValue, so a listing starts at what it is worth. Opening earnings are measured, not guessed: a soak run with the going-concern floor removed reported what the world actually pays each company in a market tick, and these are those figures. A company valued from a number the world never produces decays to its floor within minutes and sits there, which is what the first two attempts at this did. Floats follow from the earnings and the target price.",
   "companies": [
     {
       "ticker": "KSC",
@@ -15,9 +15,9 @@
           ]
         }
       ],
-      "float": 168000,
-      "poolShares": 67000,
-      "openingEarnings": 26000,
+      "float": 10000,
+      "poolShares": 4000,
+      "openingEarnings": 205,
       "description": "The oldest haulage house in settled space, and the one that writes the contracts everyone else signs. Its convoys keep to schedule because the schedule is a clause."
     },
     {
@@ -36,9 +36,9 @@
           ]
         }
       ],
-      "float": 191000,
-      "poolShares": 76000,
-      "openingEarnings": 21000,
+      "float": 11500,
+      "poolShares": 4500,
+      "openingEarnings": 165,
       "description": "Grain, ship's provisions and the Leaf monopoly. Feeds the Home Roads and prices accordingly, which nobody has yet found grounds to contest."
     },
     {
@@ -59,9 +59,9 @@
           ]
         }
       ],
-      "float": 188000,
-      "poolShares": 75000,
-      "openingEarnings": 24000,
+      "float": 15500,
+      "poolShares": 6000,
+      "openingEarnings": 260,
       "description": "Bridges, hull sections, holds and tanks, sold from a counter that has not moved in four generations. If a part is dull and it works, the Chandlery makes it."
     },
     {
@@ -79,9 +79,9 @@
           ]
         }
       ],
-      "float": 522000,
-      "poolShares": 209000,
-      "openingEarnings": 30000,
+      "float": 31500,
+      "poolShares": 12500,
+      "openingEarnings": 235,
       "description": "Ore and ice, counted twice on the way out. Every working is a line item and every line item is voted on, which is why the diggings open late and close on time."
     },
     {
@@ -99,9 +99,9 @@
           ]
         }
       ],
-      "float": 159000,
-      "poolShares": 64000,
-      "openingEarnings": 27000,
+      "float": 9000,
+      "poolShares": 3500,
+      "openingEarnings": 210,
       "description": "Takes the Thirty's ore and sells it back as alloy and machinery at a margin the board reviews quarterly. Holds the Alloy monopoly in the Home Roads."
     },
     {
@@ -115,9 +115,9 @@
           "manufacturer": "SLP"
         }
       ],
-      "float": 58000,
-      "poolShares": 23000,
-      "openingEarnings": 14000,
+      "float": 4500,
+      "poolShares": 2000,
+      "openingEarnings": 150,
       "description": "Reactors, engines, thrusters and plate, built to tolerances the subscribers can read off a sheet. Nothing it sells is light and nothing it sells is cheap."
     },
     {
@@ -138,9 +138,9 @@
           ]
         }
       ],
-      "float": 112000,
-      "poolShares": 45000,
-      "openingEarnings": 16000,
+      "float": 7000,
+      "poolShares": 3000,
+      "openingEarnings": 125,
       "description": "Guns, turrets, racks and the generators to survive them. Holds the Ordnance monopoly in the Home Roads and sells to both sides of everything else."
     },
     {
@@ -157,9 +157,9 @@
           ]
         }
       ],
-      "float": 245000,
-      "poolShares": 98000,
-      "openingEarnings": 19000,
+      "float": 14500,
+      "poolShares": 6000,
+      "openingEarnings": 150,
       "description": "Cracks ice into propellant at the edge of the chart and sells it to whoever arrives thirsty. Its prices move with the traffic and it does not apologise for either."
     },
     {
@@ -178,9 +178,9 @@
           "kind": "salvage"
         }
       ],
-      "float": 200000,
-      "poolShares": 80000,
-      "openingEarnings": 9000,
+      "float": 11500,
+      "poolShares": 4500,
+      "openingEarnings": 70,
       "description": "Hauls what nobody else will insure and recovers what is left when the haulage fails. Its two lines of business are related in a way the prospectus does not dwell on."
     },
     {
@@ -193,9 +193,9 @@
           "kind": "insurance"
         }
       ],
-      "float": 60000,
-      "poolShares": 24000,
-      "openingEarnings": 11000,
+      "float": 7500,
+      "poolShares": 3000,
+      "openingEarnings": 180,
       "description": "Insures every hull in settled space and is itself listed, so a bad year on the frontier shows up in its own share price before it shows up in anyone's claim."
     }
   ]

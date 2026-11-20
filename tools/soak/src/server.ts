@@ -159,6 +159,9 @@ export interface ListingReport {
   readonly ticker: string;
   readonly product: number;
   readonly price: number;
+  /** Smoothed earnings a tick, and what was banked in the last one. */
+  readonly earnings: number;
+  readonly period: number;
 }
 
 export interface EconomyReport {

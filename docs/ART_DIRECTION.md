@@ -428,6 +428,14 @@ whenever an unintended look appears, then fix it.
 - Drop-shadowed text for contrast; fix the surface instead
 - Icon-only buttons without a tooltip and an accessible label
 - Tooltips that restate the visible label instead of explaining the value
+- A block name another screen already owns. Every stylesheet in the client is
+  global, so `chart`, `panel`, `card` and the like are one shared namespace. A
+  collision does not fail loudly: the element silently takes the other
+  screen's rules. The Bourse's price chart called itself `chart`, which is the
+  galaxy map's overlay — `position: absolute; inset: 0` with a 78% `--void`
+  wash — so it left its column, drew itself over the figures, and hung a sheet
+  over the whole panel that read as a colour problem. It cost a day. Name a
+  block after its screen.
 - A row action repeated down a list in amber. One amber button is the primary
   action of a screen; one per row is a column of amber, which is the same
   dilution as using it decoratively. Row actions are plain buttons, and the

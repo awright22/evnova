@@ -45,6 +45,9 @@ export interface Plot {
 /** Headroom above and below the readings, as a share of their span. */
 const PADDING = 0.1;
 
+/** The least the range may cover, as a share of the price. */
+const MINIMUM_REACH = 0.01;
+
 /**
  * Lay a quote history out for drawing.
  *
@@ -65,11 +68,22 @@ export function plot(
   const seen = scope.length > 0 ? scope : [1];
   const lowest = Math.min(...seen);
   const highest = Math.max(...seen);
-  const span = highest - lowest;
-  // A flat series still needs a range, or every reading lands on one line.
-  const padding = span > 0 ? span * PADDING : Math.max(highest * 0.05, 0.5);
-  const low = Math.max(0, lowest - padding);
-  const high = highest + padding;
+  const middle = (lowest + highest) / 2;
+
+  /*
+   * The range covers the readings with headroom, but never less than a floor
+   * of the price itself. Without the floor a quiet market drew like a
+   * dramatic one: a quote that had moved three thousandths of a mark filled
+   * the well corner to corner, and the two axis figures both printed the
+   * same number.
+   */
+  const reach = Math.max(
+    ((highest - lowest) / 2) * (1 + PADDING * 2),
+    Math.abs(middle) * MINIMUM_REACH,
+    0.5,
+  );
+  const low = Math.max(0, middle - reach);
+  const high = middle + reach;
   const height = high - low > 0 ? high - low : 1;
 
   const y = (value: number): number =>
@@ -145,7 +159,7 @@ export function PriceChart({
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           role="img"
-          aria-label={`${name}: ${history.length} quotes, latest ${formatQuote(price)} marks against a fair value of ${formatQuote(fairValue)}`}
+          aria-label={`${name}: ${history.length} ${history.length === 1 ? 'quote' : 'quotes'}, latest ${formatQuote(price)} marks against a fair value of ${formatQuote(fairValue)}`}
         >
           {[20, 40, 60, 80].map((at) => (
             <line
@@ -217,7 +231,8 @@ export function PriceChart({
       </div>
 
       <figcaption className="plot__caption micro">
-        {history.length} quotes &middot; dashed is fair value
+        {history.length} {history.length === 1 ? 'quote' : 'quotes'} &middot; dashed is
+        fair value
       </figcaption>
     </figure>
   );

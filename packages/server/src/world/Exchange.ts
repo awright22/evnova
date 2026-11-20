@@ -235,14 +235,35 @@ export class Exchange {
    * Returns the events that led to it, so the Gazette can explain the moves
    * while they are still moving.
    */
-  tick(now: number): { events: EarningsEvent[]; dividends: { ticker: string; marks: number }[] } {
+  tick(
+    now: number,
+    options: { of?: number } = {},
+  ): { events: EarningsEvent[]; dividends: { ticker: string; marks: number }[] } {
     const { companies, tuning } = content();
     const { exchange } = tuning;
 
-    const banked = new Map(this.pending);
-    const events = [...this.events];
-    this.pending.clear();
-    this.events.length = 0;
+    // `of` is how many ticks this one is a part of, when the world is
+    // catching up. The earnings banked since the last pass belong to all of
+    // them, so they are spread rather than dropped into the first: putting
+    // them all in one tick and running the rest on nothing made every
+    // listing decay to its going-concern floor under an accelerated clock,
+    // which is not what the same span of world time does at real speed.
+    const share = Math.max(1, Math.floor(options.of ?? 1));
+    const banked = new Map<string, number>();
+    for (const [ticker, marks] of this.pending) banked.set(ticker, marks / share);
+
+    const events = share === 1 ? [...this.events] : [];
+    if (share <= 1) {
+      this.pending.clear();
+      this.events.length = 0;
+    } else {
+      // Keep what has not been handed out yet, less this tick's share.
+      for (const [ticker, marks] of this.pending) {
+        const left = marks - (banked.get(ticker) ?? 0);
+        if (Math.abs(left) < 1) this.pending.delete(ticker);
+        else this.pending.set(ticker, left);
+      }
+    }
 
     const dividends: { ticker: string; marks: number }[] = [];
 
@@ -619,7 +640,13 @@ export class Exchange {
   }
 
   /** Every pool's product, for the soak report's invariant check. */
-  products(): { ticker: string; product: number; price: number }[] {
+  products(): {
+    ticker: string;
+    product: number;
+    price: number;
+    earnings: number;
+    period: number;
+  }[] {
     return this.store.db
       .select()
       .from(schema.listings)
@@ -628,6 +655,11 @@ export class Exchange {
         ticker: row.ticker,
         product: row.poolShares * row.poolMarks,
         price: price({ shares: row.poolShares, marks: row.poolMarks }),
+        // Reported so a soak can say whether a listing sits at its floor
+        // because the world is quiet or because it was valued from a figure
+        // the world never produces.
+        earnings: row.smoothedEarnings,
+        period: row.periodEarnings,
       }));
   }
 

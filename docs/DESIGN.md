@@ -545,3 +545,30 @@ quoted 1,008. The quote and the build now read the same `flyingId`.
 keeps its aspect and is centred in its column, so dividing the viewBox by the
 bounding box was wrong by the letterbox whenever the two aspects differed.
 `getScreenCTM` is the transform the browser drew with.
+
+**2026-11-20 — Earnings are measured, not guessed.** Twice I valued the ten
+companies from figures I estimated, and twice every listing decayed to its
+floor within minutes: the first set was three orders of magnitude too small
+and took a pool down to ten shares, where integer rounding froze the quote;
+the second was forty times too large. The third set comes from a soak run
+with the going-concern floor removed, which reports what the world actually
+pays each company in a market tick. Floats follow from the earnings and a
+target price, and are wide enough that a pool holds thousands of shares —
+a pool of a few hundred cannot express a price move at all.
+
+**2026-11-20 — Invariant 6 is a property of the tuning.** A captain who lifts
+a company's earnings by a mark gains `holdingCap * smoothing * multiple` on
+their own holding, whatever the float. Below one, self-dealing cannot pay
+however it is attempted. The content loader computes it at startup and
+refuses to boot above one, so the world cannot be tuned into a state where it
+cannot hold its own invariant.
+
+**2026-11-20 — The leaderboard is worked out on a cadence.** It walks every
+captain on the books and re-derives the build cost of every hull they own.
+Doing that on the room's tick path, every time the market moved, took the p99
+over the 4ms budget in spec section 3. It is a board, so a few seconds stale
+costs nothing.
+
+**2026-11-20 — Stylesheets are global; block names are a shared namespace.**
+The Bourse's chart called itself `chart` and took the galaxy map's overlay
+rules. Named on the avoid list in `docs/ART_DIRECTION.md`.

@@ -129,7 +129,10 @@ describe('the Bourse', () => {
   });
 
   it('refuses a captain who cannot pay, and changes nothing', () => {
-    const pilot = captain('Skint', 5);
+    // A purse that cannot cover one share at the quote, whatever the quote
+    // happens to be: a fixed number of marks stops testing this the moment
+    // the listings are retuned, which is exactly what happened.
+    const pilot = captain('Skint', 0);
     const before = quoted('PZS');
     try {
       bourse.trade({ pilot, side: 'buy', ticker: 'PZS', shares: 50 });
@@ -137,7 +140,7 @@ describe('the Bourse', () => {
     } catch (error) {
       expect((error as BourseRefused).reason).toBe('cannot-afford');
     }
-    expect(pilot.marks).toBe(5);
+    expect(pilot.marks).toBe(0);
     expect(quoted('PZS')).toBe(before);
   });
 

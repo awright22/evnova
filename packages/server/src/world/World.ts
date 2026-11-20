@@ -174,8 +174,12 @@ export class World {
     const paid: { ticker: string; marks: number }[] = [];
     // Capped: a server that was stopped for a week should not run a thousand
     // market ticks in one pass and reprice the whole Bourse in a frame.
-    for (let i = 0; i < Math.min(due, 20); i++) {
-      const result = this.exchange.tick(now);
+    const runs = Math.min(due, 20);
+    for (let i = 0; i < runs; i++) {
+      // The last pass takes whatever is left and publishes the headlines, so
+      // a catch-up reads as one period of trading rather than as one busy
+      // tick followed by a run of empty ones.
+      const result = this.exchange.tick(now, { of: runs - i });
       this.gazette.report(result.events, result.dividends, now);
       paid.push(...result.dividends);
     }

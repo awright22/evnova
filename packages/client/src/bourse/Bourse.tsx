@@ -876,8 +876,9 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
                   worked out: unsigned, because the word carries the direction.
                 */}
                 <span className="company__note micro">
-                  quote {formatRate(Math.abs(against))}{' '}
-                  {against >= 0 ? 'above' : 'below'}
+                  {Math.abs(against) < PERCENT_NOISE
+                    ? 'quote level with it'
+                    : `quote ${formatRate(Math.abs(against))} ${against > 0 ? 'above' : 'below'}`}
                 </span>
               </dd>
             </div>
@@ -1298,15 +1299,17 @@ function Register({ standings }: { readonly standings: readonly Standing[] }): R
           className={`register__line${standing.isSelf ? ' register__line--self' : ''}`}
         >
           <span className="register__rank data">{index + 1}</span>
-          <span className="register__who">
-            <span className="register__callsign">{standing.callsign}</span>
-            <span className="register__parts micro">
-              {formatMarks(standing.marks)} marks &middot;{' '}
-              {formatMarks(standing.shares)} in shares &middot;{' '}
-              {formatMarks(standing.hulls)} in hulls
-            </span>
-          </span>
+          <span className="register__callsign">{standing.callsign}</span>
           <span className="register__worth data">{formatMarks(standing.worth)}</span>
+          {/*
+            What the worth is made of, on its own line: beside the callsign it
+            had a third of the column and was cut off mid-word.
+          */}
+          <span className="register__parts micro">
+            {formatMarks(standing.marks)} marks &middot;{' '}
+            {formatMarks(standing.shares)} shares &middot;{' '}
+            {formatMarks(standing.hulls)} hulls
+          </span>
         </li>
       ))}
     </ol>

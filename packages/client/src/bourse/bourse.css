@@ -18,7 +18,18 @@
   z-index: 5;
   display: grid;
   grid-template-columns: 390px minmax(0, 1fr) 360px;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /*
+   * The company's row has a ceiling and the foot takes what is left over.
+   *
+   * The foot was `auto` and the company's row took every spare pixel, which
+   * failed at both ends: a second line on the Register came out of the
+   * company panel and cut the chart off at 900 tall, and at 1080 the same
+   * row grew until the chart was a four-hundred-pixel slab of wash with its
+   * figures stranded beside it. Capped, the company keeps a chart-shaped
+   * chart at any height, and the spare height goes where more rows are
+   * worth having: the captain's book and the Register.
+   */
+  grid-template-rows: auto minmax(0, 460px) auto minmax(136px, 1fr);
   /*
    * The ledger strip runs the width of the foot, and the middle column holds
    * two panels, not three.
@@ -130,16 +141,6 @@
 .bourse__scroll {
   min-height: 0;
   overflow-y: auto;
-}
-
-/*
- * The two panels in the foot share a row, so each is capped and scrolls
- * inside itself. Without the cap a captain holding ten companies would
- * squeeze the chart out of the middle column.
- */
-.bourse__book .bourse__scroll,
-.bourse__register .bourse__scroll {
-  max-height: 136px;
 }
 
 /* The book is the widest table here: it scrolls in its own panel, never the
@@ -419,12 +420,15 @@
   gap: var(--space-1-5);
   min-height: 0;
   padding: var(--space-1-5);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .company__panes {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  /* The readings take a column's worth; the chart takes the rest of the
+     width, so a wider screen widens the plot rather than the labels. */
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   gap: var(--space-2);
   min-height: 0;
 }
@@ -446,7 +450,7 @@
 
 .company__figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
   gap: var(--space-1) var(--space-2);
   min-width: 0;
@@ -478,7 +482,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* --- The chart, whose class block is `plot` ----------------------------------------------------------- */
+/* --- The chart. Its block is `plot`: `chart` is the galaxy map's -------- */
 
 .plot {
   display: grid;
@@ -572,10 +576,18 @@
 .plot__fair-label,
 .plot__bound {
   position: absolute;
-  right: var(--space-0-5);
   padding: 0 2px;
   background: color-mix(in srgb, var(--inset) 86%, transparent);
   pointer-events: none;
+}
+
+/*
+ * The axis figures are at the right, the reference label at the left. They
+ * were all at the right, and a fair value near the top or bottom of the
+ * range put its label straight through the figure in the corner.
+ */
+.plot__bound {
+  right: var(--space-0-5);
 }
 
 /*
@@ -584,6 +596,7 @@
  * sets type: amber-dim reaches only about 4:1 on the well.
  */
 .plot__fair-label {
+  left: var(--space-0-5);
   transform: translateY(-50%);
   color: var(--text-muted);
 }
@@ -596,9 +609,11 @@
   bottom: 2px;
 }
 
+/* Clear of the reference line, which in a one-quote window sits at the
+   middle of the well, straight through this sentence. */
 .plot__thin {
   position: absolute;
-  inset: auto var(--space-2) 50% var(--space-2);
+  inset: auto var(--space-2) 58% var(--space-2);
   color: var(--text-muted);
   font-size: var(--size-body-sm);
   line-height: var(--leading-body-sm);
@@ -950,8 +965,11 @@
 
 .book tfoot th,
 .book tfoot td {
+  position: sticky;
+  bottom: 0;
   padding: var(--space-0-5) var(--space-1);
   color: var(--text-muted);
+  background: var(--panel);
   border-top: var(--border-width) solid var(--rule);
 }
 
@@ -971,6 +989,7 @@
 
 .gazette {
   display: grid;
+  align-content: start;
   gap: 0;
   padding: 0 var(--space-1-5);
   list-style: none;
@@ -1028,6 +1047,7 @@
 
 .register {
   display: grid;
+  align-content: start;
   gap: 0;
   list-style: none;
 }
@@ -1035,25 +1055,25 @@
 .register__line {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'rank callsign worth'
+    'rank parts    parts';
+  align-content: start;
   align-items: baseline;
-  gap: var(--space-1);
-  padding: var(--space-0-5) var(--space-1-5);
+  gap: 0 var(--space-1);
+  padding: 2px var(--space-1-5);
   border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
 .register__rank {
+  grid-area: rank;
   color: var(--text-disabled);
   font-size: var(--size-body-sm);
   text-align: right;
 }
 
-.register__who {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
 .register__callsign {
+  grid-area: callsign;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1062,12 +1082,14 @@
 }
 
 .register__parts {
+  grid-area: parts;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .register__worth {
+  grid-area: worth;
   font-size: var(--size-body-sm);
   color: var(--text-primary);
   white-space: nowrap;
