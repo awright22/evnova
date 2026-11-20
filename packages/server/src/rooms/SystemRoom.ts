@@ -51,6 +51,9 @@ import {
   AsteroidState,
   beltOf,
   regrown,
+  BoardIntent,
+  BOARDING_RANGE,
+  BOARDING_SPEED,
   TakeCommissionIntent,
   ShareCommissionIntent,
   ConvoyInviteIntent,
@@ -1391,6 +1394,74 @@ export class SystemRoom extends Room<{
       return { said: line.id };
     }),
 
+    /**
+     * Put a party aboard a hull that cannot run.
+     *
+     * The whole of it is in the conditions: adrift, close, and both slow.
+     * A hull that could still fly away would fly away, a wreck has already
+     * dropped its cargo as canisters, and a party cannot cross between two
+     * hulls passing at four hundred a second.
+     */
+    board: validate(BoardIntent, (client: Client, message: BoardIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const ship = this.state.ships.get(client.sessionId);
+      const runtime = this.runtimes.get(client.sessionId);
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!ship || !runtime || !pilot || ship.destroyedAt > 0) return ctx.reject('not-owned');
+
+      const prize = this.state.ships.get(message.id);
+      if (!prize || message.id === client.sessionId) return ctx.reject('unknown-target');
+      if (prize.destroyedAt > 0) return ctx.reject('unknown-target');
+      if (!prize.adrift) return ctx.reject('not-adrift');
+
+      const distance = Math.hypot(prize.x - ship.x, prize.y - ship.y);
+      if (distance > BOARDING_RANGE) return ctx.reject('out-of-range');
+
+      const closing = Math.hypot(prize.vx - ship.vx, prize.vy - ship.vy);
+      if (closing > BOARDING_SPEED) return ctx.reject('too-fast-to-board');
+
+      const room = Math.max(
+        0,
+        Math.floor(runtime.stats.cargoCapacity) - world().market.cargoUnits(pilot.accountId),
+      );
+      if (room <= 0) return ctx.reject('no-room-in-hold');
+
+      const taken = this.takeFromHull(message.id, prize, pilot, room);
+      if (taken.length === 0) return ctx.reject('nothing-aboard');
+
+      // Boarding a captain's hull is taking their cargo off them, which the
+      // law weighs like any other violence: the Prize Court posts a
+      // composition in secured space, less where law reaches less far, and
+      // nothing at all in the Marque.
+      const theirs = this.pilotsBySession.get(message.id);
+      if (theirs) {
+        const units = taken.reduce((sum, lot) => sum + lot.units, 0);
+        // Weighed like damage, because it is the same kind of act and the
+        // Court has one scale. A unit of somebody's cargo is a point.
+        this.postIfUnlawful(client.sessionId, message.id, units);
+      }
+
+      this.sendPurseSoon(client.sessionId);
+      this.clients.get(client.sessionId)?.send('scanned', {
+        kind: 'boarded',
+        text:
+          `Taken off ${prize.callsign}: ` +
+          taken.map((lot) => `${lot.units} ${lot.name}`).join(', ') +
+          '.',
+      });
+      const theirSession = theirs ? this.sessionOf(theirs.accountId) : undefined;
+      if (theirSession !== undefined) {
+        this.sendPurseSoon(theirSession);
+        this.clients.get(theirSession)?.send('scanned', {
+          kind: 'boarded-by',
+          text: `${ship.callsign} has put a party aboard and taken what you were carrying.`,
+        });
+      }
+
+      return { taken: taken.map((lot) => ({ commodityId: lot.commodityId, units: lot.units })) };
+    }),
+
     scoop: validate(ScoopIntent, (client: Client, message: ScoopIntent, ctx) => {
       if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
       const ship = this.state.ships.get(client.sessionId);
@@ -1978,6 +2049,66 @@ export class SystemRoom extends Room<{
   private callsignOf(accountId: string): string {
     const convoy = world().convoys.of(accountId);
     return convoy?.members.find((member) => member.accountId === accountId)?.callsign ?? '';
+  }
+
+  /**
+   * Take what a hull is carrying, up to what the boarder can hold.
+   *
+   * A captain's hold is in the database; an NPC's consignment is in this
+   * room's own map. Both go the same way and the same transaction either
+   * way, because a prize is a prize.
+   *
+   * The biggest lots first, so a boarder with room for forty units takes
+   * forty units of the best thing aboard rather than a little of each.
+   */
+  private takeFromHull(
+    id: string,
+    prize: ShipState,
+    boarder: Pilot,
+    room: number,
+  ): { commodityId: string; name: string; units: number }[] {
+    const { commodities } = content();
+    const taken: { commodityId: string; name: string; units: number }[] = [];
+    let left = room;
+
+    const nameOf = (commodityId: string): string =>
+      commodities.get(commodityId)?.name ?? commodityId;
+
+    const theirs = this.pilotsBySession.get(id);
+    if (theirs) {
+      const hold = [...world().market.cargoOf(theirs.accountId)]
+        .filter(([, units]) => units > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+      for (const [commodityId, units] of hold) {
+        if (left <= 0) break;
+        const lot = Math.min(units, left);
+        world().market.adjustCargo(theirs.accountId, commodityId, -lot);
+        // Taken off a hull rather than bought, so it is prize cargo — the
+        // same as what comes off a wreck, and worth the same premium.
+        world().market.adjustCargo(boarder.accountId, commodityId, lot, { prize: true });
+        taken.push({ commodityId, name: nameOf(commodityId), units: lot });
+        left -= lot;
+      }
+      void prize;
+      return taken;
+    }
+
+    const consignment = this.consignments.get(id);
+    if (!consignment || consignment.units <= 0) return taken;
+
+    const lot = Math.min(consignment.units, left);
+    if (lot <= 0) return taken;
+
+    consignment.units -= lot;
+    if (consignment.units <= 0) this.consignments.delete(id);
+    world().market.adjustCargo(boarder.accountId, consignment.commodityId, lot, { prize: true });
+    taken.push({
+      commodityId: consignment.commodityId,
+      name: nameOf(consignment.commodityId),
+      units: lot,
+    });
+    return taken;
   }
 
   /** The berth a captain is alongside in this room, if any. */

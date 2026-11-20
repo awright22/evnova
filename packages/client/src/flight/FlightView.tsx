@@ -9,6 +9,8 @@
 import { Application } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import {
+  BOARDING_RANGE,
+  BOARDING_SPEED,
   LANDING_RANGE,
   LANDING_SPEED,
   PROJECTILE_KIND,
@@ -93,6 +95,7 @@ export function FlightView({
     throttle: 0,
     callsign: '',
     draught: '',
+    prize: undefined,
     system: '',
     contacts: 0,
     rtt: 0,
@@ -452,6 +455,36 @@ export function FlightView({
           liveRef.current.onLand(nearestBerth.id);
         }
 
+        // The nearest hull alongside that cannot run, which is what B
+        // boards. Closing speed rather than either hull's own: matching
+        // speeds is the manoeuvre, and two hulls holding station together
+        // at three hundred a second are stationary with respect to each
+        // other, which is the only frame a party can cross in.
+        let nearestPrize:
+          | { id: string; name: string; distance: number; closing: number }
+          | undefined;
+        if (self) {
+          for (const view of views) {
+            if (view.id === selfId || !view.adrift || view.writtenOff) continue;
+            const distance = Math.hypot(view.x - self.x, view.y - self.y);
+            if (distance > BOARDING_RANGE) continue;
+            if (!nearestPrize || distance < nearestPrize.distance) {
+              nearestPrize = {
+                id: view.id,
+                name: view.callsign,
+                distance,
+                closing: Math.hypot(view.vx - self.vx, view.vy - self.vy),
+              };
+            }
+          }
+        }
+
+        // B puts a party aboard whatever is drifting alongside. The server
+        // checks all of it again; this is only which hull was meant.
+        if (keyboard!.takeBoardRequest() && nearestPrize) {
+          session.board(nearestPrize.id);
+        }
+
         // J means three things, in the order the captain would expect: stop
         // spooling, spool for the plotted course, or open the chart to plot one.
         if (keyboard!.takeJumpRequest()) {
@@ -634,6 +667,15 @@ export function FlightView({
                   tooFast: Math.hypot(self.vx, self.vy) > LANDING_SPEED,
                 }
               : undefined;
+
+          readout.prize = nearestPrize
+            ? {
+                name: nearestPrize.name,
+                // The server refuses a fast pass, so the prompt says so
+                // rather than offering a boarding that will be turned down.
+                tooFast: nearestPrize.closing > BOARDING_SPEED,
+              }
+            : undefined;
 
           // The mark's own state, which the spec asks the interface to show.
           const marked = frames.find((f) => f.isTarget);

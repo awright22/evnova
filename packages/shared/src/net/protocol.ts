@@ -82,6 +82,9 @@ export const REJECTIONS = {
   'not-at-the-same-berth': 'You are not alongside the same berth.',
   'nothing-offered': 'An offer has to be of something.',
   'not-enough-cargo': 'That is not in the hold.',
+  'not-adrift': 'That hull can still run. Stop it first.',
+  'too-fast-to-board': 'Match speeds before putting anybody across.',
+  'nothing-aboard': 'There is nothing in it worth taking.',
   'no-room-in-hold': 'There is not room aboard for that.',
   'no-such-offer': 'That offer is no longer open.',
   'too-many-offers': 'You have as many offers open as a berth will keep.',
@@ -589,6 +592,30 @@ export type ScoopIntent = z.infer<typeof ScoopIntent>;
 
 /** How close a hull must be to scoop a canister, in world units. */
 export const SCOOP_RANGE = 90;
+
+/**
+ * Put a party aboard a hull that cannot run, and take what it is carrying.
+ *
+ * Only a hull that is adrift — every engine out and not written off — and
+ * only from close alongside, with both hulls slow. A hull that could still
+ * fly away would fly away, and a wreck has already dropped its cargo.
+ */
+export const BoardIntent = z.object({
+  id: z.string().min(1).max(64),
+});
+export type BoardIntent = z.infer<typeof BoardIntent>;
+
+/** How close a hull must be to put a party aboard another, in world units. */
+export const BOARDING_RANGE = 150;
+
+/**
+ * How slowly both hulls must be going, in units a second.
+ *
+ * Matching speeds is the whole of the manoeuvre: a party cannot cross
+ * between two hulls passing at four hundred a second, and making a captain
+ * come alongside properly is what keeps boarding from being a drive-by.
+ */
+export const BOARDING_SPEED = 60;
 
 // --- Travel ---------------------------------------------------------------
 

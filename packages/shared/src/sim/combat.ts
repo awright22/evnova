@@ -291,6 +291,32 @@ export function applyDamage(
 }
 
 /** True when the hull is written off: bridge gone, or structure past the threshold. */
+/**
+ * Whether a hull can still get itself out of trouble.
+ *
+ * Every engine at zero and the hull is adrift: it holds its momentum and
+ * its bridge, so it is not a wreck, but it cannot run and it cannot be
+ * made to. That is the state a boarding party is for — a hull that could
+ * still fly away would simply fly away, and one that has been written off
+ * has already dropped its cargo as canisters.
+ *
+ * A hull with no engine at all — nothing in the catalogue, but a grid a
+ * captain could in principle draw — is not adrift. It never had the means
+ * to run, and calling it disabled would make a tug a prize.
+ */
+export function isAdrift(modules: readonly PlacedModule[], hp: readonly number[]): boolean {
+  let engines = 0;
+  let running = 0;
+
+  modules.forEach((module, index) => {
+    if (module.def.type !== 'engine') return;
+    engines += 1;
+    if ((hp[index] ?? 0) > 0) running += 1;
+  });
+
+  return engines > 0 && running === 0;
+}
+
 export function isWrittenOff(
   modules: readonly PlacedModule[],
   hp: readonly number[],

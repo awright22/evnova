@@ -9,6 +9,7 @@ import {
   aimOf,
   applyDamage,
   hullShape,
+  isAdrift,
   isWrittenOff,
   leadPoint,
   mountsOf,
@@ -481,5 +482,48 @@ describe('beams and point defense', () => {
       if (module.type !== 'beam') continue;
       expect(module.power.draw ?? 0, module.id).toBeGreaterThan(heaviest);
     }
+  });
+});
+
+describe('a hull that cannot run', () => {
+  const engined = placeAll(
+    [
+      { moduleId: 'hrc-bridge-1', x: 0, y: 0, rotation: 0 },
+      { moduleId: 'slp-engine-1', x: -2, y: 0, rotation: 0 },
+      { moduleId: 'slp-engine-1', x: -2, y: 2, rotation: 0 },
+    ],
+    modules,
+  );
+
+  /** Hit points for a grid, with the named indices taken to zero. */
+  const hp = (out: readonly number[]): number[] =>
+    engined.map((module, index) => (out.includes(index) ? 0 : module.def.hitPoints));
+
+  it('is not adrift while one engine still runs', () => {
+    expect(isAdrift(engined, hp([]))).toBe(false);
+    expect(isAdrift(engined, hp([1]))).toBe(false);
+  });
+
+  it('is adrift once every engine is out', () => {
+    expect(isAdrift(engined, hp([1, 2]))).toBe(true);
+  });
+
+  it('does not care what else is broken', () => {
+    // The bridge gone is a write-off, which is somebody else's question.
+    expect(isAdrift(engined, hp([0]))).toBe(false);
+  });
+
+  it('calls a hull with no engine at all something else', () => {
+    // A grid nobody would draw, but one a captain could: never had the
+    // means to run, so it is not a prize for having lost it.
+    const engineless = placeAll([{ moduleId: 'hrc-bridge-1', x: 0, y: 0, rotation: 0 }], modules);
+    expect(isAdrift(engineless, [100])).toBe(false);
+    expect(isAdrift(engineless, [0])).toBe(false);
+  });
+
+  it('can be adrift without being written off, which is the whole point', () => {
+    const dead = hp([1, 2]);
+    expect(isAdrift(engined, dead)).toBe(true);
+    expect(isWrittenOff(engined, dead, tuning)).toBe(false);
   });
 });

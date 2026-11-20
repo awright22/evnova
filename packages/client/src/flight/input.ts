@@ -32,6 +32,7 @@ const FIRE_SECONDARY = new Set(['ShiftLeft', 'ShiftRight']);
 /** Pressed once rather than held: these are edges, not states. */
 const CYCLE_TARGET = 'Tab';
 const LAND = 'KeyL';
+const BOARD = 'KeyB';
 const CHART = 'KeyM';
 const JUMP = 'KeyJ';
 
@@ -44,6 +45,7 @@ const CONSUMED = new Set([
   ...FIRE_PRIMARY,
   CYCLE_TARGET,
   LAND,
+  BOARD,
   CHART,
   JUMP,
 ]);
@@ -53,6 +55,7 @@ export class KeyboardInput {
   /** Edge-triggered presses, drained by the frame loop. */
   private cycleRequests = 0;
   private landRequests = 0;
+  private boardRequests = 0;
   private chartRequests = 0;
   private jumpRequests = 0;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
@@ -68,6 +71,7 @@ export class KeyboardInput {
       // every hull in the system.
       if (event.code === CYCLE_TARGET && !event.repeat) this.cycleRequests++;
       if (event.code === LAND && !event.repeat) this.landRequests++;
+      if (event.code === BOARD && !event.repeat) this.boardRequests++;
       if (event.code === CHART && !event.repeat) this.chartRequests++;
       if (event.code === JUMP && !event.repeat) this.jumpRequests++;
       this.pressed.add(event.code);
@@ -124,6 +128,13 @@ export class KeyboardInput {
   takeLandRequest(): boolean {
     const asked = this.landRequests > 0;
     this.landRequests = 0;
+    return asked;
+  }
+
+  /** True when the captain asked to put a party aboard something. */
+  takeBoardRequest(): boolean {
+    const asked = this.boardRequests > 0;
+    this.boardRequests = 0;
     return asked;
   }
 

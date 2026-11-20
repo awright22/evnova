@@ -64,6 +64,13 @@ export interface HudReadout {
   landingProgress: number;
   /** The nearest berth within reach, which is what L lands at. */
   berth: { name: string; distance: number; tooFast: boolean } | undefined;
+  /**
+   * A hull alongside that cannot run, and whether it can be boarded yet.
+   *
+   * Shown above a berth: a prize drifting beside you is the more urgent
+   * thing, and a berth will still be there in a minute.
+   */
+  prize: { name: string; tooFast: boolean } | undefined;
   /** Marks the Prize Court has against this captain, 0 when not posted. */
   composition: number;
 }
@@ -194,6 +201,22 @@ function TravelBanner({ readout }: { readout: HudReadout }): React.JSX.Element |
       <div className="hud__travel panel hud__travel--landing" role="status">
         <span className="micro">Coming alongside</span>
         <Progress value={readout.landingProgress} />
+      </div>
+    );
+  }
+
+  if (readout.prize) {
+    return (
+      <div className="hud__travel panel" role="status">
+        <span className="micro">Adrift</span>
+        <span className="hud__travel-name">{readout.prize.name}</span>
+        {readout.prize.tooFast ? (
+          <span className="micro hud__travel-hint">Match speeds to put a party across</span>
+        ) : (
+          <span className="micro">
+            <kbd className="hud__key">B</kbd> to board her
+          </span>
+        )}
       </div>
     );
   }

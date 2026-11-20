@@ -68,6 +68,14 @@ export const ShipState = schema(
     freighter: t.boolean().default(false),
     /** Posted by the Prize Court: patrols answer for this hull. */
     posted: t.boolean().default(false),
+    /**
+     * Adrift: every engine out, and not written off.
+     *
+     * On the state because a captain has to be able to see which hull in a
+     * fight has stopped being a fight and started being a prize — it is the
+     * whole of the decision to board one rather than finish it.
+     */
+    adrift: t.boolean().default(false),
     /** Server time the hull was written off, for the wreck to linger. */
     destroyedAt: t.uint32().default(0),
 

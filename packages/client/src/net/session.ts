@@ -64,6 +64,8 @@ export interface ShipView {
   /** Posted by the Prize Court: patrols will answer for this hull. */
   readonly posted: boolean;
   readonly writtenOff: boolean;
+  /** Every engine out: it cannot run, and it can be boarded. */
+  readonly adrift: boolean;
   readonly isTarget: boolean;
 }
 
@@ -233,6 +235,7 @@ export class Session {
         patrol: ship.patrol,
         posted: ship.posted,
         writtenOff: ship.destroyedAt > 0,
+        adrift: ship.adrift,
         isTarget: id === marked,
       });
     });
@@ -325,6 +328,13 @@ export class Session {
   /** Ask to scoop a canister. The server checks the range, not the client. */
   scoop(id: string): void {
     void this.room.request('scoop', { id }).catch((error: unknown) => {
+      this.lastRefusal = describeRefusal(error);
+    });
+  }
+
+  /** Put a party aboard a hull that cannot run, and take what it carries. */
+  board(id: string): void {
+    void this.room.request('board', { id }).catch((error: unknown) => {
       this.lastRefusal = describeRefusal(error);
     });
   }

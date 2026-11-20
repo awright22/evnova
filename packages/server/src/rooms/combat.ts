@@ -21,6 +21,7 @@ import {
   slewTurret,
   wrapAngle,
   applyDamage,
+  isAdrift,
   leadPoint,
   muzzleOf,
   rockAlong,
@@ -370,6 +371,7 @@ export class CombatSystem {
     if (outcome.toModule > 0) {
       disabled = runtime.damageModule(beam.moduleIndex, outcome.toModule);
       ship.moduleHp[beam.moduleIndex] = Math.max(0, Math.round(runtime.hp[beam.moduleIndex] ?? 0));
+      ship.adrift = isAdrift(runtime.modules, runtime.hp);
     }
 
     this.world.onImpact({
@@ -588,6 +590,9 @@ export class CombatSystem {
     if (outcome.toModule > 0) {
       disabled = runtime.damageModule(moduleIndex, outcome.toModule);
       ship.moduleHp[moduleIndex] = Math.max(0, Math.round(runtime.hp[moduleIndex] ?? 0));
+      // The one place a module reaching zero is known, which is the one
+      // place a hull can be found to have stopped being able to run.
+      ship.adrift = isAdrift(runtime.modules, runtime.hp);
     }
 
     this.world.onImpact({
