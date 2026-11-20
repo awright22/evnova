@@ -74,6 +74,27 @@ overflows, and the client replays ten seconds of whatever key was last held
 as though the captain had been holding it. Capped at twelve steps — four
 hundred milliseconds, which covers a slow frame and nothing longer.
 
+## The write-off capture, and what it was hiding
+
+Twenty-three runs. Cycle 1 filed this as a known miss and moved on; pulling
+it turned up one game fault that matters more than the capture ever did.
+
+The runs failed, in order, because: the gunner's page was opened without
+`harness=1` so it published no room and fired nothing; a killed run left a
+server on the port and the next run ran against it; `engageNearest` asked
+for its named mark once, and companions are brought up *before* the page a
+screen is about, so it read an empty sky and returned without firing; `void`
+on the watch loop's promise made an unhandled rejection and took Node down;
+a named function inside `page.evaluate` compiled to `__name(look, 'look')`
+and `__name` does not exist in the page; and finally the wait for the panel
+was armed *after* the fight rather than before it, so the panel came and
+went while the page was still shooting.
+
+Every one of those fails the same way from outside — nothing happens and
+nothing says why. The run that broke it open was the one that printed what
+the gunner could see rather than what the victim had left: range, bearing,
+both hulls' structure, and what held the keyboard.
+
 ## Findings
 
 Ranked by player impact.
@@ -84,7 +105,30 @@ Ranked by player impact.
 
 ### Majors
 
-*None.*
+**M1. Insurance handed back a hull that was already a third destroyed.**
+The structure a berth quotes comes from `pilot.moduleHp`, the damage array
+on the captain's row, not from the hull. `switchTo` clears it when a captain
+changes hulls at the Moorings, with a comment saying why: the row still
+describes the hull they just left. `writeOff` did not. So a captain shot to
+pieces woke in a sound replacement that read as 32% structure, and the berth
+offered to repair it — charging marks to mend damage the hull never took, on
+the one hull the Hall had just paid for. Cleared inside `writeOff` rather
+than at the call site, so the next caller cannot miss it the way this one
+did. The test fails without the fix.
+
+Found from the capture's first successful screenshot, which photographed the
+berth instead of the panel and put the figure on screen. Worth saying
+plainly: four milestones of tests, soaks and verification harnesses did not
+find this, and one look at a picture did.
+
+**M2. Five seconds to read what losing your ship cost.** The write-off panel
+lived for exactly as long as the wreck — six seconds — because `respawn`
+then stands the captain on their last berth and the flight view goes with
+it. The claim figures arrive a moment *after* the panel, so the real reading
+time was about five seconds for four sentences and four numbers, and then a
+berth the captain did not walk into. Nothing about the loss is in doubt by
+then: it is settled, paid and persisted. So only the view of it is held
+back now, behind a "Go ashore" on the panel.
 
 ### Minors
 

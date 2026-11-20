@@ -362,6 +362,10 @@ export class GameClient {
     if (this.lost) return;
     this.lost = true;
     this.shore = undefined;
+    // Whatever was last refused is no longer the subject. A captain being
+    // told their hull is gone should not also be told the port declined
+    // something they have stopped caring about.
+    this.notice = undefined;
     this.emit();
   }
 

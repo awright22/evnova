@@ -501,6 +501,12 @@ whenever an unintended look appears, then fix it.
 - An impression struck under the control beside it. A mark is on the paper,
   not behind it
 - Animated gradients, shimmer or pulsing idle states on static elements
+- A refusal left standing under a panel about something else. The flight
+  view keeps the last refusal on screen, which is right while a captain is
+  flying and wrong the moment something larger happens to them: the
+  write-off capture photographed "The port declined that" sitting under
+  "Written off at Parity". A state that takes over the screen clears the
+  smaller notices it has made irrelevant
 - Drop-shadowed text for contrast; fix the surface instead
 - Icon-only buttons without a tooltip and an accessible label
 - Tooltips that restate the visible label instead of explaining the value

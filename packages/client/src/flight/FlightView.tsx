@@ -474,7 +474,9 @@ export function FlightView({
           const killer = session!.shipViews().find((v) => v.id === event.killedBy);
           setWrittenOff({ system: system.name, by: killer?.callsign ?? '' });
           // Hold the berth the respawn is about to put us on until the
-          // captain has read what the loss cost.
+          // captain has read what the loss cost, and take down whatever was
+          // last refused: it is not what this moment is about.
+          session!.lastRefusal = undefined;
           onLost();
         }
         const art = blueprints.get(event.blueprint);
