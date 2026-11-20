@@ -254,7 +254,8 @@ Done when:
 Done when:
 - [x] A scripted new-player session completes onboarding without getting stuck
 - [x] Every settings option demonstrably works
-- [ ] All budgets pass
+- [~] All budgets pass — every one that can be measured without a GPU does;
+  the 60 fps scene needs a machine with one. See the M9 report.
 
 ## M10. Polish cycles
 
@@ -1050,3 +1051,132 @@ the place it is felt.
 And buying at the Staple did not refresh the offers counter, so a captain who
 bought a hold and turned to hand it over was looking at a list from before the
 purchase.
+
+## M9. Shell and onboarding — 2026-11-20
+
+### What is now playable
+
+The game has a front door, and a first session that teaches itself.
+
+**The title.** The name, the premise in a line, and three doors: the
+Register, Settings, Credits. No art behind it — the flight view is the art,
+and a title screen competing with it would lose. A captain who has been here
+before is offered the Reach rather than the Register.
+
+**The provisional ticket.** An Open Ticket is issued provisional, with seven
+endorsements the Register's clerk adds as the holder does each thing once:
+under way, alongside, laden, discharged, surveyed, subscribed, cleared
+outward. That is a guided first session written as paperwork rather than as a
+tutorial voice. The card sits top right, shows one line at a time, strikes
+the line through for a beat when it is earned, and has a button that waives
+the rest. A captain who waives it is confirmed anyway. The world does not
+care either way, which is the point.
+
+Each endorsement is read off what happened rather than off the intent: being
+alongside is the mode changing, the jump is arriving somewhere else, and a
+purchase counts only on a trade the Staple took.
+
+**Eleven hints**, one per counter, shown once per device: what the counter is
+for and the one thing looking at it will not tell you. The Register's waits
+for the Bourse's, since it is a section of that screen rather than one of its
+own; boarding's waits for a hull to actually be adrift alongside, because it
+is the one system a captain cannot go and look at.
+
+**Settings that are real.** Four volumes, interface scale, motion, a
+colour-vision-safe palette, effect quality, every key bindable with clashes
+marked, and a table of what a gamepad does with the connected pad named.
+Every one of them takes effect as it is changed. Three were writing storage
+nothing read until this milestone: the key bindings, which the flight view
+now takes and rebinds in place; the palette, which the renderer caches and
+now drops; and effect quality, which the renderer reads at startup, so the
+flight view is keyed on both.
+
+**A gamepad.** The standard mapping, sampled each frame, producing the same
+intent a keyboard does. Either hand can fly and neither is required.
+
+**Music.** One bed per region, generated rather than looped: a drone of
+detuned sawtooths breathing on a 23-second filter, bowed strings that take
+two seconds to speak and do not resolve, a struck low piano, and a combat
+layer that crossfades in when a hostile is inside 2,500 units. The Home Roads
+are the warmest of the three; the Concessions are Dorian and arithmetical;
+the Marque is darker and its strings are further apart. It ducks 6 dB under
+an alert. It never arrives at the same bar twice.
+
+**The rest of the audio.** Thirteen sounds the feedback table named and
+nothing played: manoeuvring jets, the spool and its release, the arrival, the
+clamps at a berth and the clamps letting go, a dividend, a Factor's verdict,
+a chat line, a captain arriving, being posted, a refusal, and hover and
+select for every control in the game.
+
+### How to run it
+
+```
+pnpm dev          # server and client
+pnpm check        # typecheck, lint, 606 unit tests
+pnpm onboarding   # the scripted new-player session, 14 checks
+pnpm audio        # the voyage, and what it sounded
+pnpm perf         # frame times, the scene, and the load budget
+pnpm sim          # the soak, at 150 ms and 2% loss
+pnpm shots        # every screen
+```
+
+### The budgets
+
+| Budget | Result |
+|---|---|
+| Server tick under 4 ms, 12 clients, a fight | **2.78 ms p99** |
+| No frame-time spike over 33 ms, server side | **none** |
+| No rubber-banding at 150 ms and 2% loss | **0 of 12 diverging, drift EMA 0.0000** |
+| Under 5 MB before the title screen is interactive | **1.56 MB, 249 ms** |
+| Simulation step, 30 ships | **0.0073 ms mean, p99 0.14% of a frame** |
+| Every feedback-table row has a sound | **all 40 rows, held by a test** |
+| 60 fps at 1080p with the reference scene | **cannot be measured here** |
+
+The last one needs a GPU. This container rasterises in software, so the
+capture reports 3.6 fps and says plainly that the number is a floor rather
+than a verdict. Everything that can be measured without one passes, most of
+them with an order of magnitude in hand.
+
+### What the harnesses found
+
+Five faults, four of them in work that had been called done.
+
+**A captain who landed could never launch again.** The client set its mode to
+port on landing and nothing set it back: the server launches the hull and
+answers the intent, and there is no push to listen for. It survived because
+nothing exercised it — the verify harnesses fly the bot client, which has no
+screens, and the capture harness lands for a photograph and never leaves.
+`pnpm audio` is the first thing to fly a browser through a whole voyage, and
+it sat at the berth for thirty seconds waiting for a sky.
+
+**Three of the six shipped draughts could never leave the system they were
+built in.** Force Majeure, Short Measure and Close Order carried no
+propellant tank. They flew, fought and traded, and nothing on board could put
+it right. The survey refuses a design with no tank now, in the same class as
+one with no engine.
+
+**The ticket's first endorsement was never wired up.** `FlightView` had
+reported the hull under way since the card was built and `App` never passed
+the prop.
+
+**The jump and the arrival were both mapped and neither sounded.** The whump
+was fired from the flight loop when the spool ended, and a lane takes the
+hull by taking the room, so the view was gone before its own loop could see
+it end. The arrival read a system id that is empty until a room is attached.
+
+**The feedback table had a row for hovering a control and none for pressing
+one**, which the mapping test found on its first run.
+
+Two looks were caught in captures and are on the avoid list: a note pinned to
+a corner that lands on the instruments, and a note pinned to the top edge
+that covers the panel header of the thing it is explaining.
+
+### Known issues
+
+**The frame-rate budget is unverified.** It needs a machine with a GPU. The
+tool is in place and reports against the spec's scene; somebody has to run it
+somewhere that can answer.
+
+**The write-off capture is the one screen that will not photograph itself.**
+It needs a captain to actually be lost, which needs a gunner, a sky and two
+minutes of patience. Every other screen in the gallery is current.

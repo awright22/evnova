@@ -76,11 +76,18 @@ pnpm --filter @marque/shots exec playwright install chromium
 **Status: not blocking, but it is the one quality-bar item I cannot verify.**
 
 This container has no GPU. Chromium falls back to SwiftShader, which rasterises
-in software, so `pnpm perf` reports about 5 fps at 1080p and that number says
-nothing about the spec's budget of 60 fps on integrated graphics. Everything
-else in the budget I can measure: the simulation step costs 0.29 microseconds
-per ship, the server tick holds well inside 4 ms, and the client transfers
-about 420 kB.
+in software, so `pnpm perf` reports about 4 fps at 1080p and that number says
+nothing about the spec's budget of 60 fps on integrated graphics.
+
+Everything else in section 3's budget is measured and passes, most with an
+order of magnitude in hand (figures from 2026-11-20, in the M9 report):
+
+| Budget | Result |
+|---|---|
+| Server tick under 4 ms, 12 clients, a fight | 2.78 ms p99 |
+| No rubber-banding at 150 ms and 2% loss | 0 of 12 diverging, drift EMA 0.0000 |
+| Under 5 MB before the title screen | 1.56 MB, interactive in 249 ms |
+| Simulation step, 30 ships | 0.0073 ms mean, 0.24 µs a ship |
 
 When you have the repository on a machine with a GPU:
 
@@ -93,6 +100,17 @@ The report lands in `artifacts/perf/report.md` and names the renderer it used.
 If it says SwiftShader or llvmpipe, it ran in software again and the numbers
 should be ignored. Tell me what it reports and I will tune against real
 figures.
+
+Run it with enough traffic to reach the spec's scene, which is 30 ships, 300
+projectiles and 3,000 particles:
+
+```bash
+pnpm perf -- --ships 30 --bots 29 --seconds 20 --width 1920 --height 1080
+```
+
+The report says how close the capture actually got to that scene, so a run
+that holds 60 fps with six ships in the sky is not mistaken for one that
+meets the budget.
 
 The same applies to `pnpm verify`, which flies two browser clients: it passes
 here, but only at a small viewport, because two software-rendered clients
