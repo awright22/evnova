@@ -71,6 +71,13 @@ export interface FlightViewProps {
   /** The plotted system's in-world name, for the instruments. */
   readonly courseName: string | undefined;
   onLand: (portId: string) => void;
+  /**
+   * The captain has read what the loss cost and is ready for the berth the
+   * server already put them on.
+   */
+  onGoAshore: () => void;
+  /** This captain's own hull has just been written off. */
+  onLost: () => void;
   onOpenChart: () => void;
   /** Spool for the plotted course. False when nothing is plotted. */
   onJump: () => boolean;
@@ -108,6 +115,8 @@ export function FlightView({
   course,
   courseName,
   onLand,
+  onGoAshore,
+  onLost,
   onOpenChart,
   onJump,
   onCancelJump,
@@ -428,7 +437,11 @@ export function FlightView({
         }
       });
 
-      session.on('respawned', () => setWrittenOff(undefined));
+      // Deliberately not cleared here. `respawned` is the server saying the
+      // wreck is off the books and the captain is standing on a berth, which
+      // happens six seconds after the hull comes apart whether or not anyone
+      // has read the claim. The panel goes when the captain says it goes;
+      // `goAshore` releases the berth behind it at the same moment.
 
       // What the Hall actually settled, and what the hold actually cost.
       session.on('claim', (payload) => {
@@ -460,6 +473,9 @@ export function FlightView({
           // known straight away is where it happened and who did it.
           const killer = session!.shipViews().find((v) => v.id === event.killedBy);
           setWrittenOff({ system: system.name, by: killer?.callsign ?? '' });
+          // Hold the berth the respawn is about to put us on until the
+          // captain has read what the loss cost.
+          onLost();
         }
         const art = blueprints.get(event.blueprint);
         const size = art ? art.placements.length / 12 : 1;
@@ -926,7 +942,15 @@ export function FlightView({
   return (
     <div className="flight">
       <div ref={hostRef} className="flight__canvas" />
-      {writtenOff && <WrittenOffPanel event={writtenOff} />}
+      {writtenOff && (
+        <WrittenOffPanel
+          event={writtenOff}
+          onGoAshore={() => {
+            setWrittenOff(undefined);
+            onGoAshore();
+          }}
+        />
+      )}
       <Hint which="boarding" ready={prizeAlongside && writtenOff === undefined} />
       {failure === undefined ? (
         <Hud readout={readoutRef} radarRef={radarRef} />
@@ -975,7 +999,13 @@ interface WrittenOff {
  * cargo drops where the hull came apart, and the captain wakes at the last
  * berth they landed at.
  */
-function WrittenOffPanel({ event }: { event: WrittenOff }): React.JSX.Element {
+function WrittenOffPanel({
+  event,
+  onGoAshore,
+}: {
+  readonly event: WrittenOff;
+  readonly onGoAshore: () => void;
+}): React.JSX.Element {
   const settled = event.settled;
 
   return (
@@ -1021,6 +1051,14 @@ function WrittenOffPanel({ event }: { event: WrittenOff }): React.JSX.Element {
             ? 'You are being set down at the last berth you put in at.'
             : 'A starter hull is being brought up at the last berth you put in at.'}
         </p>
+        <button
+          type="button"
+          className="button button--primary flight__written-off-ashore"
+          onClick={onGoAshore}
+          autoFocus
+        >
+          Go ashore
+        </button>
       </div>
     </div>
   );

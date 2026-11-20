@@ -151,6 +151,23 @@
   overflow-y: auto;
 }
 
+/*
+ * A scroller whose content runs past its edge cut its last row in half, which
+ * reads as a layout fault rather than as more below. So the bottom edge fades
+ * — but only where there is in fact more there, which is the one thing the
+ * stylesheet cannot work out for itself: `overflow-y: auto` looks identical
+ * on a panel with forty rows and a panel with three. The element says so
+ * through `data-more`, and the fade follows the answer. Static, not animated:
+ * the avoid list rules out shimmer on things that are not moving.
+ *
+ * Bottom only. Every table here keeps a sticky header, which already covers
+ * the top edge with an opaque row; fading that would dim the thing holding
+ * the column names.
+ */
+.bourse__scroll[data-more='below'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
+}
+
 /* The book is the widest table here: it scrolls in its own panel, never the
    page. */
 .bourse__scroll--wide {

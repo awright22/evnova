@@ -631,6 +631,8 @@ function Game({
               // whether the hull is actually moving.
               onUnderWay={() => endorsed('fly')}
               onLand={(portId) => client.land(portId)}
+              onGoAshore={() => client.goAshore()}
+              onLost={() => client.markLost()}
               onOpenChart={() => setChartOpen(true)}
               onJump={() => client.jumpPlotted()}
               onCancelJump={() => client.cancelJump()}

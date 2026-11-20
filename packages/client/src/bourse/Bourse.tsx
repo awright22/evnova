@@ -43,6 +43,7 @@ import {
 // point. The Gazette is one; nothing else on this screen uses it.
 import '@fontsource/eb-garamond/latin-400.css';
 
+import { useScroller } from '../shell/scroller.ts';
 import { Stamp } from '../seal/Stamp.tsx';
 import { formatQuote, PriceChart } from './chart.tsx';
 import './bourse.css';
@@ -358,6 +359,13 @@ export function Bourse({
   onCancelOrder,
   onClose,
 }: BourseProps): React.JSX.Element {
+  // Each panel here scrolls, and each one cut its last row in half when its
+  // content ran past the edge. These say whether there is in fact more below,
+  // which is the one thing the stylesheet cannot work out for itself.
+  const listingsScroll = useScroller();
+  const bookScroll = useScroller();
+  const gazetteScroll = useScroller();
+  const registerScroll = useScroller();
   const floor = useRef<HTMLElement | null>(null);
   const [selected, setSelected] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; descending: boolean }>({
@@ -639,7 +647,7 @@ export function Bourse({
           </span>
         </header>
 
-        <div className="bourse__scroll">
+        <div className="bourse__scroll" ref={listingsScroll.ref} data-more={listingsScroll.more}>
           {listings.length === 0 ? (
             <p className="bourse__empty">
               The floor is quoting nothing. No company is listed here.
@@ -737,7 +745,11 @@ export function Bourse({
                 : `${holdings.length} ${holdings.length === 1 ? 'company' : 'companies'}`}
           </span>
         </header>
-        <div className="bourse__scroll bourse__scroll--wide">
+        <div
+          className="bourse__scroll bourse__scroll--wide"
+          ref={bookScroll.ref}
+          data-more={bookScroll.more}
+        >
           {/*
             Orders first: an order is a position the captain has taken that
             has not happened yet, and the thing they are most likely to have
@@ -778,7 +790,7 @@ export function Bourse({
           </div>
         </header>
 
-        <div className="bourse__scroll">
+        <div className="bourse__scroll" ref={gazetteScroll.ref} data-more={gazetteScroll.more}>
           {gazette.length === 0 ? (
             <p className="bourse__empty">
               {feed === 'company' && current
@@ -813,7 +825,7 @@ export function Bourse({
           <h2>the Register</h2>
           <span className="micro">By net worth</span>
         </header>
-        <div className="bourse__scroll">
+        <div className="bourse__scroll" ref={registerScroll.ref} data-more={registerScroll.more}>
           <Register standings={standings} />
         </div>
       </section>

@@ -51,6 +51,18 @@
   color: var(--text-secondary);
 }
 
+/*
+ * The only thing to do from here, so it sits apart from the reading and to
+ * the right, where every other panel in the game puts the action that closes
+ * it. The panel waits for this: the server has already settled the loss and
+ * stood the captain on a berth, and what is held is the view of it, so a
+ * captain can take as long over the figures as losing a ship deserves.
+ */
+.flight__written-off-ashore {
+  justify-self: end;
+  margin-top: var(--space-1);
+}
+
 @keyframes written-off-in {
   from {
     opacity: 0;

@@ -571,11 +571,11 @@ export const SCREENS: readonly Screen[] = [
     settleMs: 1500,
     bots: 2,
     knownMiss:
-      'it needs a captain to actually be lost. Twelve runs: a patrol holds '
-      + 'station and never comes looking; a bot gunner is in the room and '
-      + 'never finds its mark; a companion browser is in the sky and does '
-      + 'not finish the job inside four minutes. The panel itself is '
-      + 'verified by `pnpm verify:loss`. See docs/polish/cycle-1.md, M5.',
+      'it needs a captain to actually be lost, which takes a gunner, a mark '
+      + 'that cannot run and a fight that finishes inside the window. That '
+      + 'works now — see docs/polish/cycle-2.md — but it is still a live '
+      + 'fight between two browsers on a loaded box, so a slow run can miss '
+      + 'it. The server side of a loss is covered by `pnpm verify:loss`.',
     // A gunner of its own, and a mark that cannot run.
     //
     // Eleven runs to get here. A patrol hunts a posted captain by rule but

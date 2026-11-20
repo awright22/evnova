@@ -243,6 +243,12 @@ export interface GameSnapshot {
   readonly commissions: CommissionState | undefined;
   /** Who this captain sails with, and where they all are. */
   readonly convoy: ConvoyState | undefined;
+  /**
+   * Set from the moment this captain's hull is written off until they say
+   * they have read what it cost. While it is true the shore is held: see
+   * `goAshore`.
+   */
+  readonly lost: boolean;
   /** Offers open either way, and who else is at this counter. */
   readonly offers: OffersState | undefined;
   /** The last word from a Factor about a commission, for the hub to show. */
@@ -327,6 +333,70 @@ export class GameClient {
     return httpBaseFrom(this.serverUrl);
   }
 
+  /**
+   * A captain reading what their loss cost, and where they go when they are
+   * done reading it.
+   *
+   * The server settles a write-off on its own clock: six seconds after the
+   * hull comes apart it takes the wreck off the books and stands the captain
+   * on their last berth. That is right for the world and wrong for the
+   * person, who has just lost their ship and gets five seconds with the one
+   * screen that says what it cost before a berth they did not walk into
+   * replaces it. Nothing about the loss is in doubt by then — it is settled,
+   * paid and persisted — so what is held back here is only the view of it.
+   * `goAshore` lets it through.
+   */
+  private lost = false;
+  private shore: { kind: 'port'; portId: string } | { kind: 'jump'; system: string } | undefined;
+
+  /**
+   * This captain's hull has been written off.
+   *
+   * Told rather than listened for: the SDK keeps one handler per message
+   * type, so a second `onMessage('written-off')` here would simply replace
+   * the flight view's — which needs the same message to put an explosion
+   * where every hull came apart, not just this one. Registering both looked
+   * right and did nothing.
+   */
+  markLost(): void {
+    if (this.lost) return;
+    this.lost = true;
+    this.shore = undefined;
+    this.emit();
+  }
+
+  /**
+   * Done reading. Go wherever the loss already put us.
+   *
+   * Safe to call when nothing is held: a captain who never lost a hull has
+   * no shore waiting, and the panel is the only thing that calls it.
+   */
+  goAshore(): void {
+    if (!this.lost) return;
+    this.lost = false;
+    const next = this.shore;
+    this.shore = undefined;
+
+    if (!next) {
+      // Written off and the shore has not arrived yet — the respawn is still
+      // a moment away. Clearing the hold is enough: whichever message comes
+      // next is no longer deferred.
+      this.emit();
+      return;
+    }
+
+    if (next.kind === 'port') {
+      this.mode = { kind: 'port', portId: next.portId };
+      this.notice = undefined;
+      this.emit();
+      return;
+    }
+
+    this.mode = { kind: 'jumping', to: next.system };
+    this.emit();
+    void this.transferTo(next.system);
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     listener(this.snapshot());
@@ -336,6 +406,7 @@ export class GameClient {
   snapshot(): GameSnapshot {
     return {
       mode: this.mode,
+      lost: this.lost,
       room: this.room,
       systemId: this.systemId,
       purse: this.purse,
@@ -515,6 +586,14 @@ export class GameClient {
 
     room.onMessage('landed', (payload) => {
       const event = payload as { port: string };
+      // Held, not dropped: the captain is already ashore as far as the world
+      // is concerned, and this is where they will be standing when they close
+      // the panel.
+      if (this.lost) {
+        this.shore = { kind: 'port', portId: event.port };
+        this.emit();
+        return;
+      }
       this.mode = { kind: 'port', portId: event.port };
       this.notice = undefined;
       this.emit();
@@ -522,6 +601,14 @@ export class GameClient {
 
     room.onMessage('jump-complete', (payload) => {
       const event = payload as { system: string };
+      // A captain whose last berth was in another system wakes there, and the
+      // respawn says so with this rather than with `landed`. Held the same
+      // way, or the room changes under the panel and takes it with it.
+      if (this.lost) {
+        this.shore = { kind: 'jump', system: event.system };
+        this.emit();
+        return;
+      }
       this.mode = { kind: 'jumping', to: event.system };
       this.emit();
       void this.transferTo(event.system);
