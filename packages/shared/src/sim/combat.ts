@@ -25,6 +25,17 @@ export const PROJECTILE_KIND = {
   gun: 0,
   turret: 1,
   missile: 2,
+  /**
+   * A beam, which is not a projectile at all.
+   *
+   * It is in this list because the client's art is keyed off it and because
+   * a mount has to be one kind of thing. Nothing of this kind is ever put in
+   * the projectile list: a beam is its own wire state, since it has no
+   * flight to reckon forward and a length that changes every tick.
+   */
+  beam: 3,
+  /** Point defense, which fires at rounds rather than at hulls. */
+  defense: 4,
 } as const;
 
 export type ProjectileKind = (typeof PROJECTILE_KIND)[keyof typeof PROJECTILE_KIND];
@@ -324,7 +335,11 @@ export function mountsOf(modules: readonly PlacedModule[]): Mount[] {
         ? PROJECTILE_KIND.missile
         : module.def.type === 'turret'
           ? PROJECTILE_KIND.turret
-          : PROJECTILE_KIND.gun;
+          : module.def.type === 'beam'
+            ? PROJECTILE_KIND.beam
+            : module.def.type === 'defense'
+              ? PROJECTILE_KIND.defense
+              : PROJECTILE_KIND.gun;
 
     // Rounds leave from the forward face of the mount.
     mounts.push({

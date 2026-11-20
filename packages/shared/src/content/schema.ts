@@ -39,6 +39,8 @@ export const ModuleType = z.enum([
   'weapon',
   'turret',
   'rack',
+  'beam',
+  'defense',
   'cargo',
   'tank',
 ]);
@@ -49,12 +51,18 @@ const Footprint = z.object({
   height: z.int().min(1).max(8),
 });
 
-/** What a weapon module does. Only weapon, turret and rack modules carry one. */
+/**
+ * What a weapon module does.
+ *
+ * Only weapon, turret, rack, beam and defense modules carry one. A beam
+ * reads `damage` as damage a *second* rather than a round, because it is on
+ * the mark continuously; everything else reads it per round.
+ */
 export const WeaponDef = z.object({
-  /** Damage per round, before shields. */
+  /** Damage per round, before shields. Per second for a beam. */
   damage: z.number().positive(),
   roundsPerSecond: z.number().positive(),
-  /** Muzzle velocity in units per second. */
+  /** Muzzle velocity in units per second. Ignored by a beam, which arrives. */
   projectileSpeed: z.number().positive(),
   /** Maximum distance a round travels before it expires. */
   range: z.number().positive(),
@@ -131,8 +139,18 @@ export const ModuleDef = z
     path: ['power', 'output'],
   })
   .refine(
-    (m) => (m.type === 'weapon' || m.type === 'turret' || m.type === 'rack') === (m.weapon !== undefined),
-    { message: 'only weapons, turrets and racks declare weapon stats, and all of them must', path: ['weapon'] },
+    (m) =>
+      (m.type === 'weapon' ||
+        m.type === 'turret' ||
+        m.type === 'rack' ||
+        m.type === 'beam' ||
+        m.type === 'defense') === (m.weapon !== undefined),
+    {
+      message:
+        'only weapons, turrets, racks, beams and point defense declare weapon stats, ' +
+        'and all of them must',
+      path: ['weapon'],
+    },
   )
   .refine((m) => m.type !== 'turret' || m.weapon?.arc !== undefined, {
     message: 'a turret must declare the arc it can traverse',
@@ -141,6 +159,18 @@ export const ModuleDef = z
   .refine((m) => m.type !== 'rack' || m.weapon?.homing !== undefined, {
     message: 'a missile rack must declare its rounds\' homing rate',
     path: ['weapon', 'homing'],
+  })
+  .refine((m) => m.weapon?.ammoPerShot === undefined || m.type === 'rack', {
+    message: 'only a missile rack consumes Ordnance to fire',
+    path: ['weapon', 'ammoPerShot'],
+  })
+  .refine((m) => m.type !== 'defense' || m.weapon?.arc !== undefined, {
+    message: 'point defense must declare the arc it covers',
+    path: ['weapon', 'arc'],
+  })
+  .refine((m) => m.type !== 'beam' || (m.power.draw ?? 0) > 0, {
+    message: 'a beam runs on power and must declare its draw',
+    path: ['power', 'draw'],
   });
 export type ModuleDef = z.infer<typeof ModuleDef>;
 

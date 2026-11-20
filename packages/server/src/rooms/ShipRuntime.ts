@@ -182,6 +182,19 @@ export class ShipRuntime {
     return true;
   }
 
+  /**
+   * Give a mount its cooldown back.
+   *
+   * Point defense asks whether it may fire before it knows whether there is
+   * anything to fire at, because the cheap question comes first: a hull with
+   * four of them and nothing incoming would otherwise walk every round in
+   * the sky looking for a mark four times a step. A mount that found nothing
+   * is a mount that has not fired.
+   */
+  unfire(mountIndex: number): void {
+    this.readyAt[mountIndex] = 0;
+  }
+
   get writtenOff(): boolean {
     return isWrittenOff(this.modules, this.hp, this.tuning);
   }

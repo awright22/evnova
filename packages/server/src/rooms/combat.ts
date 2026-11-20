@@ -12,6 +12,7 @@
  */
 
 import {
+  BeamState,
   PROJECTILE_KIND,
   ProjectileState,
   CanisterState,
@@ -24,6 +25,7 @@ import {
   muzzleOf,
   steerMissile,
   sweepHit,
+  type HitResult,
   type Mount,
   type Pose,
   type ShipState,
@@ -128,11 +130,207 @@ export class CombatSystem {
     if (!primary && !secondary) return;
 
     runtime.mounts.forEach((mount, mountIndex) => {
+      // A beam is held rather than fired: it has no cooldown and no round,
+      // and it is dealt with where its damage is applied, every step.
+      if (mount.kind === PROJECTILE_KIND.beam || mount.kind === PROJECTILE_KIND.defense) return;
+
       const isMissile = mount.kind === PROJECTILE_KIND.missile;
       if (isMissile ? !secondary : !primary) return;
       if (!runtime.tryFire(mountIndex, now)) return;
       this.spawnRound(shooterId, ship, mount, pose, target, now, runtime.turretAim[mountIndex]);
     });
+  }
+
+  /**
+   * Hold every beam on whatever it can reach, for one step.
+   *
+   * A beam is not a round: it arrives, so there is nothing to reckon forward
+   * and nothing to miss with. What it does instead is apply its damage a
+   * fraction at a time, which makes it the opposite trade to a gun — no
+   * leading and no travel time, in exchange for having to stay pointed at
+   * something while it works.
+   *
+   * Called once per hull per step, after the flight step, like `fire`.
+   */
+  holdBeams(
+    shooterId: string,
+    ship: ShipState,
+    runtime: ShipRuntime,
+    firing: boolean,
+    dt: number,
+  ): void {
+    const pose: Pose = { x: ship.x, y: ship.y, angle: ship.angle };
+    const alive = ship.destroyedAt === 0;
+
+    runtime.mounts.forEach((mount, mountIndex) => {
+      if (mount.kind !== PROJECTILE_KIND.beam) return;
+      const weapon = mount.def.weapon;
+      const key = `${shooterId}:${mountIndex}`;
+
+      // A disabled mount does not fire, and neither does a wreck.
+      const broken = (runtime.hp[mount.moduleIndex] ?? 0) <= 0;
+      if (!weapon || !firing || !alive || broken) {
+        if (this.world.state.beams.has(key)) this.world.state.beams.delete(key);
+        return;
+      }
+
+      const muzzle = muzzleOf(mount, pose);
+      const aim = pose.angle + (runtime.turretAim[mountIndex] ?? 0);
+      const reachX = muzzle.x + Math.cos(aim) * weapon.range;
+      const reachY = muzzle.y + Math.sin(aim) * weapon.range;
+
+      // The first hull along the line, which is what stops it.
+      let struck:
+        | { id: string; ship: ShipState; runtime: ShipRuntime; hit: HitResult }
+        | undefined;
+      for (const [id, other] of this.world.state.ships) {
+        if (id === shooterId || other.destroyedAt > 0) continue;
+        if (other.protectedUntil > this.world.now()) continue;
+        const theirs = this.world.runtimeOf(id);
+        if (!theirs) continue;
+
+        const hit = sweepHit(
+          theirs.shape,
+          { x: other.x, y: other.y, angle: other.angle },
+          muzzle.x,
+          muzzle.y,
+          reachX,
+          reachY,
+        );
+        if (!hit) continue;
+        if (!struck || hit.t < struck.hit.t) {
+          struck = { id, ship: other, runtime: theirs, hit };
+        }
+      }
+
+      const length = struck ? weapon.range * struck.hit.t : weapon.range;
+
+      let entry = this.world.state.beams.get(key);
+      if (!entry) {
+        entry = new BeamState();
+        entry.owner = shooterId;
+        entry.mount = mountIndex;
+        this.world.state.beams.set(key, entry);
+      }
+      entry.angle = aim;
+      entry.length = length;
+      entry.hitting = struck !== undefined;
+
+      if (!struck) return;
+
+      // Damage a second, taken a step at a time. A beam that killed in one
+      // step would be a gun with no travel time, which is not a trade.
+      this.applyBeamDamage(struck.id, struck.ship, struck.runtime, {
+        owner: shooterId,
+        damage: weapon.damage * dt,
+        moduleIndex: struck.hit.moduleIndex,
+        x: struck.hit.worldX,
+        y: struck.hit.worldY,
+      });
+    });
+  }
+
+  /** Take every beam this hull was holding off the wire. */
+  dropBeams(shooterId: string, runtime: ShipRuntime): void {
+    runtime.mounts.forEach((mount, mountIndex) => {
+      if (mount.kind !== PROJECTILE_KIND.beam) return;
+      this.world.state.beams.delete(`${shooterId}:${mountIndex}`);
+    });
+  }
+
+  /**
+   * Point defense: shoot down what is coming in.
+   *
+   * It picks its own marks — rounds, not hulls — and fires on its own
+   * cadence whether or not the captain is doing anything. That is the whole
+   * of it: a hull with it fitted is harder to hit with a rack, and a captain
+   * who fits it has given up a mount that could have been shooting back.
+   */
+  defend(ownerId: string, ship: ShipState, runtime: ShipRuntime): void {
+    if (ship.destroyedAt > 0) return;
+    const now = this.world.now();
+    const pose: Pose = { x: ship.x, y: ship.y, angle: ship.angle };
+
+    runtime.mounts.forEach((mount, mountIndex) => {
+      if (mount.kind !== PROJECTILE_KIND.defense) return;
+      const weapon = mount.def.weapon;
+      if (!weapon) return;
+      if ((runtime.hp[mount.moduleIndex] ?? 0) <= 0) return;
+      if (!runtime.tryFire(mountIndex, now)) return;
+
+      const muzzle = muzzleOf(mount, pose);
+      const arc = weapon.arc ?? Math.PI;
+
+      // The nearest round in reach that is somebody else's and is actually
+      // coming this way. A round already past is not a threat.
+      let best: Round | undefined;
+      let bestRange = weapon.range;
+      for (const round of this.rounds.values()) {
+        if (round.owner === ownerId) continue;
+        const dx = round.x - muzzle.x;
+        const dy = round.y - muzzle.y;
+        const range = Math.hypot(dx, dy);
+        if (range > bestRange) continue;
+        if (Math.abs(wrapAngle(Math.atan2(dy, dx) - pose.angle)) > arc) continue;
+        // Closing, not receding.
+        if ((round.vx - ship.vx) * dx + (round.vy - ship.vy) * dy >= 0) continue;
+        best = round;
+        bestRange = range;
+      }
+
+      if (!best) {
+        // Nothing to shoot: give the cooldown back, so a mount is not kept
+        // warm by a sky with nothing in it.
+        runtime.unfire(mountIndex);
+        return;
+      }
+
+      this.world.onImpact({
+        x: best.x,
+        y: best.y,
+        shielded: false,
+        targetId: '',
+        shooterId: ownerId,
+        kind: PROJECTILE_KIND.defense,
+        disabled: false,
+        damageDealt: 0,
+      });
+      this.retire(best.id);
+    });
+  }
+
+  /** One step of a beam's damage, which is a hit like any other. */
+  private applyBeamDamage(
+    targetId: string,
+    ship: ShipState,
+    runtime: ShipRuntime,
+    beam: { owner: string; damage: number; moduleIndex: number; x: number; y: number },
+  ): void {
+    const outcome = applyDamage(beam.damage, ship.shield, runtime.hp[beam.moduleIndex] ?? 0);
+
+    ship.shield = Math.max(0, ship.shield - outcome.toShield);
+    runtime.lastHitAt = this.world.now();
+
+    let disabled = false;
+    if (outcome.toModule > 0) {
+      disabled = runtime.damageModule(beam.moduleIndex, outcome.toModule);
+      ship.moduleHp[beam.moduleIndex] = Math.max(0, Math.round(runtime.hp[beam.moduleIndex] ?? 0));
+    }
+
+    this.world.onImpact({
+      x: beam.x,
+      y: beam.y,
+      shielded: outcome.toModule === 0,
+      targetId,
+      shooterId: beam.owner,
+      kind: PROJECTILE_KIND.beam,
+      disabled,
+      damageDealt: outcome.toShield + outcome.toModule,
+    });
+
+    if (runtime.writtenOff && ship.destroyedAt === 0) {
+      this.world.onWrittenOff(targetId, beam.owner);
+    }
   }
 
   /**
@@ -362,6 +560,12 @@ export class CombatSystem {
   retireRoundsOf(ownerId: string): void {
     for (const round of [...this.rounds.values()]) {
       if (round.owner === ownerId) this.retire(round.id);
+    }
+    // And anything it was holding on something, which has no owner left.
+    for (const key of [...this.world.state.beams.keys()]) {
+      if (this.world.state.beams.get(key)?.owner === ownerId) {
+        this.world.state.beams.delete(key);
+      }
     }
   }
 

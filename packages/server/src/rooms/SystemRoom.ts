@@ -325,6 +325,8 @@ export class SystemRoom extends Room<{
   private patrolTarget = 0;
   /** Company freighters on the lane here, from the system's own traffic. */
   private freighterTarget = 0;
+  /** True once the room is going, so deferred work knows not to run. */
+  private closing = false;
 
   /**
    * What each freighter is carrying.
@@ -1529,6 +1531,9 @@ export class SystemRoom extends Room<{
   }
 
   override onDispose(): void {
+    // Anything queued for after a step is dropped: the room it was for is
+    // going, and running it would reach into a world that has moved on.
+    this.closing = true;
     liveRooms.delete(this);
     this.unregisterMetrics?.();
     this.unregisterMetrics = undefined;
@@ -2178,6 +2183,29 @@ export class SystemRoom extends Room<{
 
   // --- The step -----------------------------------------------------------
 
+  /**
+   * Run something once the step is over.
+   *
+   * Spec section 3 budgets the tick, and the budget is for the simulation:
+   * flight, combat, and the state that goes on the wire. A berth's
+   * paperwork is neither, and it is heavy — a transaction and a dozen
+   * queries — so it waits for the step to finish and the patch to go out.
+   *
+   * `setImmediate` rather than a microtask, which would still be this turn:
+   * the point is to be after the tick, not merely after the function.
+   */
+  private afterStep(work: () => void): void {
+    setImmediate(() => {
+      if (this.closing) return;
+      try {
+        work();
+      } catch (error) {
+        console.error(`[${this.roomId}] work after a step failed:`, error);
+      }
+    });
+  }
+
+
   private step(ctx: StepContext): void {
     const startedAt = performance.now();
     const now = this.clock.elapsedTime;
@@ -2190,7 +2218,9 @@ export class SystemRoom extends Room<{
       if (!runtime) continue;
 
       if (ship.destroyedAt > 0) {
-        // A wreck keeps its momentum for a moment, then is cleared.
+        // A wreck keeps its momentum for a moment, then is cleared. Whatever
+        // it was holding a beam on, it is not holding it any more.
+        this.combat.dropBeams(id, runtime);
         ship.x += ship.vx * ctx.dt;
         ship.y += ship.vy * ctx.dt;
         if (now - ship.destroyedAt > WRECK_LINGER_MS) this.removeHull(id);
@@ -2203,6 +2233,9 @@ export class SystemRoom extends Room<{
       stepFlight(ship, command, runtime.profile, ctx);
       this.advanceTravel(id, ship, runtime, ctx.dt);
       this.combat.fire(id, ship, runtime, command.firePrimary, command.fireSecondary, ctx.dt);
+      // A beam is held rather than fired, and point defense fires itself.
+      this.combat.holdBeams(id, ship, runtime, command.firePrimary, ctx.dt);
+      this.combat.defend(id, ship, runtime);
       this.regenerateShield(ship, runtime, ctx.dt, now);
     }
 
@@ -2356,26 +2389,6 @@ export class SystemRoom extends Room<{
     const port = this.system?.ports.find((candidate) => candidate.id === portId);
 
     if (pilot && port) {
-      // A landing fee applies per visit. It is small, and it is the first
-      // thing in the game that takes marks off a captain.
-      const fee = content().tuning.ports.landingFee;
-      if (fee > 0) {
-        try {
-          world().ledger.post(
-            {
-              accountId: pilot.accountId,
-              delta: -fee,
-              category: 'landing-fee',
-              reason: `Landing fee at ${port.name}`,
-            },
-            pilot,
-          );
-        } catch {
-          // A captain too poor for the fee still lands: being stranded in
-          // space with no marks is not a state worth creating.
-        }
-      }
-
       pilot.landedPortId = portId;
       pilot.x = port.x;
       pilot.y = port.y;
@@ -2388,17 +2401,7 @@ export class SystemRoom extends Room<{
       world().pilots.touch(pilot.accountId);
     }
 
-    this.sendPurse(sessionId);
     this.clients.get(sessionId)?.send('landed', { port: portId });
-
-    // What the berth is trading, so the terminal opens on real prices rather
-    // than on a screen that has to ask for them.
-    const berth = this.system?.ports.find((candidate) => candidate.id === portId);
-    if (berth) this.sendStaple(sessionId, berth);
-    this.sendYard(sessionId);
-    this.sendBourse(sessionId);
-    this.sendStanding(sessionId);
-    this.settleOnLanding(sessionId, portId);
 
     // A landed hull leaves the simulation and cannot be attacked. The
     // captain does not leave the room: they are standing on the berth, and
@@ -2407,6 +2410,57 @@ export class SystemRoom extends Room<{
     // them meant the room no longer knew whose berth it was, and refused all
     // of it with "you do not own that".
     this.removeHull(sessionId);
+
+    // Everything else a landing sets off — the fee, the commissions it
+    // settles, and the eight screens' worth of state a berth opens on —
+    // happens after the step rather than inside it. A berth's paperwork is
+    // a dozen queries and a transaction, and doing it in the middle of the
+    // flight loop put a six-to-twenty-millisecond hole in the tick every
+    // time a captain came alongside: with eight of them landing constantly,
+    // that was the whole of the p99.
+    this.afterStep(() => {
+      this.chargeLandingFee(sessionId, portId);
+      this.sendPurse(sessionId);
+
+      // What the berth is trading, so the terminal opens on real prices
+      // rather than on a screen that has to ask for them.
+      const berth = this.system?.ports.find((candidate) => candidate.id === portId);
+      if (berth) this.sendStaple(sessionId, berth);
+      this.sendYard(sessionId);
+      this.sendBourse(sessionId);
+      this.sendStanding(sessionId);
+      this.settleOnLanding(sessionId, portId);
+    });
+  }
+
+  /**
+   * A landing fee, per visit.
+   *
+   * The first thing in the game that takes marks off a captain. A captain
+   * too poor for it still lands: being stranded in space with no marks is
+   * not a state worth creating.
+   */
+  private chargeLandingFee(sessionId: string, portId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    const port = this.system?.ports.find((candidate) => candidate.id === portId);
+    if (!pilot || !port) return;
+
+    const fee = content().tuning.ports.landingFee;
+    if (fee <= 0) return;
+
+    try {
+      world().ledger.post(
+        {
+          accountId: pilot.accountId,
+          delta: -fee,
+          category: 'landing-fee',
+          reason: `Landing fee at ${port.name}`,
+        },
+        pilot,
+      );
+    } catch {
+      // Too poor for the fee. They land anyway.
+    }
   }
 
   /** Shields recover after a delay without being hit. */

@@ -115,6 +115,31 @@ export const ProjectileState = schema(
 );
 export type ProjectileState = SchemaType<typeof ProjectileState>;
 
+/**
+ * A beam being held on something.
+ *
+ * Not a projectile: there is no flight to reckon forward, and the length
+ * changes every tick as the mark moves. One entry per firing mount, added
+ * when the trigger goes down and removed when it comes up, with its angle
+ * and reach patched while it is there.
+ */
+export const BeamState = schema(
+  {
+    /** The hull it comes from, so the client draws it off that hull's muzzle. */
+    owner: t.string().default(''),
+    /** Which mount on that hull, so two beams do not come out of one place. */
+    mount: t.uint8().default(0),
+    /** Where it points, in world radians. */
+    angle: t.float32().default(0),
+    /** How far it reaches before it stops: its range, or whatever it hit. */
+    length: t.float32().default(0),
+    /** True while it is actually on something, for the impact end of it. */
+    hitting: t.boolean().default(false),
+  },
+  'BeamState',
+);
+export type BeamState = SchemaType<typeof BeamState>;
+
 /** Cargo spilled by a written-off hull, which anyone can scoop. */
 export const CanisterState = schema(
   {
@@ -139,6 +164,7 @@ export const SystemState = schema(
     tick: t.uint32().default(0),
     ships: t.map(ShipState),
     projectiles: t.map(ProjectileState),
+    beams: t.map(BeamState),
     canisters: t.map(CanisterState),
   },
   'SystemState',
