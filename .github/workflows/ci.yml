@@ -124,9 +124,16 @@ jobs:
 
       # Two real browser clients against one server, held to the network-feel
       # targets: each predicts its own hull without diverging and sees the
-      # other move. Runs at a small viewport because CI has no GPU and two
-      # starved frame loops read as divergence that says nothing about the
-      # network.
+      # other move. The default 640x360 viewport is already the small one —
+      # this comment used to claim a flag it did not pass.
+      #
+      # A runner gives two Chromium instances, a server and a dev preview two
+      # shared cores and no GPU, and measures a 600ms round trip across a
+      # 300ms link. The check reports NOT JUDGED rather than failing when the
+      # machine adds more delay than the link it was asked to test; the step
+      # still fails on everything that is not frame-rate-bound. Prediction
+      # under latency is proven without a renderer by the soak in the job
+      # below, which passes here.
       - name: Fly two browser clients
         run: pnpm verify -- --latency 150 --seconds 12
 

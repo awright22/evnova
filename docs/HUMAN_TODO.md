@@ -112,9 +112,20 @@ The report says how close the capture actually got to that scene, so a run
 that holds 60 fps with six ships in the sky is not mistaken for one that
 meets the budget.
 
-The same applies to `pnpm verify`, which flies two browser clients: it passes
-here, but only at a small viewport, because two software-rendered clients
-starve each other's frame loops.
+The same applies to `pnpm verify`, which flies two browser clients. It passes
+here at its default 640x360 viewport — 17 fps, a 350ms round trip across a
+300ms link, and a correction EMA of zero — but a GitHub runner, with two
+shared cores for two Chromium instances plus a server and a preview,
+measures 463ms and 604ms and reads as diverging. The check now says NOT
+JUDGED and exits clean when the machine adds more delay than the link it was
+asked to test, rather than blaming the netcode for the renderer. On a machine
+with a GPU it will judge it properly:
+
+```bash
+pnpm verify -- --latency 150 --seconds 12
+```
+
+Tell me what it says and I will act on a real verdict.
 
 ---
 
