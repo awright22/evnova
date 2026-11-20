@@ -254,3 +254,60 @@ export function freighterPilot(id: string, seed: string): NpcPilot {
     },
   };
 }
+
+// --- Who they are --------------------------------------------------------
+//
+// The name banks live here rather than in the room because they are part of
+// what an NPC *is*, and because the commission board needs the Unlettered's
+// names too: a bounty is posted on somebody by name.
+
+/** Unlettered hulls carry no registry, so they go by what crews call them. */
+export const RAIDER_NAMES = [
+  'Nothing Owed',
+  'Short Measure',
+  'Bad Debt',
+  'Writ Large',
+  'Unlettered',
+  'No Fixed Berth',
+  'Quiet Settlement',
+  'Past Due',
+] as const;
+/**
+ * What the Prize Court calls its hulls: the same legal register as any other
+ * ship's name, read flatter.
+ */
+export const PATROL_NAMES = [
+  'Due Process',
+  'Strict Liability',
+  'Burden of Proof',
+  'Letter and Spirit',
+  'Without Notice',
+  'On the Record',
+  'Lawful Order',
+  'Good Faith',
+] as const;
+/**
+ * Company freighters, named the way a company names a hull it will never see:
+ * after the clause that pays for it.
+ */
+export const FREIGHTER_NAMES = [
+  'Net of Fees',
+  'Third Dividend',
+  'Errors and Omissions',
+  'Carriage Paid',
+  'Free on Board',
+  'Clean Bill',
+  'In Ballast',
+  'Laid Up',
+  'Running Days',
+  'Ullage and Tare',
+] as const;
+export function raiderName(rng: Rng): string {
+  return rng.pick(RAIDER_NAMES);
+}
+export function patrolName(rng: Rng): string {
+  return rng.pick(PATROL_NAMES);
+}
+export function freighterName(rng: Rng): string {
+  return rng.pick(FREIGHTER_NAMES);
+}

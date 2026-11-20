@@ -514,6 +514,111 @@ export const CompanyDef = z.object({
 });
 export type CompanyDef = z.infer<typeof CompanyDef>;
 
+/**
+ * What a commission asks of a captain.
+ *
+ * Five kinds, from spec section 11. Each names what has to happen for the
+ * commission to be answered; the text and the numbers around it are the
+ * template's.
+ */
+export const CommissionKind = z.enum([
+  /** Carry a parcel of goods to a named berth before a deadline. */
+  'delivery',
+  /** Carry people, who take hold space and do not like being shot at. */
+  'passengers',
+  /** Destroy a named Unlettered captain, who is out there somewhere. */
+  'bounty',
+  /** See a company freighter safely out of a system. */
+  'escort',
+  /** Carry a monopoly good into the Home Roads without being caught. */
+  'smuggling',
+]);
+export type CommissionKind = z.infer<typeof CommissionKind>;
+
+export const CommissionTemplate = z.object({
+  id: z.string().min(1),
+  kind: CommissionKind,
+  /** Which charter posts it, or absent for one any berth may offer. */
+  charter: z.enum(['kessler', 'thirty', 'reprisal']).optional(),
+  /** The least standing with the poster that sees this offered at all. */
+  requiresStanding: z.number().default(0),
+  /** Headline on the board, with {placeholders} the engine fills. */
+  title: z.string().min(1),
+  /** The Factor's own words, same placeholders. */
+  brief: z.string().min(1),
+  /** What is said when it is answered, and when it is not. */
+  onDone: z.string().min(1),
+  onFailed: z.string().min(1),
+  /** Marks paid, before the per-jump and per-unit parts below. */
+  basePay: z.int().nonnegative(),
+  perJump: z.int().nonnegative().default(0),
+  perUnit: z.int().nonnegative().default(0),
+  /** Hours of world time allowed, or 0 for a commission with no deadline. */
+  hours: z.number().nonnegative().default(0),
+  /** Units carried, as a range the engine picks from. */
+  units: z.tuple([z.int().nonnegative(), z.int().nonnegative()]).default([0, 0]),
+  /** Goods this template will ask for, or empty for the engine to choose. */
+  commodities: z.array(CommodityId).default([]),
+  /** Standing the poster gains when it is answered. */
+  standing: z.number().default(0),
+});
+export type CommissionTemplate = z.infer<typeof CommissionTemplate>;
+
+/**
+ * One beat of a hand-written chain.
+ *
+ * A chain is a sequence of these, run in order, each a commission in its own
+ * right. Spec section 19 gives the three plots; the beats are where they are
+ * actually told.
+ */
+export const ChainStep = z.object({
+  kind: CommissionKind,
+  title: z.string().min(1),
+  brief: z.string().min(1),
+  onDone: z.string().min(1),
+  onFailed: z.string().min(1),
+  basePay: z.int().nonnegative(),
+  hours: z.number().nonnegative().default(0),
+  units: z.int().nonnegative().default(0),
+  commodity: CommodityId.optional(),
+  /** Where it must be answered, when the plot names a place. */
+  toPort: z.string().optional(),
+  toSystem: z.string().optional(),
+});
+export type ChainStep = z.infer<typeof ChainStep>;
+
+export const ChainDef = z.object({
+  id: z.string().min(1),
+  charter: z.enum(['kessler', 'thirty', 'reprisal']),
+  name: z.string().min(1),
+  /** The premise, as the Factor puts it when the first beat is offered. */
+  premise: z.string().min(1),
+  requiresStanding: z.number().default(0),
+  steps: z.array(ChainStep).min(5).max(7),
+  /** The two endings, and what each is worth. */
+  endings: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        choice: z.string().min(1),
+        text: z.string().min(1),
+        pay: z.int().nonnegative(),
+        /** Standing with the issuer, and with the other two. */
+        standing: z.number(),
+        rivalStanding: z.number().default(0),
+        /** The line the Gazette runs. */
+        headline: z.string().min(1),
+      }),
+    )
+    .length(2),
+});
+export type ChainDef = z.infer<typeof ChainDef>;
+
+export const CommissionBook = z.object({
+  templates: z.array(CommissionTemplate).min(1),
+  chains: z.array(ChainDef).min(1),
+});
+
 export const CompanyRegister = z.object({
   companies: z.array(CompanyDef).min(1),
 });

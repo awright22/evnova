@@ -19,6 +19,7 @@ import { config } from '../config.ts';
 import { openStore, type Store } from '../db/index.ts';
 import { ChatLog } from './ChatLog.ts';
 import { Exchange } from './Exchange.ts';
+import { Commissions } from './Commissions.ts';
 import { Standings } from './Standings.ts';
 import { Gazette } from './Gazette.ts';
 import { Ledger } from './Ledger.ts';
@@ -67,6 +68,7 @@ export class World {
   readonly yard: Yard;
   readonly exchange: Exchange;
   readonly standings: Standings;
+  readonly commissions: Commissions;
   readonly gazette = new Gazette();
   readonly chat = new ChatLog();
 
@@ -104,6 +106,7 @@ export class World {
     this.yard = new Yard(this.store, this.ledger, this.market);
     this.standings = new Standings(this.store);
     this.exchange = new Exchange(this.store, this.ledger);
+    this.commissions = new Commissions(this.store, this.ledger, this.standings);
     // The Staple and the Yard credit companies for what actually leaves a
     // stockpile and what is actually spent on fittings, so they need the
     // Bourse. Set after construction because the Exchange needs the ledger,

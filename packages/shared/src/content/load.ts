@@ -20,11 +20,14 @@ import type {
   LicenceDef} from './schema.ts';
 import {
   BlueprintLibrary,
+  CommissionBook,
   CommodityCatalogue,
   CompanyRegister,
   ModuleCatalogue,
   SystemLibrary,
   Tuning,
+  type ChainDef,
+  type CommissionTemplate,
   type CommodityDef,
   type CompanyDef,
   type LicenceId,
@@ -41,6 +44,8 @@ export interface Content {
   readonly commodities: ReadonlyMap<string, CommodityDef>;
   /** The listed companies, by ticker. */
   readonly companies: ReadonlyMap<string, CompanyDef>;
+  /** Commission templates and the three hand-written chains. */
+  readonly commissions: { templates: CommissionTemplate[]; chains: ChainDef[] };
 }
 
 /**
@@ -184,7 +189,53 @@ export function loadContent(): Content {
     companies.set(company.ticker, company);
   }
 
-  return { tuning, modules, blueprints, licences, systems, commodities, companies };
+  // TEMPORARY: the commission book is being authored. This reads an empty
+  // one so the engine around it compiles and can be tested; the import of
+  // `data/commissions.json` replaces this the moment the file lands, and the
+  // validation below is already written against the real thing.
+  const commissions: { templates: CommissionTemplate[]; chains: ChainDef[] } = {
+    templates: [],
+    chains: [],
+  };
+  void CommissionBook;
+
+  // Every place a commission names has to exist, or a captain is sent
+  // somewhere there is nothing. Checked at startup rather than discovered by
+  // a player who flew four jumps to an empty lane.
+  for (const chain of commissions.chains) {
+    for (const [index, step] of chain.steps.entries()) {
+      if (step.toSystem !== undefined && !systems.has(step.toSystem)) {
+        throw new Error(`chain "${chain.id}" step ${index} sends a captain to "${step.toSystem}"`);
+      }
+      if (step.toPort !== undefined) {
+        const exists = [...systems.values()].some((system) =>
+          system.ports.some((port) => port.id === step.toPort),
+        );
+        if (!exists) throw new Error(`chain "${chain.id}" step ${index} names berth "${step.toPort}"`);
+      }
+      if (step.commodity !== undefined && !commodities.has(step.commodity)) {
+        throw new Error(`chain "${chain.id}" step ${index} asks for "${step.commodity}"`);
+      }
+    }
+  }
+  for (const template of commissions.templates) {
+    for (const commodityId of template.commodities) {
+      if (!commodities.has(commodityId)) {
+        throw new Error(`commission "${template.id}" asks for "${commodityId}", which is not a good`);
+      }
+    }
+  }
+
+  return {
+    tuning,
+    modules,
+    blueprints,
+    licences,
+    systems,
+    commodities,
+    companies,
+    commissions,
+  };
 }
 
 /**

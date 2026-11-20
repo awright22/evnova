@@ -43,7 +43,9 @@ import {
   GiveDesignIntent,
   ImportDesignIntent,
   BourseIntent,
+  AbandonCommissionIntent,
   LetterIntent,
+  TakeCommissionIntent,
   SaveDesignIntent,
   SwitchShipIntent,
   StapleIntent,
@@ -76,14 +78,18 @@ import {
 import { registerRoom, TickMetrics } from '../metrics.ts';
 import { AuthError, type Account } from '../accounts.ts';
 import { BourseRefused } from '../world/Exchange.ts';
+import { CommissionRefused } from '../world/Commissions.ts';
 import { InsufficientMarks } from '../world/Ledger.ts';
 import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
 import { CombatSystem, type ImpactEvent } from './combat.ts';
 import { ShipRuntime } from './ShipRuntime.ts';
 import {
+  freighterName,
   freighterPilot,
+  patrolName,
   patrolPilot,
+  raiderName,
   unletteredPilot,
   type NpcPilot,
   type NpcRole,
@@ -717,6 +723,57 @@ export class SystemRoom extends Room<{
         throw error;
       }
     }),
+
+    /**
+     * Take a commission off this berth's board.
+     *
+     * The offer is rebuilt from the board rather than trusted from the
+     * client: an id is a claim about what was posted, and what a Factor
+     * actually offered is the Factor's business.
+     */
+    'take-commission': validate(
+      TakeCommissionIntent,
+      (client: Client, message: TakeCommissionIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+        if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+        const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+        if (!port || !this.system) return ctx.reject('unknown-target');
+
+        try {
+          const taken = world().commissions.take(pilot, message.id, port, this.system, Date.now());
+          this.sendCommissions(client.sessionId);
+          return taken;
+        } catch (error) {
+          if (error instanceof CommissionRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /** Give one up. */
+    'abandon-commission': validate(
+      AbandonCommissionIntent,
+      (client: Client, message: AbandonCommissionIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          world().commissions.abandon(pilot, message.id, Date.now());
+          this.sendCommissions(client.sessionId);
+          this.sendStanding(client.sessionId);
+          return { abandoned: message.id };
+        } catch (error) {
+          if (error instanceof CommissionRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
 
     /**
      * Take out a letter of marque, or give one up.
@@ -1897,6 +1954,7 @@ export class SystemRoom extends Room<{
     this.sendYard(sessionId);
     this.sendBourse(sessionId);
     this.sendStanding(sessionId);
+    this.settleOnLanding(sessionId, portId);
 
     // A landed hull leaves the simulation and cannot be attacked. The
     // captain does not leave the room: they are standing on the berth, and
@@ -2003,6 +2061,34 @@ export class SystemRoom extends Room<{
    */
   runPatrolScans(): void {
     this.patrolsScan();
+    this.settleEscorts();
+  }
+
+  /**
+   * An escort is answered by its time running out with the lane intact.
+   *
+   * The only commission that is finished by nothing happening, which is why
+   * it is settled here rather than on a landing: a captain who sat on station
+   * for the whole watch has done the job, and should not have to go
+   * somewhere to be told so.
+   */
+  private settleEscorts(): void {
+    const now = Date.now();
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      for (const held of world().commissions.held(pilot.accountId)) {
+        if (held.kind !== 'escort' || held.dueAt === 0 || now < held.dueAt) continue;
+        const said = world().commissions.settle(pilot, held, now);
+        this.clients.get(sessionId)?.send('commission', {
+          id: held.id,
+          title: held.title,
+          outcome: 'done',
+          text: said.text,
+          pay: said.pay,
+        });
+        this.sendPurse(sessionId);
+        this.sendCommissions(sessionId);
+      }
+    }
   }
 
   private patrolsScan(): void {
@@ -2119,6 +2205,22 @@ export class SystemRoom extends Room<{
     // with a berth in the system is glad of it.
     const pilot = this.pilots.get(id);
     if (pilot?.role === 'unlettered') {
+      // A bounty names a captain. Theirs is on their hull, which is the only
+      // way anybody could tell one raider from another.
+      for (const held of world().commissions.held(killer.accountId)) {
+        if (held.kind !== 'bounty' || held.terms.target !== ship.callsign) continue;
+        const said = world().commissions.settle(killer, held, now);
+        this.clients.get(killedBy)?.send('commission', {
+          id: held.id,
+          title: held.title,
+          outcome: 'done',
+          text: said.text,
+          pay: said.pay,
+        });
+        this.sendPurse(killedBy);
+        this.sendCommissions(killedBy);
+      }
+
       const owner = this.system?.ports.find((port) => isCharter(port.owner))?.owner;
       if (owner !== undefined && isCharter(owner)) {
         world().standings.shift(
@@ -2130,6 +2232,81 @@ export class SystemRoom extends Room<{
         this.sendStanding(killedBy);
       }
     }
+  }
+
+  /**
+   * The berth's board and what the captain is carrying.
+   *
+   * Sent together because a board a captain cannot see their own work
+   * against is half a screen.
+   */
+  private sendCommissions(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot || !this.system) return;
+
+    const port = this.system.ports.find((candidate) => candidate.id === pilot.landedPortId);
+    const now = Date.now();
+
+    this.clients.get(sessionId)?.send('commissions', {
+      board: port ? world().commissions.board(pilot, port, this.system, now) : [],
+      held: world().commissions.held(pilot.accountId),
+      berthName: port?.name ?? '',
+    });
+  }
+
+  /**
+   * Answer whatever this landing answers.
+   *
+   * Delivery, passengers and smuggling are all settled by arriving somewhere
+   * with something aboard, so they are checked here rather than by each
+   * having its own trigger. Anything whose time ran out is failed at the same
+   * moment: a captain should find out they are late when they land, not
+   * silently.
+   */
+  private settleOnLanding(sessionId: string, portId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const now = Date.now();
+    const commissions = world().commissions;
+
+    for (const held of commissions.overdue(pilot.accountId, now)) {
+      const said = commissions.fail(pilot, held, now);
+      this.clients.get(sessionId)?.send('commission', {
+        id: held.id,
+        title: held.title,
+        outcome: 'failed',
+        text: said.text,
+      });
+    }
+
+    for (const held of commissions.held(pilot.accountId)) {
+      if (held.terms.toPortId !== portId) continue;
+      if (held.kind !== 'delivery' && held.kind !== 'passengers' && held.kind !== 'smuggling') {
+        continue;
+      }
+
+      // The goods have to actually be aboard, and they are handed over.
+      if (held.terms.units > 0 && held.terms.commodityId !== '') {
+        const carried =
+          world().market.cargoOf(pilot.accountId).get(held.terms.commodityId) ?? 0;
+        if (carried < held.terms.units) continue;
+        world().market.adjustCargo(pilot.accountId, held.terms.commodityId, -held.terms.units);
+      }
+
+      const said = commissions.settle(pilot, held, now);
+      this.clients.get(sessionId)?.send('commission', {
+        id: held.id,
+        title: held.title,
+        outcome: 'done',
+        text: said.text,
+        pay: said.pay,
+      });
+    }
+
+    this.sendPurse(sessionId);
+    this.sendStanding(sessionId);
+    this.sendCommissions(sessionId);
   }
 
   /** Tell a captain where they stand with the three charters. */
@@ -2161,6 +2338,24 @@ export class SystemRoom extends Room<{
    * canisters, and what is scooped is salvage rather than a sale.
    */
   private freightLost(id: string): void {
+    // An escort is answered by nothing happening, so a hull lost on the lane
+    // is the one thing that fails it — for every captain in the system who
+    // took the work, whoever actually pulled the trigger.
+    const now = Date.now();
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      for (const held of world().commissions.held(pilot.accountId)) {
+        if (held.kind !== 'escort') continue;
+        const said = world().commissions.fail(pilot, held, now);
+        this.clients.get(sessionId)?.send('commission', {
+          id: held.id,
+          title: held.title,
+          outcome: 'failed',
+          text: said.text,
+        });
+        this.sendCommissions(sessionId);
+      }
+    }
+
     const consignment = this.consignments.get(id);
     this.consignments.delete(id);
     if (!consignment || !this.system) return;
@@ -2332,58 +2527,8 @@ export class SystemRoom extends Room<{
   }
 }
 
-/** Unlettered hulls carry no registry, so they go by what crews call them. */
-const RAIDER_NAMES = [
-  'Nothing Owed',
-  'Short Measure',
-  'Bad Debt',
-  'Writ Large',
-  'Unlettered',
-  'No Fixed Berth',
-  'Quiet Settlement',
-  'Past Due',
-] as const;
 
-function raiderName(rng: Rng): string {
-  return rng.pick(RAIDER_NAMES);
-}
 
-/**
- * What the Prize Court calls its hulls: the same legal register as any other
- * ship's name, read flatter.
- */
-const PATROL_NAMES = [
-  'Due Process',
-  'Strict Liability',
-  'Burden of Proof',
-  'Letter and Spirit',
-  'Without Notice',
-  'On the Record',
-  'Lawful Order',
-  'Good Faith',
-] as const;
 
-function patrolName(rng: Rng): string {
-  return rng.pick(PATROL_NAMES);
-}
 
-/**
- * Company freighters, named the way a company names a hull it will never see:
- * after the clause that pays for it.
- */
-const FREIGHTER_NAMES = [
-  'Net of Fees',
-  'Third Dividend',
-  'Errors and Omissions',
-  'Carriage Paid',
-  'Free on Board',
-  'Clean Bill',
-  'In Ballast',
-  'Laid Up',
-  'Running Days',
-  'Ullage and Tare',
-] as const;
 
-function freighterName(rng: Rng): string {
-  return rng.pick(FREIGHTER_NAMES);
-}

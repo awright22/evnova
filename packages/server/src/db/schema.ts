@@ -301,12 +301,45 @@ export const standings = sqliteTable(
   (table) => [primaryKey({ columns: [table.accountId, table.charter] })],
 );
 
+/**
+ * A commission a captain has actually taken.
+ *
+ * What a berth is *offering* is not here: a board is derived from the berth,
+ * the hour and the captain's standing, so nothing is written down until
+ * somebody takes a job. What is written down is the terms as they were when
+ * it was taken, because a Factor does not get to change them afterwards.
+ */
+export const commissions = sqliteTable(
+  'commissions',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** The template it came from, or the chain's id for a chain beat. */
+    templateId: text('template_id').notNull(),
+    /** Empty for a one-off; the chain's id when this is a beat of one. */
+    chainId: text('chain_id').notNull().default(''),
+    step: integer('step').notNull().default(0),
+    kind: text('kind').notNull(),
+    /** 'taken', 'done' or 'failed'. */
+    state: text('state').notNull().default('taken'),
+    /** The terms as agreed, frozen: units, where, what, what it pays. */
+    terms: text('terms').notNull(),
+    takenAt: integer('taken_at').notNull(),
+    /** When it is too late, or 0 for work with no deadline. */
+    dueAt: integer('due_at').notNull().default(0),
+    settledAt: integer('settled_at').notNull().default(0),
+  },
+  (table) => [index('commissions_account').on(table.accountId)],
+);
+
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /**
  * Migrations, applied in order.
@@ -478,6 +511,25 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
     up: `
       ALTER TABLE pilots ADD COLUMN letter TEXT NOT NULL DEFAULT '';
       ALTER TABLE cargo ADD COLUMN prize INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
+  {
+    version: 9,
+    up: `
+      CREATE TABLE IF NOT EXISTS commissions (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        template_id TEXT NOT NULL,
+        chain_id TEXT NOT NULL DEFAULT '',
+        step INTEGER NOT NULL DEFAULT 0,
+        kind TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'taken',
+        terms TEXT NOT NULL,
+        taken_at INTEGER NOT NULL,
+        due_at INTEGER NOT NULL DEFAULT 0,
+        settled_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS commissions_account ON commissions (account_id);
     `,
   },
 ];

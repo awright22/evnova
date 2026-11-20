@@ -63,8 +63,11 @@ export const REJECTIONS = {
   'market-too-thin': 'The pool will not take an order that size. Try a smaller parcel.',
   'barred-here': 'This company will not have you alongside.',
   'not-a-seat': 'Letters are issued at a company seat, not here.',
-  'standing-too-low': 'This company does not trust you with a letter.',
+  'standing-too-low': 'This company does not trust you with that.',
   'letter-held': 'You already hold a letter of marque.',
+  'no-such-commission': 'That commission is no longer posted.',
+  'already-taken': 'You are already carrying that one.',
+  'too-many-commissions': 'You have as much work in hand as a Factor will give you.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -239,6 +242,18 @@ export interface Standing {
   readonly isSelf: boolean;
 }
 
+/** Take a commission off a berth's board. */
+export const TakeCommissionIntent = z.object({
+  id: z.string().min(1).max(128),
+});
+export type TakeCommissionIntent = z.infer<typeof TakeCommissionIntent>;
+
+/** Give one up. The Factor remembers, but it is not a crime. */
+export const AbandonCommissionIntent = z.object({
+  id: z.string().min(1).max(64),
+});
+export type AbandonCommissionIntent = z.infer<typeof AbandonCommissionIntent>;
+
 /**
  * Take out, or give up, a letter of marque.
  *
@@ -336,6 +351,8 @@ export const SERVER_MESSAGES = [
   'standings',
   'standing',
   'scanned',
+  'commissions',
+  'commission',
 ] as const;
 
 /** A line as it reaches the other captains. */
