@@ -334,12 +334,49 @@ export const commissions = sqliteTable(
   (table) => [index('commissions_account').on(table.accountId)],
 );
 
+/**
+ * A fleet: captains who fly together.
+ *
+ * Flat rather than hierarchical. There is a leader because somebody has to
+ * be able to disband it and because an invitation has to come from
+ * somewhere, but a fleet is a list of people, not a rank structure — spec
+ * section 12 asks for friends who can see each other and share work, and
+ * nothing more.
+ */
+export const fleets = sqliteTable('fleets', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  leaderId: text('leader_id')
+    .notNull()
+    .references(() => accounts.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const fleetMembers = sqliteTable(
+  'fleet_members',
+  {
+    fleetId: text('fleet_id')
+      .notNull()
+      .references(() => fleets.id, { onDelete: 'cascade' }),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** 'member' or 'invited'. An invitation is a row, not a message. */
+    state: text('state').notNull().default('member'),
+    joinedAt: integer('joined_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fleetId, table.accountId] }),
+    index('fleet_members_account').on(table.accountId),
+  ],
+);
+
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /**
  * Migrations, applied in order.
@@ -530,6 +567,26 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         settled_at INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS commissions_account ON commissions (account_id);
+    `,
+  },
+  {
+    version: 10,
+    up: `
+      CREATE TABLE IF NOT EXISTS fleets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        leader_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS fleet_members (
+        fleet_id TEXT NOT NULL REFERENCES fleets (id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        state TEXT NOT NULL DEFAULT 'member',
+        joined_at INTEGER NOT NULL,
+        PRIMARY KEY (fleet_id, account_id)
+      );
+      CREATE INDEX IF NOT EXISTS fleet_members_account ON fleet_members (account_id);
     `,
   },
 ];

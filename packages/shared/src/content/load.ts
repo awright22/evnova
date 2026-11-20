@@ -8,6 +8,7 @@
 
 import blueprintData from '../../data/blueprints.json' with { type: 'json' };
 import commodityData from '../../data/commodities.json' with { type: 'json' };
+import commissionData from '../../data/commissions.json' with { type: 'json' };
 import companyData from '../../data/companies.json' with { type: 'json' };
 import moduleData from '../../data/modules.json' with { type: 'json' };
 import systemData from '../../data/systems.json' with { type: 'json' };
@@ -189,15 +190,11 @@ export function loadContent(): Content {
     companies.set(company.ticker, company);
   }
 
-  // TEMPORARY: the commission book is being authored. This reads an empty
-  // one so the engine around it compiles and can be tested; the import of
-  // `data/commissions.json` replaces this the moment the file lands, and the
-  // validation below is already written against the real thing.
-  const commissions: { templates: CommissionTemplate[]; chains: ChainDef[] } = {
-    templates: [],
-    chains: [],
-  };
-  void CommissionBook;
+  const commissions = parse(
+    CommissionBook,
+    stripComments(commissionData),
+    'data/commissions.json',
+  );
 
   // Every place a commission names has to exist, or a captain is sent
   // somewhere there is nothing. Checked at startup rather than discovered by

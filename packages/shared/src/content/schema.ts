@@ -603,9 +603,15 @@ export const ChainDef = z.object({
         choice: z.string().min(1),
         text: z.string().min(1),
         pay: z.int().nonnegative(),
-        /** Standing with the issuer, and with the other two. */
+        /**
+         * Standing the issuer moves by.
+         *
+         * The other two move on their own: `shiftStanding` applies the rival
+         * share to every change, and a second explicit figure here would
+         * double-count it and break the zero-sum property the three charters
+         * are built on.
+         */
         standing: z.number(),
-        rivalStanding: z.number().default(0),
         /** The line the Gazette runs. */
         headline: z.string().min(1),
       }),

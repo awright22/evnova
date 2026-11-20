@@ -192,10 +192,14 @@ export function App(): React.JSX.Element {
               offers={snapshot.commissions?.board ?? []}
               held={snapshot.commissions?.held ?? []}
               berthName={snapshot.commissions?.berthName ?? port.name}
+              ending={snapshot.commissions?.ending}
               busy={false}
               notice={snapshot.notice}
               onTake={(id) => void client.takeCommission(id)}
               onAbandon={(id) => void client.abandonCommission(id)}
+              onChooseEnding={(chain, choice, name) =>
+                void client.chooseChainEnding(chain, choice, name)
+              }
               onClose={() => setBoardOpen(false)}
             />
           )}

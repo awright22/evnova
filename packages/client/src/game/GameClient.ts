@@ -100,6 +100,28 @@ export interface CommissionState {
   readonly board: readonly BoardOffer[];
   readonly held: readonly HeldOffer[];
   readonly berthName: string;
+  /**
+   * A finished chain waiting on its last choice.
+   *
+   * Only present at the chartering company's own seat, which is the one berth
+   * where the choice can be made, so its presence is the whole condition: the
+   * screen does not have to work out whether it is allowed.
+   */
+  readonly ending?: ChainEnding;
+}
+
+/** The two ways a chain can end, as the Factor lays them out. */
+export interface ChainEnding {
+  readonly chain: string;
+  readonly name: string;
+  readonly charter: string;
+  readonly choices: readonly {
+    readonly id: string;
+    readonly choice: string;
+    readonly pay: number;
+    /** Whether the chartering company comes out of it liking you more. */
+    readonly favours: boolean;
+  }[];
 }
 
 /** What a Factor said when a commission was answered, or was not. */
@@ -709,6 +731,38 @@ export class GameClient {
   /** Give one up. */
   async abandonCommission(id: string): Promise<boolean> {
     return this.requestOk('abandon-commission', { id });
+  }
+
+  /**
+   * Settle a finished chain by taking one of its two endings.
+   *
+   * The reply carries the passage the chain ends on, so it is held as a
+   * Factor's verdict rather than thrown away: a captain who has run seven
+   * errands should get to read how it came out.
+   */
+  async chooseChainEnding(chain: string, ending: string, name: string): Promise<boolean> {
+    const room = this.room;
+    if (!room) return false;
+    try {
+      const settled = await room.request<
+        { chain: string; ending: string },
+        { text: string; pay: number }
+      >('chain-ending', { chain, ending });
+      this.notice = undefined;
+      this.commissionNews = {
+        id: chain,
+        title: name,
+        outcome: 'done',
+        text: settled.text,
+        pay: settled.pay,
+      };
+      this.emit();
+      return true;
+    } catch (error) {
+      this.notice = refusalText(error);
+      this.emit();
+      return false;
+    }
   }
 
   /** Mark the Factor's last word as read. */

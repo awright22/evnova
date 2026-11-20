@@ -37,14 +37,30 @@ export interface HeldOffer extends BoardOffer {
   readonly dueAt: number;
 }
 
+/** A finished chain, and the two ways out of it. */
+export interface ChainEnding {
+  readonly chain: string;
+  readonly name: string;
+  readonly charter: string;
+  readonly choices: readonly {
+    readonly id: string;
+    readonly choice: string;
+    readonly pay: number;
+    readonly favours: boolean;
+  }[];
+}
+
 export interface BoardProps {
   readonly offers: readonly BoardOffer[];
   readonly held: readonly HeldOffer[];
   readonly berthName: string;
+  /** Present only at the one berth where this chain can be settled. */
+  readonly ending: ChainEnding | undefined;
   readonly busy: boolean;
   readonly notice: string | undefined;
   onTake: (id: string) => void;
   onAbandon: (id: string) => void;
+  onChooseEnding: (chain: string, ending: string, name: string) => void;
   onClose: () => void;
 }
 
@@ -67,13 +83,16 @@ export function Board({
   offers,
   held,
   berthName,
+  ending,
   busy,
   notice,
   onTake,
   onAbandon,
+  onChooseEnding,
   onClose,
 }: BoardProps): React.JSX.Element {
   const [reading, setReading] = useState<string | undefined>(undefined);
+  const [intending, setIntending] = useState<string | undefined>(undefined);
 
   const chosen = useMemo(
     () => offers.find((offer) => offer.id === reading) ?? offers[0],
@@ -92,6 +111,68 @@ export function Board({
             </button>
           </div>
         </header>
+
+        {ending !== undefined && (
+          <section className="board__ending">
+            <div className="board__ending-head">
+              <span className="label">The last of it</span>
+              <h3>{ending.name}</h3>
+              <p className="board__ending-lede">
+                Everything that was asked has been carried, and the house is waiting on one
+                more thing: what you are going to say. It is said here, and{' '}
+                {CHARTERS[ending.charter] ?? 'the house'} will not ask twice.
+              </p>
+            </div>
+
+            <ul className="board__choices">
+              {ending.choices.map((choice) => (
+                <li key={choice.id}>
+                  <button
+                    type="button"
+                    className={`board__choice${
+                      choice.id === intending ? ' board__choice--on' : ''
+                    }`}
+                    aria-pressed={choice.id === intending}
+                    disabled={busy}
+                    onClick={() => setIntending(choice.id)}
+                  >
+                    <span className="board__choice-text">{choice.choice}</span>
+                    <span className="board__choice-foot micro">
+                      <span className="data">{choice.pay.toLocaleString()} marks</span>
+                      <span
+                        className={
+                          choice.favours ? 'board__with' : 'board__against'
+                        }
+                      >
+                        {choice.favours
+                          ? `${CHARTERS[ending.charter] ?? 'The house'} will thank you for it`
+                          : `${CHARTERS[ending.charter] ?? 'The house'} will not forget it`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="board__ending-foot">
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy || intending === undefined}
+                onClick={() => {
+                  if (intending === undefined) return;
+                  onChooseEnding(ending.chain, intending, ending.name);
+                  setIntending(undefined);
+                }}
+              >
+                Set your hand to it
+              </button>
+              <span className="micro">
+                A chain ends once. The other two houses read the Gazette the same hour.
+              </span>
+            </div>
+          </section>
+        )}
 
         <div className="board__columns">
           {/* --- What is posted ------------------------------------------- */}

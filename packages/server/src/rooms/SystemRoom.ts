@@ -44,6 +44,7 @@ import {
   ImportDesignIntent,
   BourseIntent,
   AbandonCommissionIntent,
+  ChainEndingIntent,
   LetterIntent,
   TakeCommissionIntent,
   SaveDesignIntent,
@@ -753,6 +754,46 @@ export class SystemRoom extends Room<{
         }
       },
     ),
+
+    /**
+     * Settle a finished chain by taking one of its two endings.
+     *
+     * At the chartering company's own seat, the same berth that issues its
+     * letters: a captain who has run six or seven errands for a company says
+     * what they are going to say in front of it. The Gazette carries the
+     * choice the same hour, so the other two companies read it too.
+     */
+    'chain-ending': validate(ChainEndingIntent, (client: Client, message: ChainEndingIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+
+      const waiting = world().commissions.pendingEnding(pilot.accountId);
+      if (!waiting || waiting.id !== message.chain) return ctx.reject('no-such-commission');
+      if (port.seat !== true || port.owner !== waiting.charter) return ctx.reject('not-a-seat');
+
+      try {
+        const settled = world().commissions.chooseEnding(
+          pilot,
+          message.chain,
+          message.ending,
+          Date.now(),
+        );
+        world().gazette.publish('', settled.headline, 'flat', Date.now());
+        this.sendPurse(client.sessionId);
+        this.sendStanding(client.sessionId);
+        this.sendCommissions(client.sessionId);
+        return settled;
+      } catch (error) {
+        if (error instanceof CommissionRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
 
     /** Give one up. */
     'abandon-commission': validate(
@@ -2247,10 +2288,31 @@ export class SystemRoom extends Room<{
     const port = this.system.ports.find((candidate) => candidate.id === pilot.landedPortId);
     const now = Date.now();
 
+    // A chain waiting on its choice comes with the board: the captain is
+    // standing in the room where it is made.
+    const chain = world().commissions.pendingEnding(pilot.accountId);
+
     this.clients.get(sessionId)?.send('commissions', {
       board: port ? world().commissions.board(pilot, port, this.system, now) : [],
       held: world().commissions.held(pilot.accountId),
       berthName: port?.name ?? '',
+      ...(chain !== undefined && port?.seat === true && port.owner === chain.charter
+        ? {
+            ending: {
+              chain: chain.id,
+              name: chain.name,
+              charter: chain.charter,
+              choices: chain.endings.map((option) => ({
+                id: option.id,
+                choice: option.choice,
+                pay: option.pay,
+                // Sign only. The figure behind it is the Register's business,
+                // and a captain weighing this wants to know which way it cuts.
+                favours: option.standing >= 0,
+              })),
+            },
+          }
+        : {}),
     });
   }
 

@@ -255,6 +255,17 @@ export const AbandonCommissionIntent = z.object({
 export type AbandonCommissionIntent = z.infer<typeof AbandonCommissionIntent>;
 
 /**
+ * Settle a finished chain by taking one of its two endings.
+ *
+ * Both are available and both pay; the difference is who is owed afterwards.
+ */
+export const ChainEndingIntent = z.object({
+  chain: z.string().min(1).max(64),
+  ending: z.string().min(1).max(64),
+});
+export type ChainEndingIntent = z.infer<typeof ChainEndingIntent>;
+
+/**
  * Take out, or give up, a letter of marque.
  *
  * `charter` empty surrenders whatever is held — a captain who wants to deal

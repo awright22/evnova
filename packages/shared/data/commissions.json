@@ -1,5 +1,5 @@
 {
-  "$comment": "The Factor's board and the three chains of spec section 19. Templates are procedural: the engine picks the berths, the goods and the figures inside the ranges here, and fills {units}, {commodity}, {toPort}, {toSystem}, {fromPort}, {pay}, {hours} and {target} in the text. Charter says who posts a template, and requiresStanding keeps the better-paid work for captains a company already deals with; a template with no charter may be offered at any berth with a Factor. Pay is basePay plus perJump and perUnit, scaled so that a hold carried on commission is worth a little more than the same hold traded, because the hold is not the captain's to sell. The chains are hand-written, name their places directly, and each ends in the two-way choice the spec fixes.",
+  "$comment": "The Factor's board and the three chains of spec section 19. Templates are procedural: the engine picks the berths, the goods and the figures inside the ranges here, and fills {units}, {commodity}, {toPort}, {toSystem}, {fromPort}, {pay}, {hours} and {target} in the text. Charter says who posts a template, and requiresStanding keeps the better-paid work for captains a company already deals with; a template with no charter may be offered at any berth with a Factor. Pay is basePay plus perJump and perUnit, scaled so that a hold carried on commission is worth a little more than the same hold traded, because the hold is not the captain's to sell. The chains are hand-written, name their places directly, and each ends in the two-way choice the spec fixes. Endings carry only the standing they move with their own charter: `shiftStanding` moves the other two by the rival share on its own, and a second explicit figure would double-count it and break the zero-sum property the three charters are built on.",
   "templates": [
     {
       "id": "delivery-house-staple",
@@ -14,8 +14,16 @@
       "perJump": 90,
       "perUnit": 9,
       "hours": 10,
-      "units": [8, 20],
-      "commodities": ["ore", "ice", "grain", "provisions"],
+      "units": [
+        8,
+        20
+      ],
+      "commodities": [
+        "ore",
+        "ice",
+        "grain",
+        "provisions"
+      ],
       "standing": 25
     },
     {
@@ -30,8 +38,16 @@
       "perJump": 160,
       "perUnit": 14,
       "hours": 18,
-      "units": [10, 20],
-      "commodities": ["alloy", "propellant", "provisions", "machinery"],
+      "units": [
+        10,
+        20
+      ],
+      "commodities": [
+        "alloy",
+        "propellant",
+        "provisions",
+        "machinery"
+      ],
       "standing": 40
     },
     {
@@ -47,8 +63,16 @@
       "perJump": 220,
       "perUnit": 26,
       "hours": 9,
-      "units": [20, 40],
-      "commodities": ["alloy", "machinery", "circuitry", "ore"],
+      "units": [
+        20,
+        40
+      ],
+      "commodities": [
+        "alloy",
+        "machinery",
+        "circuitry",
+        "ore"
+      ],
       "standing": 65
     },
     {
@@ -64,8 +88,16 @@
       "perJump": 300,
       "perUnit": 20,
       "hours": 30,
-      "units": [15, 35],
-      "commodities": ["propellant", "provisions", "ordnance", "machinery"],
+      "units": [
+        15,
+        35
+      ],
+      "commodities": [
+        "propellant",
+        "provisions",
+        "ordnance",
+        "machinery"
+      ],
       "standing": 70
     },
     {
@@ -80,8 +112,17 @@
       "perJump": 130,
       "perUnit": 16,
       "hours": 0,
-      "units": [8, 20],
-      "commodities": ["ore", "ice", "alloy", "provisions", "machinery"],
+      "units": [
+        8,
+        20
+      ],
+      "commodities": [
+        "ore",
+        "ice",
+        "alloy",
+        "provisions",
+        "machinery"
+      ],
       "standing": 30
     },
     {
@@ -96,7 +137,10 @@
       "perJump": 180,
       "perUnit": 110,
       "hours": 14,
-      "units": [4, 10],
+      "units": [
+        4,
+        10
+      ],
       "standing": 35
     },
     {
@@ -112,7 +156,10 @@
       "perJump": 150,
       "perUnit": 95,
       "hours": 0,
-      "units": [6, 14],
+      "units": [
+        6,
+        14
+      ],
       "standing": 45
     },
     {
@@ -128,7 +175,10 @@
       "perJump": 260,
       "perUnit": 240,
       "hours": 6,
-      "units": [3, 8],
+      "units": [
+        3,
+        8
+      ],
       "standing": 80
     },
     {
@@ -144,7 +194,10 @@
       "perJump": 220,
       "perUnit": 85,
       "hours": 24,
-      "units": [6, 16],
+      "units": [
+        6,
+        16
+      ],
       "standing": 50
     },
     {
@@ -253,8 +306,13 @@
       "perJump": 340,
       "perUnit": 150,
       "hours": 36,
-      "units": [10, 24],
-      "commodities": ["leaf"],
+      "units": [
+        10,
+        24
+      ],
+      "commodities": [
+        "leaf"
+      ],
       "standing": 110
     },
     {
@@ -270,8 +328,13 @@
       "perJump": 300,
       "perUnit": 80,
       "hours": 30,
-      "units": [12, 28],
-      "commodities": ["ordnance"],
+      "units": [
+        12,
+        28
+      ],
+      "commodities": [
+        "ordnance"
+      ],
       "standing": 100
     },
     {
@@ -286,8 +349,13 @@
       "perJump": 240,
       "perUnit": 48,
       "hours": 24,
-      "units": [12, 20],
-      "commodities": ["alloy"],
+      "units": [
+        12,
+        20
+      ],
+      "commodities": [
+        "alloy"
+      ],
       "standing": 40
     }
   ],
@@ -377,7 +445,6 @@
           "text": "Leung took the cases without comment and gave you a receipt for three items of evidence. The Court sat for eleven days. Kessler & Daughters is not wound up, because nothing in the charter says a house must be solvent to be a house, but the dividend is suspended, the deposits are frozen, and the seven claims are claims on a debt. The Court paid you a witness's fee and the costs of the three flights it could document. Countinghouse has your registry on a list at the inner berths.",
           "pay": 11000,
           "standing": -260,
-          "rivalStanding": 130,
           "headline": "Prize Court suspends the Kessler dividend after an audit of sealed ledgers; House deposits frozen pending seven claims."
         },
         {
@@ -386,7 +453,6 @@
           "text": "She read for two hours in the waiting hall, with the Court twenty paces away, and then paid you out of an account opened that morning. Six claims were withdrawn inside a week and the seventh was bought. The dividend was paid on time, out of new deposits, as it has been for ten years. Hanne Kessler holds the House, the only copy of what the books say is in a room at Countinghouse she has the key to, and you are the other person who knows.",
           "pay": 26000,
           "standing": 240,
-          "rivalStanding": -90,
           "headline": "Kessler & Daughters settles six claims and buys the seventh; eldest daughter confirmed at Countinghouse, dividend paid on schedule."
         }
       ]
@@ -490,7 +556,6 @@
           "text": "Adeyemi's note was generous in the way an institution is generous when the alternative is a question in public. The Thirty bought its own seat back, entered Subscriber Thirty-One in the roll and struck him out on the same page, and the count carried that afternoon with thirty votes, as it always has. You were paid from a fund that does not appear in the accounts under that name. Barratry had the figure within a day and has formed a view about you.",
           "pay": 30000,
           "standing": 230,
-          "rivalStanding": -90,
           "headline": "Thirty enters a thirty-first subscriber and strikes him from the roll the same hour; Slipway Thirty unmoved on the count."
         },
         {
@@ -499,7 +564,6 @@
           "text": "Sarkissian paid more, in cash, in the corridor, and had it filed at Barratry before the count closed. The Reprisal Company holds one vote in thirty and the right to sit behind the door, which it exercised in the first week by sending a Master with a prize hall's manners to a meeting about ore tonnage. The Thirty has filed four actions and expects to win all of them eventually. Quorum's outer door has been photographed.",
           "pay": 38000,
           "standing": -240,
-          "rivalStanding": 110,
           "headline": "Reprisal Company files a bearer certificate for a seat on the Thirty; Quorum's door photographed for the first time."
         }
       ]
@@ -586,7 +650,6 @@
           "text": "You read both halves into the record: the hull was a Kessler subsidiary's, and Barratry entered van der Meer's letter two days after she fired. Leung set a composition on the subsidiary for the forged registry and voided the capture anyway, because a capture made without a letter is not a capture. The Circuitry went back to Kessler. The crew's shares went to the composition. Thirty-one people are owed nothing and know why. The Court paid you a witness's fee and the costs of the flights it could document, and Barratry has taken your registry off the prize hall's board.",
           "pay": 8500,
           "standing": -240,
-          "rivalStanding": 130,
           "headline": "Prize Court voids the Okonjo capture and sets a composition on a Kessler subsidiary's forged registry; both sides leave Soundings poorer."
         },
         {
@@ -595,7 +658,6 @@
           "text": "You said the first half and dated the second, and the pages supported you, because pages support whoever reads them aloud. Leung took the date, wrote it down, and condemned the capture as lawful, which it now is. Kessler's subsidiary paid for the forgery it had been caught in. Thirty-one shares came off the frozen board at Barratry and were paid in full, and yours was paid with them, in cash, by a Master who did not ask what you had sworn to. The Court's record contains a date that is not true, and three people know which one.",
           "pay": 34000,
           "standing": 240,
-          "rivalStanding": -110,
           "headline": "Okonjo capture condemned as lawful on a witness's date; Prize & Salvage posts the Fair Wear and Tear's crew in full."
         }
       ]

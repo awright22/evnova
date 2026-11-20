@@ -84,10 +84,10 @@ export class Commissions {
    * because a story in progress is the thing the captain came back for.
    */
   board(pilot: Pilot, port: PortDef, system: SystemDef, now: number): CommissionOffer[] {
-    const { commissions, systems, commodities, tuning } = content();
+    const { commissions, systems, commodities } = content();
     const held = new Set(this.held(pilot.accountId).map((row) => row.templateId));
 
-    const chainOffer = this.nextChainBeat(pilot, port, now);
+    const chainOffer = this.nextChainBeat(pilot, port);
 
     const offers = boardFor({
       port,
@@ -102,7 +102,6 @@ export class Commissions {
       .filter((offer) => !held.has(offer.templateId))
       .map((offer) => this.spoken(offer));
 
-    void tuning;
     return chainOffer ? [chainOffer, ...offers] : offers;
   }
 
@@ -113,7 +112,7 @@ export class Commissions {
    * one beat at a time and in order. Nothing is stored for a chain that has
    * not been started: the captain's finished rows say which beat is next.
    */
-  private nextChainBeat(pilot: Pilot, port: PortDef, now: number): CommissionOffer | undefined {
+  private nextChainBeat(pilot: Pilot, port: PortDef): CommissionOffer | undefined {
     const { commissions } = content();
     if (!isCharter(port.owner)) return undefined;
 
@@ -150,7 +149,6 @@ export class Commissions {
       target: '',
     };
 
-    void now;
     return this.spoken({ ...terms, id: `chain:${chain.id}:${done}` });
   }
 
@@ -328,9 +326,103 @@ export class Commissions {
     );
   }
 
+  /**
+   * The choice a finished chain is waiting on, if there is one.
+   *
+   * A chain's endings are offered once its last beat is answered and before
+   * anything else from that charter, because the captain is standing in a
+   * room with both parties in it. Settled by `chooseEnding`.
+   */
+  pendingEnding(accountId: string): ChainDef | undefined {
+    const { commissions } = content();
+    for (const chain of commissions.chains) {
+      const progress = this.chainProgress(accountId, chain);
+      if (progress.done < progress.total) continue;
+      // Already settled once: a chain ends once.
+      if (this.endingTaken(accountId, chain.id)) continue;
+      return chain;
+    }
+    return undefined;
+  }
+
+  /**
+   * Take one of a chain's two endings.
+   *
+   * Paid, the standing moved through the one rule that moves standing, and
+   * the Gazette given its line. The row that records it is the chain's own
+   * id with a step past its last, so `pendingEnding` can see it was done
+   * without a table of its own.
+   */
+  chooseEnding(
+    pilot: Pilot,
+    chainId: string,
+    endingId: string,
+    now: number,
+  ): { text: string; headline: string; pay: number } {
+    const { commissions } = content();
+    const chain = commissions.chains.find((candidate) => candidate.id === chainId);
+    if (!chain) throw new CommissionRefused('no-such-commission');
+
+    const progress = this.chainProgress(pilot.accountId, chain);
+    if (progress.done < progress.total) throw new CommissionRefused('no-such-commission');
+    if (this.endingTaken(pilot.accountId, chain.id)) {
+      throw new CommissionRefused('already-taken');
+    }
+
+    const ending = chain.endings.find((candidate) => candidate.id === endingId);
+    if (!ending) throw new CommissionRefused('no-such-commission');
+
+    this.store.db
+      .insert(schema.commissions)
+      .values({
+        id: randomUUID(),
+        accountId: pilot.accountId,
+        templateId: chain.id,
+        chainId: chain.id,
+        step: chain.steps.length,
+        kind: 'delivery',
+        state: 'done',
+        terms: JSON.stringify({ endingId, title: ending.choice }),
+        takenAt: now,
+        dueAt: 0,
+        settledAt: now,
+      })
+      .run();
+
+    if (ending.pay > 0) {
+      this.ledger.post(
+        {
+          accountId: pilot.accountId,
+          delta: ending.pay,
+          category: 'commission-pay',
+          reason: `${chain.name}: ${ending.choice}`,
+        },
+        pilot,
+      );
+    }
+
+    // One rule moves standing, and it moves the rivals itself.
+    this.standings.shift(pilot.accountId, chain.charter, ending.standing, now);
+
+    return { text: ending.text, headline: ending.headline, pay: ending.pay };
+  }
+
+  /** Whether this captain has already settled this chain. */
+  private endingTaken(accountId: string, chainId: string): boolean {
+    const { commissions } = content();
+    const chain = commissions.chains.find((candidate) => candidate.id === chainId);
+    if (!chain) return false;
+    return this.rowsFor(accountId).some(
+      (row) => row.chainId === chainId && row.step >= chain.steps.length,
+    );
+  }
+
   /** Where a chain stands, for the board and for the interface. */
   chainProgress(accountId: string, chain: ChainDef): { done: number; total: number } {
-    const mine = this.rowsFor(accountId).filter((row) => row.chainId === chain.id);
+    const mine = this.rowsFor(accountId).filter(
+      // The ending's own row sits past the last step; it is not a beat.
+      (row) => row.chainId === chain.id && row.step < chain.steps.length,
+    );
     return {
       done: mine.filter((row) => row.state === 'done').length,
       total: chain.steps.length,
