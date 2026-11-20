@@ -77,8 +77,17 @@ export async function startStack(options: {
 
     return { baseUrl, serverPort: options.serverPort, log: () => stackLog(procs), stop };
   } catch (error) {
+    // Say what the processes said.
+    //
+    // `waitFor` can only report that a port never answered, which is true and
+    // useless: it is the same message whether the server crashed on boot, the
+    // preview could not find a build, or the port was taken. CI spent a
+    // minute waiting for `http://127.0.0.1:4186` and then said exactly that,
+    // and there was nothing else in the log to go on.
+    const why = error instanceof Error ? error.message : String(error);
+    const said = stackLog(procs);
     await stop();
-    throw error;
+    throw new Error(`${why}\n\nWhat the processes said:\n${said}`, { cause: error });
   }
 }
 
