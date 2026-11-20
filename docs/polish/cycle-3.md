@@ -15,7 +15,29 @@ Ranked by player impact.
 
 ### Blockers
 
-*None so far.*
+**B1. CI has never passed.** Thirty-two runs on this branch, every one red,
+each finishing in about twenty seconds — too fast to have run a test.
+`pnpm install` was dying with `Permission denied (publickey)` before any job
+reached `pnpm check`.
+
+Colyseus pulls in `@colyseus/uwebsockets-transport` as an optional peer, and
+that resolves `uWebSockets.js` straight from GitHub. The lockfile pins the
+SSH form, `git@github.com:uNetworking/uWebSockets.js.git`, which a runner has
+no key for. It works in this container because the container has git
+credentials, so nothing local ever showed it. The server imports none of it:
+it is an optional peer of a transport this project does not use, and it is
+fetched only because it is in the graph. Git's config-through-environment
+rewrites SSH to HTTPS for every job.
+
+Filed as a blocker because `docs/PROGRESS.md` has had "CI that runs check
+and build on every push" ticked since M0 and the claim was false: the
+workflow existed, ran on every push, and had never once got as far as a
+test. That also means `pnpm build` has never run anywhere but a developer's
+hands, and the branch has had no independent check on any of this session's
+work.
+
+Found by asking, during this cycle, whether `pnpm build` had ever run — not
+by anything that was watching.
 
 ### Majors
 
