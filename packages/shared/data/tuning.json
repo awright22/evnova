@@ -87,6 +87,11 @@
     "threshold": 0.25,
     "maxHops": 6
   },
+  "yard": {
+    "$comment": "What a yard charges. The premium is insurance on the hull, added to what the modules cost; the refund is what a captain gets back for the marks value of modules stripped in a refit, which is deliberately half, because shipbuilding is the economy's main sink and a refit that paid for itself would not be one. Materials stripped come back in full: the yard has the parts in its hands.",
+    "insurancePremium": 0.12,
+    "refundFraction": 0.5
+  },
   "law": {
     "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of damage dealt — shields included, because the offence is the attack and not whether it got through — plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at Home Roads berths until it is paid.",
     "compositionPerDamage": 9,

@@ -304,6 +304,12 @@ export const Tuning = z.object({
     /** How many lanes a load will travel. */
     maxHops: z.int().positive(),
   }),
+  yard: z.object({
+    /** Insurance on the hull, as a fraction of what its modules cost. */
+    insurancePremium: z.number().min(0),
+    /** What a refit returns of the marks value it strips, 0..1. */
+    refundFraction: z.number().min(0).max(1),
+  }),
   law: z.object({
     compositionPerDamage: z.number().nonnegative(),
     compositionPerWriteOff: z.int().nonnegative(),
