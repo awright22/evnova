@@ -839,8 +839,10 @@ changed the world to suit the interface.
 `overflow-y: auto` looks identical on a panel with forty rows and one with
 three, so a fade on the bottom edge either cuts complete lists or never
 appears. A hook watches scroll position, the box and the content, and sets
-`data-more`; the stylesheet keys off that. Bottom edge only, because every
-table here keeps a sticky header that already covers the top.
+`data-more`; the rule lives in `base.css` and keys off that attribute, so
+any scroller in any screen that answers gets the fade. Bottom edge only,
+because the tables that use it keep sticky headers that already cover the
+top.
 
 **2026-11-20 — Damage lives on the captain's row, so every hull change must
 clear it.** The structure a berth quotes comes from `pilot.moduleHp`, not from
