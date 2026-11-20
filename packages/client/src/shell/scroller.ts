@@ -62,8 +62,13 @@ export function useScroller(): Scroller {
       node.addEventListener('scroll', again, { passive: true });
       const sizes = new ResizeObserver(again);
       sizes.observe(node);
+      // Children, not text. Every read of `scrollHeight` forces a layout, and
+      // the Bourse's figures change on every market tick — watching
+      // `characterData` would re-measure six scrollers a tick to learn
+      // nothing, because a quote going from 5.31 to 5.45 does not change how
+      // tall the table is. Rows arriving and leaving does.
       const rows = new MutationObserver(again);
-      rows.observe(node, { childList: true, subtree: true, characterData: true });
+      rows.observe(node, { childList: true, subtree: true });
       stop.current = () => {
         node.removeEventListener('scroll', again);
         sizes.disconnect();

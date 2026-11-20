@@ -359,7 +359,16 @@ async function engageNearest(
   }
   // Latched. Every read from here is about this hull and no other.
   if (held === '' && first.name !== '') held = first.name;
+  // What "a round told" is measured against.
+  //
+  // Shield alone is not enough. A mark with its engines gone has usually had
+  // its shields down for a while, and `0 < 0 - 1` is never true — so
+  // `untilHit` could not fire at all against exactly the kind of mark these
+  // captures now use, and the engagement ran its full forty-five or
+  // fifty-five seconds before the shutter. Structure answers for a hull that
+  // has no shield left to lose.
   const shieldAtStart = first.markShield;
+  const hpAtStart = first.markHp;
 
   // The trigger stays down for the whole engagement, so every pass through
   // the bearing puts rounds on the mark. Holding a key and watching the world
@@ -438,7 +447,13 @@ async function engageNearest(
       // forty-five seconds and photographed whatever the sky looked like at
       // the end — range 1414, mark off screen. What was actually wrong was
       // that the gunner had no fixed mark, which `held` now fixes.
-      if (options.untilHit && now && now.markShield < shieldAtStart - 1) return true;
+      if (
+        options.untilHit
+        && now
+        && (now.markShield < shieldAtStart - 1 || now.markHp < hpAtStart)
+      ) {
+        return true;
+      }
     }
   } finally {
     if (!options.untilHit) await page.keyboard.up('Space');
@@ -533,10 +548,12 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'combat',
     description:
-      'A fight: rounds in flight, the mark bracketed and its panel up. The capture ' +
-      'stops the moment a round lands, so this is the exchange rather than its ' +
-      'aftermath. Under software rasterisation the link runs about a second, which ' +
-      'is why it reads as a long-range exchange rather than a close pass.',
+      'A fight at close quarters: the mark bracketed, its panel up and its structure '
+      + 'going red under fire. Rounds are discrete and the link here runs over two '
+      + 'seconds under software rasterisation, so whether any are in the gap at the '
+      + 'instant of the shutter is luck; what the screen is for — the hulls, the '
+      + 'bracket, the mark panel and damage showing on it — does not depend on that. '
+      + 'The mark is posted and cannot run: see the companion below.',
     path: '/?callsign=Free%20Captain&harness=1',
     settle: '.hud',
     settleMs: 2500,
