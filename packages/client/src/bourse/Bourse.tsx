@@ -941,6 +941,10 @@ interface CompanyProps {
 }
 
 function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Element {
+  // The description, the figures and the chart together run past a 400px
+  // panel, so this body scrolls and used to cut the chart through its own
+  // fair-value label.
+  const body = useScroller();
   const move = moveOf(listing.price, listing.previous);
   const against = moveOf(listing.price, listing.fairValue);
   const filed = news.filter((headline) => headline.ticker === listing.ticker).length;
@@ -975,7 +979,7 @@ function Company({ listing, news, onReadGazette }: CompanyProps): React.JSX.Elem
         )}
       </header>
 
-      <div className="company__body">
+      <div className="company__body" ref={body.ref} data-more={body.more}>
         <p className="company__description">{listing.description}</p>
 
         <div className="company__panes">
@@ -1100,6 +1104,8 @@ function Ticket({
   onSend,
   onLeave,
 }: TicketProps): React.JSX.Element {
+  // Everything above the confirm, which is pinned outside this.
+  const body = useScroller();
   const pool = poolOf(listing, maxPoolFraction);
   const limit = buyLimit(listing, marks, feeRate, maxPoolFraction);
 
@@ -1174,7 +1180,7 @@ function Ticket({
         </div>
       </header>
 
-      <div className="ticket__body">
+      <div className="ticket__body" ref={body.ref} data-more={body.more}>
         <div className="ticket__entry">
           <label className="label" htmlFor="ticket-shares">
             Shares

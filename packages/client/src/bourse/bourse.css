@@ -173,8 +173,13 @@
  * Bottom only. Every table here keeps a sticky header, which already covers
  * the top edge with an opaque row; fading that would dim the thing holding
  * the column names.
+ *
+ * Keyed on the attribute rather than on one block, because the company's
+ * body and the order ticket's body scroll too: the first cut its price
+ * chart through the *fair value* label and the second cut "quote ends at"
+ * in half, and both read as content lost rather than content below.
  */
-.bourse__scroll[data-more='below'] {
+.bourse [data-more='below'] {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
 }
 
