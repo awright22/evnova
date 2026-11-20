@@ -264,14 +264,16 @@ Done when:
 
 - [x] Cycle 1: `docs/polish/cycle-1.md`, every blocker and major fixed — 1 blocker, 5 majors
 - [x] Cycle 2: `docs/polish/cycle-2.md`, every blocker and major fixed — 0 blockers, 5 majors
-- [ ] Cycle 3: `docs/polish/cycle-3.md`, every blocker and major fixed
-- [ ] Cycle 4, if cycle 3 is not clean
+- [~] Cycle 3: `docs/polish/cycle-3.md` — 1 blocker, 0 majors, 9 minors. The
+  blocker is CI, which had never passed; it closes when CI is green.
+- [ ] Cycle 4
+- [ ] Cycle 5, if cycle 4 is not clean
 - [ ] Two cycles in a row find no blockers or majors
 - [ ] Final report
 
 Spec section 18 completes the project on three cycles *and* two consecutive
-cycles with no blockers or majors. Cycle 2 found two majors, so the earliest
-close is cycles 3 and 4 both clean.
+cycles with no blockers or majors. Cycle 2 found five majors and cycle 3 a
+blocker, so the earliest close is cycles 4 and 5 both clean.
 
 ---
 
