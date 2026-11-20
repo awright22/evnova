@@ -572,3 +572,57 @@ costs nothing.
 **2026-11-20 — Stylesheets are global; block names are a shared namespace.**
 The Bourse's chart called itself `chart` and took the galaxy map's overlay
 rules. Named on the avoid list in `docs/ART_DIRECTION.md`.
+
+**2026-11-20 — A chain ends at its charter's seat.** The three chains' last
+beats deliver to neutral systems, so gating the ending on "a berth this
+charter owns" meant the choice could be made anywhere except where the chain
+had just finished. The seat — the berth that issues the company's letters —
+is the one address where a captain makes a declaration in person.
+
+**2026-11-20 — The Prize Money chain reads correctly as written.** The
+evidence has two halves: the capture was of a Kessler subsidiary flying false
+papers, and the letter was served after it. Both are true, so a captain who
+perjures is not inventing a defence, only moving a date — which is why
+Reprisal pays for it and why it is worth a captain's while.
+
+**2026-11-20 — Screens that need a history get a seeded captain.** A capture
+of a brand-new account can only ever photograph empty screens. The shot
+harness writes captains before the server opens the database — standing, a
+berth to be alongside, a chain already run — using the server's own services
+in a process with the server's own environment, and puts their device token
+in the page's storage. No seam in the shipped server, and the seeded world
+is one the real code would have produced.
+
+**2026-11-20 — Fleets are convoys.** Spec section 12 calls them fleets in the
+plain terms; the player reads "convoy", which is what ships travelling
+together for mutual protection are called in a setting where every loss is
+somebody's insurance claim. Not a new institution and not a new proper noun:
+spec section 19 is fixed, and this is a common noun in the register it
+already uses.
+
+**2026-11-20 — A shared commission is still one commission.** Any member of
+the convoy may discharge it, it pays once, to whoever does, and the standing
+moves for the captain who took it on — the house dealt with them and does not
+know a convoy was involved. Copying it per member, which is the obvious
+reading of "share a mission", multiplies the Factor's faucet by the size of
+the convoy for the same work; a convoy of six would find that within an
+afternoon.
+
+**2026-11-20 — A trade offer is one-sided with a price.** "This cargo and
+this draught, for these marks", negative to pay them instead. A swap is two
+offers. The two-sided version needs both captains to lock a basket and then
+both to confirm it, which is a great deal of screen and a great deal of
+"somebody changed their half" for a case the common uses — paying for a hold
+of Alloy, handing over a draught, settling a debt — do not need.
+
+**2026-11-20 — A transfer is a third kind of ledger category.** Marks moving
+between captains create and destroy nothing. Counting a transfer as a faucet
+on one side and a sink on the other leaves invariant 4 true and makes the
+admin page's totals meaningless: a convoy passing the same ten thousand marks
+back and forth all afternoon would read as a tap running.
+
+**2026-11-20 — A captain's hold capacity comes from the hull they fly.** It
+was read straight off the blueprint table, which knows nothing about hulls
+built in the Yard: a captain in one they built had the capacity of whatever
+they flew last, or none at all. Every reader of a captain's hull now goes
+through the same resolver the simulation does.

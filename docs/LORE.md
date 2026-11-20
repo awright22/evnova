@@ -60,6 +60,8 @@ Everyone else is either a free captain (players and independent NPCs) or one of 
 | ship destroyed | written off |
 | insurance payout | the claim |
 | pirates | the Unlettered |
+| fleet | convoy |
+| player-to-player trade | an offer, alongside |
 
 **Commodities.**
 
