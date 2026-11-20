@@ -42,6 +42,15 @@ export class ShipRuntime {
   /** Server time each mount may next fire, in room-clock ms. */
   private readonly readyAt: number[];
 
+  /**
+   * Where each turret is pointed, relative to the hull's facing.
+   *
+   * Zero is straight ahead, which is where a mount sits when it has nothing
+   * to track. Fixed mounts keep an entry and never use it, so this indexes
+   * the same way as `mounts` and `readyAt`.
+   */
+  readonly turretAim: number[];
+
   /** Room-clock ms of the last hit taken, for the shield regeneration delay. */
   lastHitAt = 0;
 
@@ -65,6 +74,7 @@ export class ShipRuntime {
     this.mounts = mountsOf(this.modules);
     this.hp = this.modules.map((module) => module.def.hitPoints);
     this.readyAt = this.mounts.map(() => 0);
+    this.turretAim = this.mounts.map(() => 0);
     this.ammo = ammo;
 
     this.shapeCache = hullShape(this.modules);

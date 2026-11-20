@@ -17,8 +17,11 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import {
+  ShareCodeError,
   buildCost,
   content,
+  decodeShareCode,
+  encodeShareCode,
   placeAll,
   splitBill,
   validateDesign,
@@ -41,7 +44,15 @@ export type YardRefusal =
   | 'cannot-afford'
   | 'out-of-stock'
   | 'too-many-designs'
-  | 'too-many-ships';
+  | 'too-many-ships'
+  | 'no-such-licence'
+  | 'licence-held'
+  | 'not-parked-here'
+  | 'already-flying-it'
+  | 'bad-share-code'
+  | 'unknown-fitting'
+  | 'unknown-captain'
+  | 'give-to-self';
 
 export class YardRefused extends Error {
   constructor(
@@ -161,6 +172,83 @@ export class Yard {
     });
   }
 
+  /**
+   * Read a draught code onto a captain's books.
+   *
+   * A code is a claim, not a draught. It may name fittings this Register does
+   * not list — written against a later version, or simply made up — so every
+   * placement is checked against the catalogue before anything is saved. It is
+   * deliberately *not* checked against the captain's warrant: a captain may
+   * keep a draught they cannot yet build, which is half the point of being
+   * given one.
+   */
+  importDesign(accountId: string, code: string, name: string | undefined, now: number): SavedDesign {
+    const { modules } = content();
+
+    let design;
+    try {
+      design = decodeShareCode(code);
+    } catch (error) {
+      if (error instanceof ShareCodeError) throw new YardRefused('bad-share-code');
+      throw error;
+    }
+
+    const unknown = design.placements.find((placement) => !modules.has(placement.moduleId));
+    if (unknown) throw new YardRefused('unknown-fitting');
+
+    return this.saveDesign(
+      accountId,
+      { name: (name ?? design.name).trim() || design.name, placements: [...design.placements] },
+      now,
+    );
+  }
+
+  /**
+   * Hand a draught to another captain.
+   *
+   * It is copied, not moved: the giver keeps theirs. The recipient need not be
+   * online, or in this system, or at a port — a draught is paper.
+   */
+  giveDesign(
+    from: string,
+    designId: string,
+    toCallsign: string,
+    now: number,
+  ): { design: SavedDesign; toAccountId: string; toCallsign: string } {
+    const design = this.store.db
+      .select()
+      .from(schema.designs)
+      .where(and(eq(schema.designs.id, designId), eq(schema.designs.accountId, from)))
+      .get();
+    if (!design) throw new YardRefused('no-such-design');
+
+    const recipient = this.store.db
+      .select({ id: schema.accounts.id, callsign: schema.accounts.callsign })
+      .from(schema.accounts)
+      .where(eq(schema.accounts.callsignKey, toCallsign.trim().toLowerCase()))
+      .get();
+    if (!recipient) throw new YardRefused('unknown-captain');
+    if (recipient.id === from) throw new YardRefused('give-to-self');
+
+    const placements = JSON.parse(design.placements) as Placement[];
+    const saved = this.saveDesign(recipient.id, { name: design.name, placements }, now);
+    return { design: saved, toAccountId: recipient.id, toCallsign: recipient.callsign };
+  }
+
+  /** A draught as a code a captain can paste to somebody. */
+  shareCode(accountId: string, designId: string): string {
+    const row = this.store.db
+      .select()
+      .from(schema.designs)
+      .where(and(eq(schema.designs.id, designId), eq(schema.designs.accountId, accountId)))
+      .get();
+    if (!row) throw new YardRefused('no-such-design');
+    return encodeShareCode({
+      name: row.name,
+      placements: JSON.parse(row.placements) as Placement[],
+    });
+  }
+
   deleteDesign(accountId: string, designId: string): void {
     const removed = this.store.db
       .delete(schema.designs)
@@ -215,6 +303,106 @@ export class Yard {
       .set({ moduleHp: JSON.stringify(moduleHp.map((hp) => Math.max(0, Math.round(hp)))) })
       .where(and(eq(schema.ships.id, shipId), eq(schema.ships.accountId, accountId)))
       .run();
+  }
+
+  // --- Licences -----------------------------------------------------------
+
+  /**
+   * Buy a hull licence.
+   *
+   * Only upward: the ladder is ranked in data, and a captain pays the full
+   * cost of the warrant they are moving to with no credit for the one they
+   * hold. A warrant is paper from a company court, not a trade-in.
+   *
+   * One transaction, like everything else that moves marks. The pilot row is
+   * updated in the same breath as the ledger entry, so a crash cannot leave a
+   * captain charged for a warrant they do not hold.
+   */
+  buyLicence(pilot: Pilot, licenceId: string): { licence: LicenceId; cost: number; marks: number } {
+    const { licences } = content();
+    const wanted = licences.get(licenceId as LicenceId);
+    if (!wanted) throw new YardRefused('no-such-licence');
+
+    const held = licences.get(pilot.licence as LicenceId);
+    if (held && wanted.rank <= held.rank) throw new YardRefused('licence-held');
+
+    return this.store.transaction(() => {
+      let marks = pilot.marks;
+      if (wanted.cost > 0) {
+        try {
+          marks = this.ledger.post(
+            {
+              accountId: pilot.accountId,
+              delta: -wanted.cost,
+              category: 'licence-purchase',
+              reason: `${wanted.name} issued`,
+            },
+            pilot,
+          );
+        } catch (error) {
+          if (error instanceof InsufficientMarks) throw new YardRefused('cannot-afford');
+          throw error;
+        }
+      }
+
+      this.store.db
+        .update(schema.pilots)
+        .set({ licence: licenceId })
+        .where(eq(schema.pilots.accountId, pilot.accountId))
+        .run();
+      pilot.licence = licenceId;
+
+      return { licence: licenceId as LicenceId, cost: wanted.cost, marks };
+    });
+  }
+
+  // --- The Moorings -------------------------------------------------------
+
+  /**
+   * Take out a hull moored at this berth, leaving the current one in its place.
+   *
+   * A swap, in one transaction: the hull being flown is tied up here and the
+   * chosen one is let go. Both rows move together, because a moment in which
+   * a captain owns two hulls with nowhere parked — or none — is a moment in
+   * which `hullFor` cannot say what they are flying.
+   *
+   * A captain flying the starter draught owns no hull row at all, so there is
+   * nothing to park: the shuttle is not theirs to leave anywhere. Taking a
+   * built hull out for the first time simply unmoors it.
+   */
+  switchTo(
+    accountId: string,
+    shipId: string,
+    portId: string,
+  ): { shipId: string; name: string; parked?: string } {
+    return this.store.transaction(() => {
+      const wanted = this.ownedShip(accountId, shipId);
+      if (!wanted) throw new YardRefused('no-such-ship');
+      // `portId` reads as empty, not null, once a row is in hand.
+      if (wanted.portId === '') throw new YardRefused('already-flying-it');
+      if (wanted.portId !== portId) throw new YardRefused('not-parked-here');
+
+      const current = this.flying(accountId);
+      if (current) {
+        this.store.db
+          .update(schema.ships)
+          .set({ portId })
+          .where(eq(schema.ships.id, current.id))
+          .run();
+      }
+
+      this.store.db
+        .update(schema.ships)
+        .set({ portId: null })
+        .where(eq(schema.ships.id, wanted.id))
+        .run();
+
+      return {
+        shipId: wanted.id,
+        name: wanted.name,
+        ...(current ? { parked: current.name } : {}),
+      };
+    });
   }
 
   // --- Building -----------------------------------------------------------

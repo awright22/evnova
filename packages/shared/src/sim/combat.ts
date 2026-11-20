@@ -350,16 +350,58 @@ export function muzzleOf(mount: Mount, pose: Pose): { x: number; y: number } {
 }
 
 /**
+ * Where a turret is pointed after `dt` of traversing toward its mark.
+ *
+ * Angles here are relative to the hull's facing, because a turret is bolted to
+ * the hull: turning the ship carries the mount round with it, and a turret
+ * that held a world bearing would be a gyro-stabilised mount nobody bought.
+ *
+ * `tracking` is the traverse rate in radians per second. A mount with no
+ * tracking stat is taken to be infinitely fast, which is what the game did
+ * for every turret before the stat was read: a mount reaches its mark the
+ * instant it is given one.
+ *
+ * The result is clamped to the arc, so a turret parks against its stop rather
+ * than swinging through the hull to reach a mark behind it.
+ */
+export function slewTurret(
+  current: number,
+  desired: number,
+  tracking: number | undefined,
+  dt: number,
+  arc: number,
+): number {
+  const wanted = clampAngle(wrapAngle(desired), arc);
+  if (tracking === undefined) return wanted;
+
+  const offset = wrapAngle(wanted - current);
+  const step = tracking * dt;
+  if (Math.abs(offset) <= step) return wanted;
+  return clampAngle(wrapAngle(current + Math.sign(offset) * step), arc);
+}
+
+/** Hold an angle inside ±arc without wrapping it round the long way. */
+function clampAngle(angle: number, arc: number): number {
+  return Math.max(-arc, Math.min(arc, angle));
+}
+
+/**
  * The direction a mount fires.
  *
- * A fixed gun fires along the hull's facing. A turret tracks the mark within
- * its arc, and declines the shot when the mark is outside it.
+ * A fixed gun fires along the hull's facing. A turret fires where it is
+ * currently pointed, and declines the shot when its mark is outside its arc.
+ *
+ * `relativeAim` is where the mount has traversed to, as `slewTurret` left it,
+ * relative to the hull. Left out, a turret snaps to its mark — which is right
+ * for a mount with no traverse rate, and for the lead indicator in the
+ * interface, which asks where a turret *would* shoot.
  */
 export function aimOf(
   mount: Mount,
   pose: Pose,
   target: Pose | undefined,
   rng: Rng,
+  relativeAim?: number,
 ): number | undefined {
   const weapon = mount.def.weapon;
   if (!weapon) return undefined;
@@ -368,10 +410,14 @@ export function aimOf(
 
   if (mount.kind === PROJECTILE_KIND.turret && target) {
     const bearing = Math.atan2(target.y - pose.y, target.x - pose.x);
-    const offset = wrapAngle(bearing - pose.angle);
     const arc = weapon.arc ?? Math.PI;
+    const offset = wrapAngle(bearing - pose.angle);
     if (Math.abs(offset) > arc) return undefined;
-    aim = bearing;
+
+    // Pointed somewhere other than the mark: the shot goes where the barrel
+    // is, not where the gunner wishes it were. A mount still coming round is
+    // what makes a slow traverse cost something.
+    aim = relativeAim === undefined ? bearing : pose.angle + relativeAim;
   }
 
   if (weapon.spread > 0) {

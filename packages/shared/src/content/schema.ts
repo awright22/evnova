@@ -196,6 +196,8 @@ export const LicenceDef = z.object({
   maxModules: z.int().positive(),
   maxExtent: z.int().positive(),
   cost: z.int().nonnegative(),
+  /** Where this sits on the ladder. A captain buys upward, never sideways. */
+  rank: z.int().nonnegative(),
 });
 export type LicenceDef = z.infer<typeof LicenceDef>;
 

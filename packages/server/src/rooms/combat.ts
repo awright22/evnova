@@ -17,6 +17,8 @@ import {
   CanisterState,
   Rng,
   aimOf,
+  slewTurret,
+  wrapAngle,
   applyDamage,
   leadPoint,
   muzzleOf,
@@ -112,18 +114,69 @@ export class CombatSystem {
     runtime: ShipRuntime,
     primary: boolean,
     secondary: boolean,
+    dt: number,
   ): void {
-    if (!primary && !secondary) return;
-
     const now = this.world.now();
     const pose: Pose = { x: ship.x, y: ship.y, angle: ship.angle };
     const target = this.poseOf(ship.target);
+
+    // Turrets come round whether or not the trigger is down, so a mount with
+    // a slow traverse has to be pointed before it is needed. Doing this only
+    // while firing would make every turret instant the moment it mattered.
+    this.traverse(runtime, pose, target, dt);
+
+    if (!primary && !secondary) return;
 
     runtime.mounts.forEach((mount, mountIndex) => {
       const isMissile = mount.kind === PROJECTILE_KIND.missile;
       if (isMissile ? !secondary : !primary) return;
       if (!runtime.tryFire(mountIndex, now)) return;
-      this.spawnRound(shooterId, ship, mount, pose, target, now);
+      this.spawnRound(shooterId, ship, mount, pose, target, now, runtime.turretAim[mountIndex]);
+    });
+  }
+
+  /**
+   * Bring every turret round toward the mark.
+   *
+   * Each mount leads independently, because two turrets at different points
+   * on a hull see a close mark at different bearings. With no mark, a mount
+   * returns to straight ahead at its own rate: a hull that breaks off does
+   * not leave its guns trained on empty space.
+   */
+  private traverse(
+    runtime: ShipRuntime,
+    pose: Pose,
+    target: { pose: Pose; vx: number; vy: number } | undefined,
+    dt: number,
+  ): void {
+    runtime.mounts.forEach((mount, mountIndex) => {
+      if (mount.kind !== PROJECTILE_KIND.turret) return;
+      const weapon = mount.def.weapon;
+      if (!weapon) return;
+
+      const arc = weapon.arc ?? Math.PI;
+      let desired = 0;
+      if (target) {
+        const muzzle = muzzleOf(mount, pose);
+        const lead = leadPoint(
+          muzzle.x,
+          muzzle.y,
+          target.pose.x,
+          target.pose.y,
+          target.vx,
+          target.vy,
+          weapon.projectileSpeed,
+        );
+        desired = wrapAngle(Math.atan2(lead.y - pose.y, lead.x - pose.x) - pose.angle);
+      }
+
+      runtime.turretAim[mountIndex] = slewTurret(
+        runtime.turretAim[mountIndex] ?? 0,
+        desired,
+        weapon.tracking,
+        dt,
+        arc,
+      );
     });
   }
 
@@ -134,6 +187,7 @@ export class CombatSystem {
     pose: Pose,
     target: { pose: Pose; vx: number; vy: number } | undefined,
     now: number,
+    relativeAim: number | undefined,
   ): void {
     const weapon = mount.def.weapon;
     if (!weapon) return;
@@ -154,7 +208,7 @@ export class CombatSystem {
       aimAt = { x: lead.x, y: lead.y, angle: 0 };
     }
 
-    const aim = aimOf(mount, pose, aimAt, this.rng);
+    const aim = aimOf(mount, pose, aimAt, this.rng, relativeAim);
     if (aim === undefined) return;
 
     const muzzle = muzzleOf(mount, pose);

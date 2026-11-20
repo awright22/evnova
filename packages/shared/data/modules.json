@@ -420,7 +420,7 @@
       },
       "mass": 6,
       "hitPoints": 140,
-      "cost": 7800,
+      "cost": 8400,
       "bom": {
         "machinery": 14,
         "alloy": 8,
@@ -855,7 +855,7 @@
       },
       "mass": 28,
       "hitPoints": 440,
-      "cost": 52000,
+      "cost": 56000,
       "bom": {
         "machinery": 52,
         "circuitry": 12,

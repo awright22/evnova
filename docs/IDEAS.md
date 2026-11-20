@@ -103,3 +103,29 @@ sides already derive, as an impulse rather than a hard stop, and keep the
 damage proportional to closing speed so a drift into a berth is not fatal.
 Seen while looking at the M3 captures, where a capture that closed to 30 units
 drew its mark overlapping its own hull.
+
+## Ship systems the catalogue wants but the model cannot express
+
+Found while authoring the forty-four-module catalogue for M5. Each of these is
+a stat a module could plausibly sell that nothing in the simulation reads, so
+no module claims it and no description hints at it. None is in the spec; they
+are parked here rather than built.
+
+- **A bridge with a stat of its own.** Mass, hit points and draw are all a
+  bridge contributes, so a better bridge can only be tougher, lighter or
+  smaller. Sensor range, target locks, a shorter jump spool or crew stations
+  would each give the type something to trade.
+- **Damage reduction on armour.** Armour is currently hit points per cell per
+  tonne, which makes it a hull section with different ratios. "Plate stops a
+  round a hull section would not" is unsayable.
+- **Range falloff, and damage types.** Damage is flat from muzzle to maximum
+  range, and a round does not distinguish shields from structure. A long gun
+  is therefore strictly better at reach, held back only by rate of fire, hull
+  length and price.
+- **Fractional ammunition.** `ammoPerShot` is a positive integer, so no rack
+  can be gentler on the magazine than one unit per shot.
+- **Blended shield delay.** `deriveStats` takes the maximum delay over all
+  generators, so pairing a short-delay generator with a large one throws the
+  short delay away. That is defensible — the slowest system gates the rest —
+  but it is invisible on the grid, and the editor's shield panel is the place
+  it would have to be said.

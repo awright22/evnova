@@ -39,7 +39,11 @@ import {
   BuildIntent,
   ChatIntent,
   ForgetDesignIntent,
+  BuyLicenceIntent,
+  GiveDesignIntent,
+  ImportDesignIntent,
   SaveDesignIntent,
+  SwitchShipIntent,
   StapleIntent,
   berthRefusesPosted,
   compositionForDamage,
@@ -566,6 +570,141 @@ export class SystemRoom extends Room<{
           this.clients.get(client.sessionId)?.send('survey', { problems: error.problems });
           return ctx.reject(error.reason);
         }
+        throw error;
+      }
+    }),
+
+    /**
+     * Read a draught code onto the captain's books.
+     *
+     * No berth needed: a draught is paper, and a captain reading one in open
+     * space is doing nothing a Yard has to witness.
+     */
+    'import-design': validate(
+      ImportDesignIntent,
+      (client: Client, message: ImportDesignIntent, ctx) => {
+        if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+        const pilot = this.pilotsBySession.get(client.sessionId);
+        if (!pilot) return ctx.reject('not-owned');
+
+        try {
+          const saved = world().yard.importDesign(
+            pilot.accountId,
+            message.code,
+            message.name,
+            Date.now(),
+          );
+          this.sendYard(client.sessionId);
+          return saved;
+        } catch (error) {
+          if (error instanceof YardRefused) return ctx.reject(error.reason);
+          throw error;
+        }
+      },
+    ),
+
+    /** Hand a draught to another captain, wherever they are. */
+    'give-design': validate(GiveDesignIntent, (client: Client, message: GiveDesignIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+
+      try {
+        const given = world().yard.giveDesign(
+          pilot.accountId,
+          message.id,
+          message.callsign,
+          Date.now(),
+        );
+
+        // If they happen to be in this system, they find out at once; if not,
+        // the draught is simply on their books next time they look. The
+        // notice is a courtesy, so nothing here depends on it arriving.
+        const theirSession = this.sessionsByAccount.get(given.toAccountId);
+        if (theirSession !== undefined) {
+          this.clients.get(theirSession)?.send('given-design', {
+            name: given.design.name,
+            from: pilot.callsign,
+          });
+          this.sendYard(theirSession);
+        }
+
+        return { to: given.toCallsign, name: given.design.name };
+      } catch (error) {
+        if (error instanceof YardRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /**
+     * Buy a hull licence.
+     *
+     * At a berth that keeps a Yard: a warrant is issued over a counter, and
+     * the Yard's counter is the one in the game.
+     */
+    'buy-licence': validate(BuyLicenceIntent, (client: Client, message: BuyLicenceIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+      if (!port.services.includes('yard')) return ctx.reject('no-yard');
+
+      try {
+        const issued = world().yard.buyLicence(pilot, message.licence);
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+        this.sendYard(client.sessionId);
+        return issued;
+      } catch (error) {
+        if (error instanceof YardRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /**
+     * Take out a hull moored at this berth.
+     *
+     * The captain must be landed here, and the hull must be tied up here:
+     * hulls do not teleport between berths, which is the whole reason the
+     * Moorings are worth looking at before leaving a system.
+     *
+     * The hull in space is replaced, so the captain's old one is written back
+     * to its row first and the new one is spawned from scratch at the berth.
+     */
+    'switch-ship': validate(SwitchShipIntent, (client: Client, message: SwitchShipIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+
+      // Everything the old hull did lands in its row before the swap, or the
+      // damage it took this session would be lost.
+      this.persist(client.sessionId);
+
+      try {
+        const taken = world().yard.switchTo(pilot.accountId, message.id, port.id);
+
+        // The new hull is sound, full and fresh out of the moorings: its own
+        // damage is on its row and restored by `spawnFromPilot`, but the
+        // captain's row still describes the hull they just left, so the
+        // carried-over damage array is cleared here.
+        pilot.moduleHp = [];
+        pilot.shield = 0;
+        world().pilots.touch(pilot.accountId);
+
+        this.sendPurse(client.sessionId);
+        this.sendYard(client.sessionId);
+        return taken;
+      } catch (error) {
+        if (error instanceof YardRefused) return ctx.reject(error.reason);
         throw error;
       }
     }),
@@ -1198,7 +1337,7 @@ export class SystemRoom extends Room<{
 
       stepFlight(ship, command, runtime.profile, ctx);
       this.advanceTravel(id, ship, runtime, ctx.dt);
-      this.combat.fire(id, ship, runtime, command.firePrimary, command.fireSecondary);
+      this.combat.fire(id, ship, runtime, command.firePrimary, command.fireSecondary, ctx.dt);
       this.regenerateShield(ship, runtime, ctx.dt, now);
     }
 

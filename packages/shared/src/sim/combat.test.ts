@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { content } from '../content/load.ts';
 import { Rng } from '../math/rng.ts';
 import { CELL_METRES, placeAll } from '../ships/geometry.ts';
+import type { ModuleDef } from '../content/schema.ts';
 import {
   PROJECTILE_KIND,
   aimOf,
@@ -13,9 +14,11 @@ import {
   mountsOf,
   muzzleOf,
   powerState,
+  slewTurret,
   steerMissile,
   sweepHit,
   worldToCell,
+  type Mount,
   type Pose,
 } from './combat.ts';
 
@@ -317,5 +320,87 @@ describe('missiles', () => {
     const missile = { x: 0, y: 0, vx: 380, vy: 0 };
     steerMissile(missile, undefined, 2.6, 380, 1 / 30);
     expect(missile.vy).toBe(0);
+  });
+});
+
+describe('turret traverse', () => {
+  const FAST = Math.PI; // rad/s
+  const ARC = Math.PI / 2;
+
+  /**
+   * A turret with a known arc.
+   *
+   * The catalogue's turrets declare arcs wide enough that "outside the arc"
+   * is hard to reach, and the arc is the thing under test, so it is stated
+   * here rather than borrowed from content that may be tuned later.
+   */
+  function turretMount(): Mount {
+    return {
+      moduleIndex: 0,
+      kind: PROJECTILE_KIND.turret,
+      offsetX: 0,
+      offsetY: 0,
+      def: {
+        weapon: { damage: 1, roundsPerSecond: 1, projectileSpeed: 1000, range: 1000, spread: 0, arc: ARC, tracking: FAST },
+      } as unknown as ModuleDef,
+    };
+  }
+
+  it('reaches the mark at its own rate, not at once', () => {
+    // Half a radian of traverse in a tenth of a second, so a mount ninety
+    // degrees off its mark is nowhere near it after one step.
+    const after = slewTurret(0, ARC, FAST, 0.1, ARC);
+    expect(after).toBeCloseTo(FAST * 0.1, 6);
+    expect(after).toBeLessThan(ARC);
+  });
+
+  it('arrives and stops, without overshooting', () => {
+    let aim = 0;
+    for (let i = 0; i < 100; i++) aim = slewTurret(aim, 0.4, FAST, 0.1, ARC);
+    expect(aim).toBeCloseTo(0.4, 6);
+  });
+
+  it('takes the short way round', () => {
+    // From just inside one stop to just inside the other, the mount must not
+    // travel the long way through the hull.
+    const after = slewTurret(-1.2, 1.2, FAST, 0.01, ARC);
+    expect(after).toBeGreaterThan(-1.2);
+  });
+
+  it('parks against its stop rather than swinging past it', () => {
+    // Two radians to port is well outside a half-arc of ninety degrees, so
+    // the mount runs to that stop and stays there. (A mark at exactly dead
+    // astern is equidistant from both stops; which one it picks is not
+    // behaviour worth pinning down.)
+    let aim = 0;
+    for (let i = 0; i < 200; i++) aim = slewTurret(aim, 2, FAST, 0.1, ARC);
+    expect(aim).toBeCloseTo(ARC, 6);
+    for (let i = 0; i < 200; i++) aim = slewTurret(aim, -2, FAST, 0.1, ARC);
+    expect(aim).toBeCloseTo(-ARC, 6);
+  });
+
+  it('is instant for a mount with no traverse rate', () => {
+    expect(slewTurret(0, 0.9, undefined, 0.001, ARC)).toBeCloseTo(0.9, 6);
+  });
+
+  it('fires where the barrel is pointed, not where the mark is', () => {
+    const rng = new Rng('traverse');
+    const turret = turretMount();
+    const pose = { x: 0, y: 0, angle: 0 };
+    const mark = { x: 0, y: 100, angle: 0 };
+
+    // Mark is abeam to port; the mount is still pointed straight ahead.
+    const stillComingRound = aimOf(turret, pose, mark, rng, 0);
+    expect(stillComingRound).toBeCloseTo(0, 6);
+
+    // Once it has come round, the shot goes to the mark.
+    const onTarget = aimOf(turret, pose, mark, rng, Math.PI / 2);
+    expect(onTarget).toBeCloseTo(Math.PI / 2, 6);
+  });
+
+  it('still declines a shot outside the arc', () => {
+    const rng = new Rng('traverse');
+    const behindMe = { x: -100, y: 0, angle: 0 };
+    expect(aimOf(turretMount(), { x: 0, y: 0, angle: 0 }, behindMe, rng, 0)).toBeUndefined();
   });
 });

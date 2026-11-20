@@ -48,6 +48,14 @@ export const REJECTIONS = {
   'hold-full': 'The hold will not take any more.',
   'not-carrying': 'You are not carrying that.',
   'berth-full': 'The berth has no room for more.',
+  'no-such-licence': 'The Register issues no such warrant.',
+  'licence-held': 'You already hold that warrant, or better.',
+  'not-parked-here': 'That hull is not moored at this berth.',
+  'already-flying-it': 'You are already in that hull.',
+  'bad-share-code': 'That draught code will not read.',
+  'unknown-fitting': 'That draught calls for a fitting the Register does not list.',
+  'unknown-captain': 'No captain of that callsign is on the Register.',
+  'give-to-self': 'You already have it.',
 } as const;
 
 export type RejectionReason = keyof typeof REJECTIONS;
@@ -144,6 +152,39 @@ export const BuildIntent = z.object({
 });
 export type BuildIntent = z.infer<typeof BuildIntent>;
 
+/** Buy a hull licence. Only upward, and only what the Register issues. */
+export const BuyLicenceIntent = z.object({
+  licence: z.string().max(64),
+});
+export type BuyLicenceIntent = z.infer<typeof BuyLicenceIntent>;
+
+/** Take out a hull moored at this berth and leave the current one in its place. */
+export const SwitchShipIntent = z.object({
+  id: z.string().min(1).max(64),
+});
+export type SwitchShipIntent = z.infer<typeof SwitchShipIntent>;
+
+/**
+ * Read a draught code onto your own books.
+ *
+ * The code is bounded here at something generous: a draught of 160 fittings
+ * with every one a different module encodes to well under this, and a longer
+ * string is not a code whatever else it is.
+ */
+export const ImportDesignIntent = z.object({
+  code: z.string().min(8).max(4096),
+  /** What to call it. Left out, the name in the code is used. */
+  name: z.string().max(40).optional(),
+});
+export type ImportDesignIntent = z.infer<typeof ImportDesignIntent>;
+
+/** Hand one of your draughts to another captain, by callsign. */
+export const GiveDesignIntent = z.object({
+  id: z.string().min(1).max(64),
+  callsign: z.string().min(1).max(20),
+});
+export type GiveDesignIntent = z.infer<typeof GiveDesignIntent>;
+
 /** Buy from or sell to the berth's Staple. */
 export const StapleIntent = z.object({
   side: z.enum(['buy', 'sell']),
@@ -190,6 +231,7 @@ export const SERVER_MESSAGES = [
   'market',
   'yard',
   'survey',
+  'given-design',
 ] as const;
 
 /** A line as it reaches the other captains. */
