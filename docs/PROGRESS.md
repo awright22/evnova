@@ -225,9 +225,9 @@ end it several hundred thousand marks down.
 - [x] Player-to-player trade
 
 Done when:
-- [ ] A solo player has something worth doing in every system
+- [x] A solo player has something worth doing in every system
 - [x] Every commission template completes end to end under bots
-- [ ] Standing changes produce visible consequences at ports
+- [x] Standing changes produce visible consequences at ports
 
 ## M8. Depth
 

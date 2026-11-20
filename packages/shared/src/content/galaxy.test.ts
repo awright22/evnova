@@ -134,6 +134,47 @@ describe('the galaxy', () => {
     }
   });
 
+  /**
+   * Spec section 11's done-when: a solo player has something worth doing in
+   * every system.
+   *
+   * "Worth doing" is one of four things, and a system has to offer at least
+   * two of them: a berth that buys or sells, work posted by a Factor, a
+   * Yard to build at, or Unlettered to hunt. One alone is a system a captain
+   * passes through; two is a reason to stop.
+   */
+  it('gives a solo captain at least two reasons to stop, in every system', () => {
+    const { tuning } = content();
+    const thin: string[] = [];
+
+    for (const system of systems.values()) {
+      const reasons: string[] = [];
+
+      // A berth that trades: either it wants something or it makes something.
+      const trades = system.ports.some(
+        (port) =>
+          port.services.includes('staple') &&
+          (Object.values(port.trade?.produces ?? {}).some((rate) => rate > 0) ||
+            Object.values(port.trade?.consumes ?? {}).some((rate) => rate > 0)),
+      );
+      if (trades) reasons.push('a Staple that wants something');
+
+      if (system.ports.some((port) => port.services.includes('factor'))) {
+        reasons.push('a Factor');
+      }
+      if (system.ports.some((port) => port.services.includes('yard'))) {
+        reasons.push('a Yard');
+      }
+      if (tuning.world.raidersBySecurity[system.security] > 0) {
+        reasons.push('Unlettered to hunt');
+      }
+
+      if (reasons.length < 2) thin.push(`${system.id}: ${reasons.join(', ') || 'nothing'}`);
+    }
+
+    expect(thin, 'systems with nothing much in them').toEqual([]);
+  });
+
   it('writes every description in the house style', () => {
     for (const system of systems.values()) {
       expect(system.description, system.id).not.toMatch(/!/);
