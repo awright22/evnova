@@ -1273,7 +1273,12 @@ export const SCREENS: readonly Screen[] = [
       await page.locator('#ticket-limit').fill('6.40');
       await page.waitForTimeout(200);
       await page.click('.ticket__confirm button');
-      await page.waitForTimeout(700);
+      // Long enough for the seal to settle. At 700ms the impression was still
+      // crossing the confirm when the shutter came round a second later, the
+      // same way it did on `board` and `staple`. Third time; the stamp is a
+      // deliberate, slow ceremony, and any capture that presses it has to
+      // wait the ceremony out.
+      await page.waitForTimeout(2400);
 
       // Then a short, which is the other half of what this screen is for:
       // the sell side, the box ticked, and the margin line under it.

@@ -65,7 +65,15 @@ panel that shows eighteen — was not wired, and the `yard-code` capture shows
 it cut through "Mk II Fixed Gun". Wired now. The fade is cheap; finding the
 scrollers is the work, and a capture of each screen is what finds them.
 
-**N3. Two of the three required browsers have never been run.** Spec section
+**N3. A third still was a photograph of the stamp.** Cycle 2 found `board`
+and `staple` photographing the seal mid-strike and gave both 2.4 seconds to
+settle. `bourse-orders` presses the same stamp and waited 700ms; the capture
+shows the impression crossing "Leave the order: 300 DPR". The stamp is a
+deliberate, slow ceremony — spec section 4 makes it the signature
+interaction — so any capture that presses it has to wait the ceremony out.
+Three screens, three separate waits, each found by looking.
+
+**N4. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So
