@@ -379,17 +379,33 @@ export const SCREENS: readonly Screen[] = [
     description:
       'The Close Order holding two cutting beams on a mark: the core, the soft '
       + 'surround, and the brighter termination where they land.',
-    path: '/?draught=close-order&callsign=Close%20Order&harness=1',
+    path: '/?callsign=Close%20Order&harness=1',
     settle: '.hud',
     settleMs: 2500,
     bots: 2,
+    // Seeded rather than asked for with `?draught=`: the Close Order needs a
+    // Frigate Warrant, and a captain who has just walked in holds an Open
+    // Ticket. The hull is put under them the way the Moorings would.
+    seed: {
+      callsign: 'Close Order',
+      // Respondentia, which is contested: Sato's Error is the Marque and
+      // four Unlettered wrote this hull off before it got a beam on any of
+      // them, which made a fine capture of the claim screen and none at all
+      // of what this one is for.
+      at: 'respondentia',
+      flying: 'close-order',
+    },
     act: async (page) => {
+      await page.waitForSelector('.hud', { timeout: 20_000 });
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
       // A beam is held rather than fired, so the capture has to be taken
       // while the trigger is still down — which is what `untilHit` leaves.
-      await engageNearest(page, 45, { untilHit: true });
-      await page.waitForTimeout(250);
+      // Long enough to close: a beam reaches nine hundred units and a mark
+      // picked at three thousand is a capture of two lines going off the
+      // side of the screen at nothing.
+      await engageNearest(page, 55, { untilHit: true });
+      await page.waitForTimeout(200);
     },
   },
   {
