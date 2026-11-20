@@ -11,6 +11,8 @@
  */
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
+import type { Placement, Problem } from '@marque/shared';
+
 import {
   CHAT_BACKLOG,
   REJECTIONS,
@@ -89,6 +91,24 @@ export interface StapleState {
   readonly holdUsed: number;
 }
 
+/** What a captain has on their books and at their moorings. */
+export interface YardState {
+  readonly designs: readonly { id: string; name: string; placements: Placement[] }[];
+  readonly ships: readonly {
+    id: string;
+    name: string;
+    placements: Placement[];
+    portId: string;
+    systemId: string;
+  }[];
+  readonly licence: string;
+  /** The hull being flown, which the editor starts a refit from. */
+  readonly flying: Placement[];
+  /** Its id in the hangar, or empty for a hull that was never built. */
+  readonly flyingId: string;
+  readonly flyingName: string;
+}
+
 export interface GameSnapshot {
   readonly mode: GameMode;
   readonly room: Room<unknown, SystemState> | undefined;
@@ -106,6 +126,10 @@ export interface GameSnapshot {
   readonly course: string | undefined;
   /** The berth's Staple, while alongside one that keeps a market. */
   readonly staple: StapleState | undefined;
+  /** The captain's draughts and hulls, while alongside. */
+  readonly yard: YardState | undefined;
+  /** What the server's survey found, when it refused a build. */
+  readonly surveyProblems: readonly Problem[];
 }
 
 /**
@@ -153,6 +177,8 @@ export class GameClient {
   /** Where the captain means to go next, cleared once they arrive. */
   private course: string | undefined;
   private staple: StapleState | undefined;
+  private yard: YardState | undefined;
+  private surveyProblems: readonly Problem[] = [];
   private disposed = false;
 
   constructor(
@@ -191,6 +217,8 @@ export class GameClient {
       notice: this.notice,
       course: this.course,
       staple: this.staple,
+      yard: this.yard,
+      surveyProblems: this.surveyProblems,
     };
   }
 
@@ -361,6 +389,16 @@ export class GameClient {
       this.emit();
     });
 
+    room.onMessage('yard', (payload) => {
+      this.yard = payload as YardState;
+      this.emit();
+    });
+
+    room.onMessage('survey', (payload) => {
+      this.surveyProblems = (payload as { problems: Problem[] }).problems;
+      this.emit();
+    });
+
     room.onMessage('market', (payload) => {
       this.staple = payload as StapleState;
       this.emit();
@@ -397,6 +435,8 @@ export class GameClient {
       'chat-backlog',
       'posted',
       'market',
+      'yard',
+      'survey',
     ]);
     for (const type of SERVER_MESSAGES) {
       if (!handled.has(type)) room.onMessage(type, () => undefined);
@@ -483,7 +523,37 @@ export class GameClient {
     // The berth's prices belong to the berth: a captain in flight is not
     // looking at a market, and a stale one would be worse than none.
     this.staple = undefined;
+    this.yard = undefined;
+    this.surveyProblems = [];
     void this.request('launch', {});
+  }
+
+  /**
+   * Build or refit at the berth's Yard.
+   *
+   * The server validates the design for itself and answers a refusal with the
+   * problems, which the editor marks on the grid.
+   */
+  build(name: string, placements: readonly Placement[], refitting?: string): void {
+    this.surveyProblems = [];
+    void this.request('build', {
+      name,
+      placements,
+      ...(refitting !== undefined ? { refitting } : {}),
+    });
+  }
+
+  /** Keep a draught on the captain's books, or replace one. */
+  saveDesign(name: string, placements: readonly Placement[], id?: string): void {
+    void this.request('save-design', {
+      name,
+      placements,
+      ...(id !== undefined ? { id } : {}),
+    });
+  }
+
+  forgetDesign(id: string): void {
+    void this.request('forget-design', { id });
   }
 
   /** Trade at the berth's Staple. The server answers with fresh prices. */

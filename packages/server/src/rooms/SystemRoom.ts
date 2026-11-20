@@ -770,10 +770,22 @@ export class SystemRoom extends Room<{
     const pilot = this.pilotsBySession.get(sessionId);
     if (!pilot) return;
 
+    // What the captain is flying, which the editor starts a refit from. A
+    // captain who has never built owns no hull row — they fly the draught
+    // their account opened with — so it comes from the blueprint rather than
+    // from the hangar, and the editor opens on their actual ship instead of
+    // an empty grid.
+    const { blueprints } = content();
+    const owned = world().yard.flying(pilot.accountId);
+    const flying = owned?.placements ?? blueprints.get(pilot.blueprintId)?.placements ?? [];
+
     this.clients.get(sessionId)?.send('yard', {
       designs: world().yard.designsOf(pilot.accountId),
       ships: world().yard.shipsOf(pilot.accountId),
       licence: pilot.licence,
+      flying,
+      flyingId: owned?.id ?? '',
+      flyingName: blueprints.get(pilot.blueprintId)?.name ?? pilot.blueprintId,
     });
   }
 

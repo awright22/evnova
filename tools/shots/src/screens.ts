@@ -360,6 +360,34 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'yard',
+    description:
+      "The Yard's editor: the hull on the grid, what it weighs and how it will fly, " +
+      'what is wrong with it, and what it comes to in marks and materials.',
+    path: '/?callsign=Shipwright',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Yard")');
+      await page.waitForSelector('.grid', { timeout: 20_000 });
+      await page.waitForTimeout(500);
+
+      // Pick a fitting and hold it over the grid, so the capture shows the
+      // editor mid-edit rather than at rest.
+      await page.click('.yard__fitting:has-text("Cargo")');
+      await page.waitForTimeout(200);
+      const grid = await page.locator('.grid').boundingBox();
+      if (grid) {
+        await page.mouse.move(grid.x + grid.width * 0.56, grid.y + grid.height * 0.45);
+      }
+      await page.waitForTimeout(500);
+    },
+  },
+  {
     name: 'chat',
     description: 'The chat overlay: the composer open on the global channel, with the log behind it.',
     path: '/?callsign=Say%20Again',

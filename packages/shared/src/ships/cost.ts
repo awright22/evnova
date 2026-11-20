@@ -122,6 +122,17 @@ export function splitBill(bill: Bill, hold: ReadonlyMap<string, number>): BillSh
   return { missing, fromHold };
 }
 
+/**
+ * A module's name without its maker's, for a list too narrow for both.
+ *
+ * The catalogue names every part in full — "Slipway Thirty Mk I Engine" — and
+ * a palette that shows that truncates to "Slipway Thirty Mk I..." on every
+ * row, which tells a captain nothing. The maker goes in a tag beside it.
+ */
+export function shortModuleName(name: string, maker: string): string {
+  return name.startsWith(`${maker} `) ? name.slice(maker.length + 1) : name;
+}
+
 /** Total units in a bill, for showing a hold's worth of materials at a glance. */
 export function billUnits(bill: Bill): number {
   let total = 0;

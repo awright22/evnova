@@ -27,7 +27,7 @@ const SERVICE_LABELS: Record<string, { name: string; trading: boolean }> = {
   staple: { name: 'the Staple', trading: true },
   bourse: { name: 'the Bourse', trading: false },
   factor: { name: 'the Factor', trading: false },
-  yard: { name: 'the Yard', trading: false },
+  yard: { name: 'the Yard', trading: true },
   moorings: { name: 'the Moorings', trading: false },
   repair: { name: 'Repairs', trading: true },
 };
@@ -64,6 +64,9 @@ export interface PortHubProps {
   onLaunch: () => void;
   onOpenChart: () => void;
   onOpenStaple: () => void;
+  onOpenYard: () => void;
+  /** True while this berth keeps a Yard. */
+  readonly hasYard: boolean;
 }
 
 export function PortHub({
@@ -72,6 +75,8 @@ export function PortHub({
   onLaunch,
   onOpenChart,
   onOpenStaple,
+  onOpenYard,
+  hasYard,
 }: PortHubProps): React.JSX.Element {
   const launchRef = useRef<HTMLButtonElement | null>(null);
   const [focusMoved, setFocusMoved] = useState(false);
@@ -187,6 +192,16 @@ export function PortHub({
               />
             )}
 
+            {hasYard && (
+              <ServiceRow
+                name="the Yard"
+                detail="Draw a draught, build it, or refit what you fly"
+                action="Open the Yard"
+                disabled={state.busy}
+                onAction={onOpenYard}
+              />
+            )}
+
             {state.hasStaple && (
               <ServiceRow
                 name="the Staple"
@@ -216,7 +231,10 @@ export function PortHub({
             <ul>
               {state.port.services
                 // Repairs and the Staple have rows of their own above.
-                .filter((service) => service !== 'repair' && service !== 'staple')
+                .filter(
+                  (service) =>
+                    service !== 'repair' && service !== 'staple' && service !== 'yard',
+                )
                 .map((service) => {
                   const label = SERVICE_LABELS[service];
                   return (

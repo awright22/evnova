@@ -21,6 +21,7 @@ import { Register } from './game/Register.tsx';
 import { GalaxyMap } from './map/GalaxyMap.tsx';
 import { PortHub } from './port/PortHub.tsx';
 import { Staple } from './port/Staple.tsx';
+import { Editor } from './yard/Editor.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -38,6 +39,7 @@ export function App(): React.JSX.Element {
   const [chartOpen, setChartOpen] = useState(false);
   const [chat, setChat] = useState<readonly ChatLine[]>([]);
   const [stapleOpen, setStapleOpen] = useState(false);
+  const [yardOpen, setYardOpen] = useState(false);
   const [composing, setComposing] = useState(false);
 
   useEffect(() => {
@@ -53,10 +55,24 @@ export function App(): React.JSX.Element {
 
   const { mode, purse, chart } = snapshot;
 
+  // What the captain is carrying, which the Yard's bill is settled against.
+  const hold = useMemo(
+    () =>
+      new Map(
+        (snapshot.staple?.listings ?? [])
+          .filter((listing) => listing.carried > 0)
+          .map((listing) => [listing.commodityId, listing.carried] as const),
+      ),
+    [snapshot.staple],
+  );
+
   // Leaving the berth closes its floor: a market is a thing you stand in, and
   // one left open over the flight view would be reading stale prices.
   useEffect(() => {
-    if (mode.kind !== 'port') setStapleOpen(false);
+    if (mode.kind !== 'port') {
+      setStapleOpen(false);
+      setYardOpen(false);
+    }
   }, [mode.kind]);
 
   const onJump = useCallback(
@@ -148,7 +164,35 @@ export function App(): React.JSX.Element {
             onLaunch={() => client.launch()}
             onOpenChart={() => setChartOpen(true)}
             onOpenStaple={() => setStapleOpen(true)}
+            onOpenYard={() => setYardOpen(true)}
+            hasYard={port.services.includes('yard')}
           />
+          {yardOpen && (
+            <Editor
+              flying={snapshot.yard?.flying ?? []}
+              flyingName={snapshot.yard?.flyingName ?? purse.draught}
+              licence={purse.licence}
+              marks={purse.marks}
+              staple={snapshot.staple}
+              hold={hold}
+              notice={snapshot.notice}
+              serverProblems={snapshot.surveyProblems}
+              busy={false}
+              onBuild={(name, placements, refitting) =>
+                client.build(
+                  name,
+                  placements,
+                  // A hull that was never built has no row to refit: building
+                  // from it makes the first one.
+                  refitting && snapshot.yard?.flyingId
+                    ? snapshot.yard.flyingId
+                    : undefined,
+                )
+              }
+              onSave={(name, placements) => client.saveDesign(name, placements)}
+              onClose={() => setYardOpen(false)}
+            />
+          )}
           {stapleOpen && snapshot.staple && (
             <Staple
               state={snapshot.staple}

@@ -206,6 +206,21 @@ h3 {
   background: var(--amber-dim);
 }
 
+/*
+ * A primary button that cannot be pressed must not look pressable.
+ *
+ * `.button:disabled` is declared above this block, so without this rule the
+ * amber fill wins the cascade and a refused action stays the brightest thing
+ * on the screen: the Build button looked ready while Survey said the draught
+ * had two faults to answer. The fill drops back to the flat treatment, which
+ * is the signal, and the cursor and border follow from the shared rule.
+ */
+.button--primary:disabled {
+  background: var(--raised);
+  color: var(--text-disabled);
+  border-color: var(--rule);
+}
+
 /* A status dot: the one place a filled glyph is allowed. */
 .dot {
   display: inline-block;

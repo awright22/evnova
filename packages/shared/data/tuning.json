@@ -87,6 +87,12 @@
     "threshold": 0.25,
     "maxHops": 6
   },
+  "manufacturers": {
+    "$comment": "Who makes what. A module's name carries its maker in full, as a parts catalogue would; a narrow list shows the code instead and drops the prefix, so the part is readable rather than the firm.",
+    "HRC": "Home Roads Chandlery",
+    "SLP": "Slipway Thirty",
+    "RPO": "Reprisal Ordnance"
+  },
   "yard": {
     "$comment": "What a yard charges. The premium is insurance on the hull, added to what the modules cost; the refund is what a captain gets back for the marks value of modules stripped in a refit, which is deliberately half, because shipbuilding is the economy's main sink and a refit that paid for itself would not be one. Materials stripped come back in full: the yard has the parts in its hands.",
     "insurancePremium": 0.12,

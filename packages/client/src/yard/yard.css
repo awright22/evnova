@@ -1,0 +1,325 @@
+/**
+ * The Yard's editor. Three columns: what you can fit, the hull itself, and
+ * what it comes to. The middle column is the work; the outer two are the
+ * numbers that decide it.
+ */
+
+.yard {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 260px 1fr 320px;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--void);
+  outline: none;
+}
+
+.yard > section {
+  min-height: 0;
+}
+
+/* --- Fittings ------------------------------------------------------------ */
+
+.yard__fittings {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1-5);
+  overflow: hidden;
+}
+
+.yard__catalogue {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1-5);
+  overflow-y: auto;
+}
+
+.yard__group {
+  display: grid;
+  gap: 2px;
+}
+
+.yard__fitting {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-0-5) var(--space-1);
+  font: inherit;
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid transparent;
+}
+
+.yard__fitting:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.yard__fitting--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+.yard__fitting-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-0-5);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The maker, as a code rather than a name the row has no room for. */
+.yard__maker {
+  flex: 0 0 auto;
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--text-disabled);
+}
+
+.yard__fitting-figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-0-5);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The board ----------------------------------------------------------- */
+
+.yard__board {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.yard__board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1-5);
+}
+
+.yard__name {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 2px 0;
+  font-family: var(--font-condensed);
+  font-size: var(--size-h3);
+  font-weight: 600;
+  letter-spacing: var(--track-h3);
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-bottom: var(--border-width) solid var(--rule);
+  outline: none;
+}
+
+.yard__name:focus {
+  border-bottom-color: var(--amber);
+}
+
+.yard__tools {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+.yard__tools .button {
+  padding: 2px var(--space-1);
+  font-size: var(--size-label);
+}
+
+.yard__hint {
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- The grid ------------------------------------------------------------ */
+
+.grid {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule-faint);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.grid__module rect {
+  stroke: var(--void);
+  stroke-width: 0.04;
+}
+
+.grid__module--selected rect {
+  stroke: var(--amber);
+  stroke-width: 0.12;
+}
+
+.grid__module--problem rect {
+  stroke: var(--danger);
+  stroke-width: 0.12;
+}
+
+/* A lane a problem points at, where no module sits. */
+.grid__blocked {
+  fill: var(--danger-wash);
+  stroke: var(--danger-dim);
+  stroke-width: 0.03;
+}
+
+.grid__ghost {
+  fill: color-mix(in srgb, var(--amber) 35%, transparent);
+  stroke: var(--amber);
+  stroke-width: 0.06;
+  pointer-events: none;
+}
+
+.grid__ghost--blocked {
+  fill: color-mix(in srgb, var(--danger) 30%, transparent);
+  stroke: var(--danger);
+}
+
+/* --- The readout --------------------------------------------------------- */
+
+.yard__readout {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.yard__readout .panel {
+  padding: var(--space-1-5);
+}
+
+.yard__verdict {
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+.yard__verdict--ok {
+  color: var(--gain);
+}
+
+.yard__problems {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-2);
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+}
+
+.yard__stats dl,
+.yard__cost-lines {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-1) 0 0;
+}
+
+.yard__stats dl > div,
+.yard__cost-lines > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--size-body-sm);
+}
+
+.yard__stats dt,
+.yard__cost-lines dt {
+  color: var(--text-secondary);
+}
+
+.yard__stats dd,
+.yard__cost-lines dd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-0-5);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the change does, which is the reason to look at all. */
+.yard__delta {
+  font-family: var(--font-condensed);
+  font-size: var(--size-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.yard__delta--up {
+  color: var(--gain);
+}
+
+.yard__delta--down {
+  color: var(--danger);
+}
+
+.yard__short {
+  color: var(--danger);
+}
+
+.yard__refund {
+  color: var(--gain);
+}
+
+.yard__materials {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-0-5) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--size-body-sm);
+}
+
+.yard__materials li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+}
+
+.yard__materials .micro {
+  color: var(--text-muted);
+}
+
+.yard__material--short,
+.yard__material--short .micro {
+  color: var(--caution);
+}
+
+.yard__notice {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-0-5) var(--space-1);
+  font-size: var(--size-body-sm);
+  color: var(--text-secondary);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+}
+
+.yard__actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-1-5);
+}
+
+.yard__actions .button {
+  flex: 1 1 auto;
+}
