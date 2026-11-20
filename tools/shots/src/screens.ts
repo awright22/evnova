@@ -479,7 +479,36 @@ export const SCREENS: readonly Screen[] = [
     // fixed, not a harness one. With that fixed and the mark's engines
     // gone, the gunner is a bot flying the same protocol a browser does,
     // firing on a captain the Prize Court has already posted.
-    gunner: { hunt: 'Act of God', system: 'parity', draught: 'short-measure' },
+    //
+    // The gunner is a companion *browser*, not a bot. A bot hunter was
+    // tried for six runs and never once saw its mark: the page reported
+    // itself in parity with five hulls around it and the bot reported
+    // parity with five hulls and no mark among them, which is two rooms
+    // for one system and a thread this cycle has not pulled. A companion
+    // page joins the way the victim joins, so if the two are ever in
+    // different rooms, that is a fault worth seeing rather than one to
+    // work around.
+    companions: [
+      {
+        seed: {
+          callsign: 'Strict Liability',
+          at: 'the-bourse',
+          flying: 'short-measure',
+          marks: 50_000,
+        },
+        act: async (page) => {
+          await page.waitForSelector('.hud', { timeout: 60_000 });
+          await page.waitForTimeout(2000);
+          await page.focus('body');
+          await page.keyboard.press('Tab');
+          await page.waitForTimeout(300);
+          // Started and not awaited: the capture has to get on and open
+          // its own page, and this drives the gunner alongside it for as
+          // long as the screen takes.
+          void engageNearest(page, 220).catch(() => undefined);
+        },
+      },
+    ],
     //
     // A fragile gunboat with a hold worth dropping, in the Home Roads, with
     // a berth at the far side of the system behind it — so the panel's last

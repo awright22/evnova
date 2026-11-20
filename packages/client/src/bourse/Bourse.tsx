@@ -113,6 +113,40 @@ export function poolOf(listing: Listing, maxPoolFraction: number): Pool {
   };
 }
 
+/**
+ * What closing a position would bring in, or cost.
+ *
+ * A long is worth what selling it fetches, after the fee and after the
+ * pool has moved under the sale. A short is worth the negative of what
+ * buying it back costs. Where the holding is larger than the pool will
+ * take in one order, the rest is valued at the price the last share of
+ * that order reached — which is optimistic, and still far closer than the
+ * marginal quote.
+ */
+export function closeAt(
+  listing: Listing,
+  feeRate: number,
+  maxPoolFraction: number,
+): number {
+  const held = listing.held;
+  if (held === 0) return 0;
+
+  const pool = poolOf(listing, maxPoolFraction);
+  const inOneOrder = Math.max(1, Math.floor(pool.shares * maxPoolFraction));
+  const now = Math.min(Math.abs(held), inOneOrder);
+  const rest = Math.abs(held) - now;
+
+  if (held > 0) {
+    const sale = quoteSell(pool, now, feeRate);
+    const edge = sale.shares > 0 ? sale.total / sale.shares : listing.price;
+    return sale.total + rest * edge;
+  }
+
+  const buyBack = quoteBuy(pool, now, feeRate, maxPoolFraction);
+  const edge = buyBack.shares > 0 ? buyBack.total / buyBack.shares : listing.price;
+  return -(buyBack.total + rest * edge);
+}
+
 /** The move since the last market tick, as a fraction of the old quote. */
 export function moveOf(price: number, previous: number): number {
   if (!(previous > 0)) return 0;
@@ -194,11 +228,21 @@ export interface Holding {
  * page: the dividends are a fact about their year, and dropping the row would
  * lose them.
  */
-export function holdingsOf(listings: readonly Listing[]): readonly Holding[] {
+export function holdingsOf(
+  listings: readonly Listing[],
+  feeRate: number,
+  maxPoolFraction: number,
+): readonly Holding[] {
   return listings
     .filter((listing) => listing.held !== 0 || listing.dividends > 0)
     .map((listing) => {
-      const value = listing.held * listing.price;
+      // What the position would actually fetch, not what the marginal
+      // quote says. A captain who buys a tenth of a float moves the quote
+      // sixty per cent, and valuing at the quote showed them an immediate
+      // paper gain of a quarter on shares they had just paid for — a
+      // figure that cannot be realised, because selling walks the pool
+      // back down and the fee is charged both ways.
+      const value = closeAt(listing, feeRate, maxPoolFraction);
       // A short is the trade the other way round: the basis is what the sale
       // brought in and the position is worth what it would cost to buy back,
       // so the gain rises as the price falls. `value` is negative there,
@@ -369,7 +413,10 @@ export function Bourse({
     setFill(undefined);
   }, [current?.ticker, side]);
 
-  const holdings = useMemo(() => holdingsOf(listings), [listings]);
+  const holdings = useMemo(
+    () => holdingsOf(listings, feeRate, maxPoolFraction),
+    [listings, feeRate, maxPoolFraction],
+  );
   const book = useMemo(() => bookOf(holdings), [holdings]);
 
   /**

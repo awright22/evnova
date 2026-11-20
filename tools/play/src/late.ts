@@ -156,7 +156,14 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
   // --- The Factor -------------------------------------------------------
   await open(page, /read the board/i, '.board');
   const board = await page.locator('.board').innerText();
-  book.record('the board has work on it', (board.match(/\bmarks\b/gi) ?? []).length >= 2);
+  // Rows on the board, not the word "marks": the Factor's own figures are
+  // written as bare numbers beside each title, and counting a word that
+  // appears in the detail panel made this depend on which one was selected.
+  book.record(
+    'the board has work on it',
+    /commission|carriage|bounty|running|passage/i.test(board),
+    board.replace(/\s+/g, ' ').slice(0, 70),
+  );
   book.record(
     'no commission says undefined or NaN',
     !/undefined|NaN/.test(board),
@@ -175,7 +182,11 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
     await drawer.click();
     await page.waitForTimeout(500);
   }
-  const yard = await page.locator('.yard, .loft, main').first().innerText();
+  // `.yard` is the editor's own root. Reading `main` matched the port hub
+  // behind it, so "the Yard knows what the captain is flying" was passing
+  // on the hub's header and "saved draughts are listed" was looking for
+  // them on the wrong screen.
+  const yard = await page.locator('.yard').first().innerText();
   book.record(
     'the Yard knows what the captain is flying',
     /close order/i.test(yard),
