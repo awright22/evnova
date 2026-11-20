@@ -200,6 +200,23 @@ export class Yard {
     return row ? toOwnedShip(row) : undefined;
   }
 
+  /**
+   * Write a hull's damage back to its row.
+   *
+   * Called as a captain's hull is persisted, so a built hull carries its
+   * dents between sessions and between hulls: park a holed cruiser, fly the
+   * shuttle for a week, and the cruiser is still holed.
+   *
+   * Scoped to the owner, so a hull id from elsewhere touches nothing.
+   */
+  recordDamage(accountId: string, shipId: string, moduleHp: readonly number[]): void {
+    this.store.db
+      .update(schema.ships)
+      .set({ moduleHp: JSON.stringify(moduleHp.map((hp) => Math.max(0, Math.round(hp)))) })
+      .where(and(eq(schema.ships.id, shipId), eq(schema.ships.accountId, accountId)))
+      .run();
+  }
+
   // --- Building -----------------------------------------------------------
 
   /**

@@ -8,12 +8,13 @@
  */
 
 import { Container, Graphics, Sprite, type Renderer } from 'pixi.js';
-import { clamp, type Blueprint, type ModuleDef, type SystemDef } from '@marque/shared';
+import { clamp, type ModuleDef, type SystemDef } from '@marque/shared';
 
 import { createBackdrop, type Backdrop } from './backdrop.ts';
 import { Camera, PX_PER_UNIT } from './camera.ts';
 import { mix, palette, parseHex } from './palette.ts';
 import { planetTexture, starTexture } from './planet.ts';
+import type { HullBook } from './hulls.ts';
 import { renderShipArt, TEXTURE_PX_PER_UNIT, type ShipArt } from './shipTexture.ts';
 
 /** A round in flight, reckoned forward from its spawn. */
@@ -38,6 +39,8 @@ export interface CanisterFrame {
 export interface ShipFrame {
   readonly id: string;
   readonly blueprint: string;
+  /** A built hull's grid, as a share code; empty for a catalogue draught. */
+  readonly hull: string;
   readonly callsign: string;
   readonly x: number;
   readonly y: number;
@@ -100,7 +103,7 @@ export class Scene {
   constructor(
     private readonly renderer: Renderer,
     private readonly system: SystemDef,
-    private readonly blueprints: ReadonlyMap<string, Blueprint>,
+    private readonly blueprints: HullBook,
     private readonly modules: ReadonlyMap<string, ModuleDef>,
     reducedMotion: boolean,
   ) {

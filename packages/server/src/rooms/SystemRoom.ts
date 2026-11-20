@@ -47,9 +47,12 @@ import {
   content,
   scrubChat,
   deriveStats,
+  builtBlueprint,
+  encodeShareCode,
   placeAll,
   stepFlight,
   type Blueprint,
+  type LicenceId,
   type ChatLine,
   type FlightCommand,
   type PortDef,
@@ -950,15 +953,42 @@ export class SystemRoom extends Room<{
     this.removeHull(client.sessionId);
   }
 
+  /**
+   * The hull a captain is actually flying.
+   *
+   * Two sources, and the Yard's beats the Register's. A captain who owns a
+   * built hull — the `ships` row with nowhere parked — flies that, and the
+   * content catalogue has never heard of it. A captain who has never built
+   * flies the draught named on their row.
+   *
+   * `code` is the hull's share code when it is a built one, and empty when it
+   * is a catalogue draught the client can look up for itself. Everything that
+   * needs to know what a captain flies goes through here, so the Yard, the
+   * flight simulation and the purse cannot disagree about it.
+   */
+  private hullFor(pilot: Pilot): { blueprint: Blueprint; code: string } {
+    const { blueprints, tuning } = content();
+    const owned = world().yard.flying(pilot.accountId);
+    if (owned) {
+      return {
+        blueprint: builtBlueprint(owned, pilot.licence as LicenceId, tuning),
+        code: encodeShareCode({ name: owned.name, placements: owned.placements }),
+      };
+    }
+
+    const blueprint = blueprints.get(pilot.blueprintId) ?? blueprints.get(STARTER_BLUEPRINT);
+    if (!blueprint) throw new Error('no draught to fly');
+    return { blueprint, code: '' };
+  }
+
   /** Spawn a hull from what the captain's row says about it. */
   private spawnFromPilot(
     sessionId: string,
     pilot: Pilot,
     options: { chargeShields?: boolean } = {},
   ): void {
-    const { blueprints, modules, tuning } = content();
-    const blueprint = blueprints.get(pilot.blueprintId) ?? blueprints.get(STARTER_BLUEPRINT);
-    if (!blueprint) throw new Error('no draught to fly');
+    const { modules, tuning } = content();
+    const { blueprint, code } = this.hullFor(pilot);
 
     const runtime = new ShipRuntime(blueprint, modules, tuning, EMPTY_LOADOUT, pilot.ammo);
 
@@ -979,6 +1009,7 @@ export class SystemRoom extends Room<{
     ship.angle = pilot.angle;
     ship.callsign = pilot.callsign;
     ship.blueprint = blueprint.id;
+    ship.hull = code;
     ship.hostile = false;
     // Being posted follows the captain between systems and across sessions.
     ship.posted = pilot.composition > 0;
@@ -1017,9 +1048,9 @@ export class SystemRoom extends Room<{
     const pilot = this.pilotsBySession.get(sessionId);
     if (!pilot) return;
 
-    const { blueprints, modules, tuning } = content();
-    const blueprint = blueprints.get(pilot.blueprintId);
-    const placed = blueprint ? placeAll(blueprint.placements, modules) : [];
+    const { modules, tuning } = content();
+    const { blueprint } = this.hullFor(pilot);
+    const placed = placeAll(blueprint.placements, modules);
     const stats = placed.length > 0 ? deriveStats(placed, tuning) : undefined;
 
     const intact = placed.reduce((sum, m) => sum + m.def.hitPoints, 0);
@@ -1034,7 +1065,7 @@ export class SystemRoom extends Room<{
       propellantCapacity: stats?.propellantCapacity ?? 0,
       ordnance: pilot.ammo,
       structure: intact > 0 ? left / intact : 1,
-      draught: blueprint?.name ?? pilot.blueprintId,
+      draught: blueprint.name,
       licence: pilot.licence,
       composition: pilot.composition,
       jumpCost: stats ? jumpCost(stats.totalMass) : 1,
@@ -1054,11 +1085,19 @@ export class SystemRoom extends Room<{
     pilot.x = ship.x;
     pilot.y = ship.y;
     pilot.angle = ship.angle;
-    pilot.blueprintId = ship.blueprint;
+    // `blueprintId` names a catalogue draught, so it is only written when the
+    // hull being flown is one. A built hull's id belongs to the `ships` table
+    // and writing it here would leave the Register naming a draught that does
+    // not exist, which `hullFor` would then fall back out of on the next join.
+    if (ship.hull === '') pilot.blueprintId = ship.blueprint;
     pilot.moduleHp = [...runtime.hp];
     pilot.shield = ship.shield;
     pilot.ammo = runtime.ammo;
     world().pilots.touch(pilot.accountId);
+
+    // A built hull keeps its own damage, so a captain who parks a battered
+    // hull and comes back in another one finds it as they left it.
+    if (ship.hull !== '') world().yard.recordDamage(pilot.accountId, ship.blueprint, [...runtime.hp]);
   }
 
   private releaseCaptain(sessionId: string): void {

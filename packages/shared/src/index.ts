@@ -22,6 +22,8 @@ export * from './ships/geometry.ts';
 export * from './ships/derive.ts';
 export * from './ships/cost.ts';
 export * from './ships/validate.ts';
+export * from './ships/share.ts';
+export * from './ships/built.ts';
 export * from './net/input.ts';
 export * from './net/protocol.ts';
 export * from './net/ledger.ts';

@@ -306,6 +306,10 @@ export const Tuning = z.object({
   }),
   manufacturers: z.record(ManufacturerId, z.string().min(1)),
   yard: z.object({
+    /** Liveries a yard delivers a built hull in, chosen by the hull's id. */
+    liveries: z
+      .array(z.tuple([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.string().regex(/^#[0-9a-fA-F]{6}$/)]))
+      .min(1),
     /** Insurance on the hull, as a fraction of what its modules cost. */
     insurancePremium: z.number().min(0),
     /** What a refit returns of the marks value it strips, 0..1. */

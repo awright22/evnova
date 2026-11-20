@@ -1,5 +1,5 @@
 {
-  "$comment": "Module catalogue. Named maker-plus-plain-function, per the naming rules. Manufacturers are the listed companies that make that class of part: HRC fits out hulls, SLP builds propulsion and armour, RPO makes weapons and shields. Tier 1 only; tiers 2 and 3 land with the Yard.",
+  "$comment": "Module catalogue. Named maker-plus-plain-function, per the naming rules. Manufacturers are the listed companies that make that class of part: HRC fits out hulls (bridges, hull, cargo bays, tanks), SLP builds propulsion and armour (engines, thrusters, reactors, plate), RPO makes weapons and shields (fixed guns, turrets, racks, generators). Three tech tiers. A tier buys capability and charges for it faster than it gives it: at each step up the marks per unit of thrust, of capacity, of shield or of structure get worse, so a bigger fitting is a decision and not a free upgrade. Materials lean on Machinery and Circuitry as the tiers rise, so a capital hull pulls on the top of the production chain rather than the bottom. Every fitting above tier 1 is better at something and worse at something else: mass, footprint, power draw, delay, ammunition or reach. Footprints above 2x2 exist to be awkward, since an Open Ticket covers sixteen fittings in eight cells across and will not take most of them.",
   "modules": [
     {
       "id": "hrc-bridge-1",
@@ -316,6 +316,790 @@
         "ammoPerShot": 1
       },
       "description": "Carries Ordnance and spends it. A rack with an empty magazine is ballast."
+    },
+    {
+      "id": "hrc-bridge-2",
+      "name": "Home Roads Chandlery Pattern 4 Bridge",
+      "type": "bridge",
+      "manufacturer": "HRC",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 10,
+      "hitPoints": 320,
+      "cost": 13500,
+      "bom": {
+        "circuitry": 16,
+        "alloy": 10,
+        "machinery": 3
+      },
+      "power": {
+        "draw": 16
+      },
+      "description": "Four stations, a chart table and plating over the deckhead. It takes six cells amidships and twice the Pattern 1's power."
+    },
+    {
+      "id": "hrc-hull-2",
+      "name": "Home Roads Chandlery Braced Hull Section",
+      "type": "hull",
+      "manufacturer": "HRC",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 3,
+      "hitPoints": 180,
+      "cost": 800,
+      "bom": {
+        "alloy": 5,
+        "machinery": 1
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "The standard section with a frame inside it. Twice the structure for half again the mass, and dearer per point than either."
+    },
+    {
+      "id": "hrc-cargo-2",
+      "name": "Home Roads Chandlery Pattern 6 Cargo Bay",
+      "type": "cargo",
+      "manufacturer": "HRC",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 5,
+      "hitPoints": 120,
+      "cost": 2300,
+      "bom": {
+        "alloy": 12,
+        "machinery": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "cargoCapacity": 36,
+      "description": "Six cells of bonded hold on one set of papers. Lighter per unit than the Pattern 3 and half again the price of one."
+    },
+    {
+      "id": "hrc-tank-2",
+      "name": "Home Roads Chandlery Pattern 5 Propellant Tank",
+      "type": "tank",
+      "manufacturer": "HRC",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 4,
+      "hitPoints": 95,
+      "cost": 1600,
+      "bom": {
+        "alloy": 9,
+        "machinery": 1
+      },
+      "power": {
+        "draw": 0
+      },
+      "propellantCapacity": 70,
+      "description": "Two bays cross-fed, so a holed tank does not take the whole load with it. Four cells, and a lane the Pattern 2 cannot reach."
+    },
+    {
+      "id": "slp-engine-4",
+      "name": "Slipway Thirty Mk IV Engine",
+      "type": "engine",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 6,
+      "hitPoints": 140,
+      "cost": 7800,
+      "bom": {
+        "machinery": 14,
+        "alloy": 8,
+        "circuitry": 2
+      },
+      "power": {
+        "draw": 18
+      },
+      "thrust": 6400,
+      "description": "The Mk I's successor and the first engine the Thirty sells that will push a full hold without protest. It is quieter than the Mk I only on paper."
+    },
+    {
+      "id": "slp-thruster-2",
+      "name": "Slipway Thirty Mk II Maneuvering Thruster",
+      "type": "thruster",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 2,
+      "hitPoints": 55,
+      "cost": 2000,
+      "bom": {
+        "machinery": 5,
+        "alloy": 2
+      },
+      "power": {
+        "draw": 5
+      },
+      "torque": 950,
+      "description": "More than twice the authority of the Mk I in the same cell, for twice the mass. It still wants mounting outboard."
+    },
+    {
+      "id": "slp-reactor-2",
+      "name": "Slipway Thirty Mk II Reactor",
+      "type": "reactor",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 8,
+      "hitPoints": 130,
+      "cost": 12800,
+      "bom": {
+        "machinery": 18,
+        "circuitry": 8
+      },
+      "power": {
+        "output": 64
+      },
+      "description": "Sixty-four units out of the Mk I's four cells, for half again the price per unit. The Thirty prices the cells, not the output."
+    },
+    {
+      "id": "slp-reactor-3",
+      "name": "Slipway Thirty Mk III Reactor",
+      "type": "reactor",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 13,
+      "hitPoints": 200,
+      "cost": 15500,
+      "bom": {
+        "machinery": 26,
+        "circuitry": 10
+      },
+      "power": {
+        "output": 105
+      },
+      "description": "The cheapest output in the catalogue, provided you have six cells to spare. Freighters are laid out around one of these."
+    },
+    {
+      "id": "slp-armour-2",
+      "name": "Slipway Thirty Pattern 6 Armour Plate",
+      "type": "armour",
+      "manufacturer": "SLP",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 5,
+      "hitPoints": 440,
+      "cost": 1200,
+      "bom": {
+        "alloy": 9,
+        "machinery": 1
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Laminated, with a sacrificial outer skin that comes away in sheets. Dearer per point than the Pattern 4 and worth it where a hit is likely."
+    },
+    {
+      "id": "rpo-shield-2",
+      "name": "Reprisal Ordnance Mk II Shield Generator",
+      "type": "shield",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 7,
+      "hitPoints": 95,
+      "cost": 14000,
+      "bom": {
+        "circuitry": 18,
+        "alloy": 6,
+        "machinery": 2
+      },
+      "power": {
+        "draw": 22
+      },
+      "shieldCapacity": 760,
+      "shieldRegen": 42,
+      "shieldDelay": 4.2,
+      "description": "Nearly twice the bubble of the Mk I and nearly twice the draw. Fit the reactor first."
+    },
+    {
+      "id": "rpo-shield-3",
+      "name": "Reprisal Ordnance Mk III Shield Generator",
+      "type": "shield",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 4,
+      "hitPoints": 65,
+      "cost": 11500,
+      "bom": {
+        "circuitry": 15,
+        "alloy": 3
+      },
+      "power": {
+        "draw": 18
+      },
+      "shieldCapacity": 280,
+      "shieldRegen": 36,
+      "shieldDelay": 1.6,
+      "description": "Back up between passes, and it will not hold a broadside. Fitted beside a larger generator it is wasted: the bubble recovers on the longest delay aboard."
+    },
+    {
+      "id": "rpo-gun-2",
+      "name": "Reprisal Ordnance Mk II Fixed Gun",
+      "type": "weapon",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 4,
+      "hitPoints": 70,
+      "cost": 7000,
+      "bom": {
+        "ordnance": 9,
+        "alloy": 3,
+        "circuitry": 2
+      },
+      "power": {
+        "draw": 8
+      },
+      "weapon": {
+        "damage": 23,
+        "roundsPerSecond": 3.2,
+        "projectileSpeed": 620,
+        "range": 1500,
+        "spread": 0.01
+      },
+      "description": "More round, faster, and flatter out to fifteen hundred. It still fires where the hull points."
+    },
+    {
+      "id": "rpo-gun-3",
+      "name": "Reprisal Ordnance Mk III Long Gun",
+      "type": "weapon",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 3,
+        "height": 1
+      },
+      "mass": 8,
+      "hitPoints": 95,
+      "cost": 10500,
+      "bom": {
+        "ordnance": 12,
+        "alloy": 6,
+        "circuitry": 3
+      },
+      "power": {
+        "draw": 11
+      },
+      "weapon": {
+        "damage": 52,
+        "roundsPerSecond": 1.0,
+        "projectileSpeed": 1150,
+        "range": 3000,
+        "spread": 0.004
+      },
+      "description": "Three cells of barrel for one round a second. It reaches past anything on a mount, and it is aimed with the whole ship."
+    },
+    {
+      "id": "rpo-turret-2",
+      "name": "Reprisal Ordnance Mk II Turret",
+      "type": "turret",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 8,
+      "hitPoints": 105,
+      "cost": 15000,
+      "bom": {
+        "ordnance": 11,
+        "circuitry": 9,
+        "alloy": 5
+      },
+      "power": {
+        "draw": 12
+      },
+      "weapon": {
+        "damage": 18,
+        "roundsPerSecond": 2.6,
+        "projectileSpeed": 560,
+        "range": 1350,
+        "spread": 0.015,
+        "arc": 3.14159,
+        "tracking": 2.6
+      },
+      "description": "The Mk I's gear with the Mk II's gun on top of it. The same arc, and more weight of fire inside it."
+    },
+    {
+      "id": "rpo-turret-3",
+      "name": "Reprisal Ordnance Mk III Point Turret",
+      "type": "turret",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 4,
+      "hitPoints": 60,
+      "cost": 9800,
+      "bom": {
+        "ordnance": 7,
+        "circuitry": 7,
+        "alloy": 2
+      },
+      "power": {
+        "draw": 10
+      },
+      "weapon": {
+        "damage": 7,
+        "roundsPerSecond": 4.8,
+        "projectileSpeed": 760,
+        "range": 800,
+        "spread": 0.025,
+        "arc": 3.14159,
+        "tracking": 6.5
+      },
+      "description": "One cell, geared to come round faster than a hull can turn. Sold for keeping light hulls off a convoy; past eight hundred it is decoration."
+    },
+    {
+      "id": "rpo-rack-2",
+      "name": "Reprisal Ordnance Pattern 4 Missile Rack",
+      "type": "rack",
+      "manufacturer": "RPO",
+      "tier": 2,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 5,
+      "hitPoints": 65,
+      "cost": 11000,
+      "bom": {
+        "ordnance": 14,
+        "alloy": 4,
+        "circuitry": 2
+      },
+      "power": {
+        "draw": 5
+      },
+      "weapon": {
+        "damage": 100,
+        "roundsPerSecond": 0.55,
+        "projectileSpeed": 430,
+        "range": 3200,
+        "spread": 0.0,
+        "homing": 3.2,
+        "ammoPerShot": 1
+      },
+      "description": "A heavier round on a faster rail. The magazine is the same size as it ever was, so the rack empties sooner."
+    },
+    {
+      "id": "hrc-bridge-3",
+      "name": "Home Roads Chandlery Pattern 7 Bridge",
+      "type": "bridge",
+      "manufacturer": "HRC",
+      "tier": 3,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 4,
+      "hitPoints": 190,
+      "cost": 28000,
+      "bom": {
+        "circuitry": 26,
+        "machinery": 5,
+        "alloy": 4
+      },
+      "power": {
+        "draw": 12
+      },
+      "description": "Two cells and one station, doing what the Pattern 4 does with six. The Chandlery charges for the space it saves you, and for the structure it does not give you."
+    },
+    {
+      "id": "hrc-hull-3",
+      "name": "Home Roads Chandlery Prefabricated Hull Raft",
+      "type": "hull",
+      "manufacturer": "HRC",
+      "tier": 3,
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "mass": 22,
+      "hitPoints": 760,
+      "cost": 6000,
+      "bom": {
+        "alloy": 30,
+        "machinery": 6
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Nine cells delivered as one fitting, so a large design stays inside its licence. Per cell it is heavier, weaker and dearer than the sections it replaces."
+    },
+    {
+      "id": "hrc-cargo-3",
+      "name": "Home Roads Chandlery Pattern 9 Bulk Hold",
+      "type": "cargo",
+      "manufacturer": "HRC",
+      "tier": 3,
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "mass": 18,
+      "hitPoints": 200,
+      "cost": 6800,
+      "bom": {
+        "alloy": 26,
+        "machinery": 8
+      },
+      "power": {
+        "draw": 0
+      },
+      "cargoCapacity": 80,
+      "description": "Eighty units under one hatch, in nine cells rather than sixteen. Empty it weighs half again what the four Pattern 3 bays it replaces weigh, and it costs nearly twice as much."
+    },
+    {
+      "id": "hrc-tank-3",
+      "name": "Home Roads Chandlery Pattern 8 Propellant Tank",
+      "type": "tank",
+      "manufacturer": "HRC",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 8,
+      "hitPoints": 150,
+      "cost": 4200,
+      "bom": {
+        "alloy": 18,
+        "machinery": 4
+      },
+      "power": {
+        "draw": 0
+      },
+      "propellantCapacity": 130,
+      "description": "Baffles, cross-feed and a drain that works. What a hull needs to cross the Marque without asking anyone for fuel."
+    },
+    {
+      "id": "slp-engine-7",
+      "name": "Slipway Thirty Mk VII Engine",
+      "type": "engine",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 3,
+      "hitPoints": 75,
+      "cost": 16500,
+      "bom": {
+        "machinery": 16,
+        "circuitry": 8,
+        "alloy": 4
+      },
+      "power": {
+        "draw": 24
+      },
+      "thrust": 5600,
+      "description": "The Mk I's two cells, less than the Mk I's mass, and more than the Mk I's thrust. It drinks power, it runs hot, and the Thirty will not quote a service life."
+    },
+    {
+      "id": "slp-engine-8",
+      "name": "Slipway Thirty Mk VIII Engine",
+      "type": "engine",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "mass": 28,
+      "hitPoints": 440,
+      "cost": 52000,
+      "bom": {
+        "machinery": 52,
+        "circuitry": 12,
+        "alloy": 32
+      },
+      "power": {
+        "draw": 60
+      },
+      "thrust": 26000,
+      "description": "Nine cells of engine wanting three rows of clear lane behind them. Nothing smaller will move a chartered hull, and nothing else aboard will be heard."
+    },
+    {
+      "id": "slp-thruster-4",
+      "name": "Slipway Thirty Mk IV Maneuvering Thruster",
+      "type": "thruster",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 2,
+      "hitPoints": 60,
+      "cost": 5600,
+      "bom": {
+        "machinery": 11,
+        "circuitry": 3,
+        "alloy": 2
+      },
+      "power": {
+        "draw": 10
+      },
+      "torque": 1700,
+      "description": "The most torque the Thirty will sell in one cell. Four outboard will turn a frigate like a shuttle, and will be felt at the reactor."
+    },
+    {
+      "id": "slp-reactor-5",
+      "name": "Slipway Thirty Mk V Reactor",
+      "type": "reactor",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 1,
+        "height": 2
+      },
+      "mass": 5,
+      "hitPoints": 90,
+      "cost": 27000,
+      "bom": {
+        "machinery": 22,
+        "circuitry": 16
+      },
+      "power": {
+        "output": 72
+      },
+      "description": "Two cells, seventy-two units, and a price set on the assumption that you have no alternative. Gunboats and shuttle refits, mostly."
+    },
+    {
+      "id": "slp-reactor-6",
+      "name": "Slipway Thirty Mk VI Reactor",
+      "type": "reactor",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "mass": 28,
+      "hitPoints": 360,
+      "cost": 39000,
+      "bom": {
+        "machinery": 56,
+        "circuitry": 22,
+        "alloy": 14
+      },
+      "power": {
+        "output": 240
+      },
+      "description": "Nine cells and output enough for a hull that fights with everything at once. The Thirty's own yards set one down first and build outward from it."
+    },
+    {
+      "id": "slp-armour-3",
+      "name": "Slipway Thirty Pattern 9 Spoil Plate",
+      "type": "armour",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 30,
+      "hitPoints": 1700,
+      "cost": 1900,
+      "bom": {
+        "alloy": 38,
+        "machinery": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Rolled from refinery spoil at Ostrand and sold by the tonne. The cheapest structure the Thirty will put its name to, and it will ruin the way a hull flies."
+    },
+    {
+      "id": "slp-armour-4",
+      "name": "Slipway Thirty Pattern 11 Armour Plate",
+      "type": "armour",
+      "manufacturer": "SLP",
+      "tier": 3,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 6,
+      "hitPoints": 760,
+      "cost": 3400,
+      "bom": {
+        "alloy": 12,
+        "circuitry": 2,
+        "machinery": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Laminate over a honeycomb core. The best structure per tonne on sale, at four times the Pattern 4's price a point."
+    },
+    {
+      "id": "rpo-shield-5",
+      "name": "Reprisal Ordnance Mk V Shield Generator",
+      "type": "shield",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 12,
+      "hitPoints": 150,
+      "cost": 36000,
+      "bom": {
+        "circuitry": 38,
+        "alloy": 10,
+        "machinery": 4
+      },
+      "power": {
+        "draw": 36
+      },
+      "shieldCapacity": 1600,
+      "shieldRegen": 66,
+      "shieldDelay": 5.6,
+      "description": "Cover for a hull that cannot dodge, and nearly six seconds before any of it comes back. A captain running this generator should not plan to break off."
+    },
+    {
+      "id": "rpo-gun-4",
+      "name": "Reprisal Ordnance Mk IV Fixed Gun",
+      "type": "weapon",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 10,
+      "hitPoints": 120,
+      "cost": 19000,
+      "bom": {
+        "ordnance": 22,
+        "circuitry": 6,
+        "alloy": 7
+      },
+      "power": {
+        "draw": 16
+      },
+      "weapon": {
+        "damage": 40,
+        "roundsPerSecond": 3.6,
+        "projectileSpeed": 700,
+        "range": 1800,
+        "spread": 0.012
+      },
+      "description": "Four cells, a clear lane ahead of all four, and more weight of fire than anything RPO will put on a mount. It is still the pilot's problem."
+    },
+    {
+      "id": "rpo-turret-4",
+      "name": "Reprisal Ordnance Mk IV Turret",
+      "type": "turret",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 3
+      },
+      "mass": 15,
+      "hitPoints": 160,
+      "cost": 34000,
+      "bom": {
+        "ordnance": 24,
+        "circuitry": 18,
+        "alloy": 8
+      },
+      "power": {
+        "draw": 20
+      },
+      "weapon": {
+        "damage": 31,
+        "roundsPerSecond": 2.2,
+        "projectileSpeed": 640,
+        "range": 1700,
+        "spread": 0.012,
+        "arc": 3.14159,
+        "tracking": 2.0
+      },
+      "description": "Six cells, a full arc, and the heaviest round RPO will put on gear that traverses. It comes round slower than the Mk II: the gear is carrying more gun."
+    },
+    {
+      "id": "rpo-rack-3",
+      "name": "Reprisal Ordnance Pattern 6 Heavy Rack",
+      "type": "rack",
+      "manufacturer": "RPO",
+      "tier": 3,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 11,
+      "hitPoints": 95,
+      "cost": 26000,
+      "bom": {
+        "ordnance": 34,
+        "circuitry": 8,
+        "alloy": 6
+      },
+      "power": {
+        "draw": 7
+      },
+      "weapon": {
+        "damage": 340,
+        "roundsPerSecond": 0.25,
+        "projectileSpeed": 350,
+        "range": 4500,
+        "spread": 0.0,
+        "homing": 2.0,
+        "ammoPerShot": 3
+      },
+      "description": "Three units of Ordnance a round and a round every four seconds. It turns slowly enough that a shuttle can fly away from it, and it will end anything that cannot."
     }
   ]
 }

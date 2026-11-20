@@ -21,8 +21,26 @@ export const ShipState = schema(
 
     // --- Identity ---------------------------------------------------------
     callsign: t.string().default(''),
-    /** Blueprint this ship is flying, for rendering and stat derivation. */
+    /**
+     * Draught this hull is flying, for rendering and stat derivation.
+     *
+     * For an NPC or a captain who has never built, this names a draught in
+     * the content catalogue and `hull` is empty. For a hull built in a Yard it
+     * is the hull's own id, which the catalogue has never heard of, and the
+     * placements arrive in `hull` instead.
+     */
     blueprint: t.string().default(''),
+    /**
+     * A built hull's placements, as a share code.
+     *
+     * A custom hull cannot be drawn from an id: nothing in the client's
+     * catalogue describes it. Rather than a second nested schema for module
+     * grids, the grid travels in the same deterministic encoding captains
+     * paste to each other, which the client already decodes. The field never
+     * changes over a hull's life, so it costs its bytes once on arrival
+     * rather than every patch.
+     */
+    hull: t.string().default(''),
 
     // --- Combat -----------------------------------------------------------
     /** Current shield points. Absorbs damage before the hull does. */

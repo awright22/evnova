@@ -27,6 +27,7 @@ import { drawRadar, type RadarContact } from '../hud/radar.ts';
 import { Session } from '../net/session.ts';
 import { KeyboardInput } from './input.ts';
 import { palette } from './palette.ts';
+import { HullBook } from './hulls.ts';
 import { Effects } from './effects.ts';
 import { Scene, type CanisterFrame, type ProjectileFrame, type ShipFrame } from './scene.ts';
 import './flight.css';
@@ -145,10 +146,14 @@ export function FlightView({
     let frame = 0;
 
     const start = async (): Promise<void> => {
-      session = await Session.attach(room);
+      const { systems, blueprints: catalogue, modules, tuning } = content();
+      // Reads like the catalogue, and learns a hull somebody built the first
+      // time one shows up on the wire.
+      const blueprints = new HullBook(catalogue, modules, tuning);
+
+      session = await Session.attach(room, blueprints);
       if (disposed) return;
 
-      const { systems, blueprints, modules, tuning } = content();
       const shieldCapacities = new Map<string, number>();
       const muzzleSpeeds = new Map<string, number>();
       const intactStructure = new Map<string, number>();
@@ -361,10 +366,14 @@ export function FlightView({
         let self: ShipFrame | undefined;
         for (const view of views) {
           const isSelf = view.id === selfId;
+          // Before anything asks what this hull is. A built hull's grid rides
+          // on its own state, and the readouts below all resolve by id.
+          blueprints.learn(view.blueprint, view.hull, view.callsign);
           const capacity = shieldCapacityOf(view.blueprint);
           const shipFrame: ShipFrame = {
             id: view.id,
             blueprint: view.blueprint,
+            hull: view.hull,
             callsign: view.callsign,
             x: view.x,
             y: view.y,

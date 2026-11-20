@@ -27,6 +27,7 @@ import {
   type ShipState,
   type SystemState,
 } from '@marque/shared';
+import type { HullBook } from '../flight/hulls.ts';
 
 import type { FlightIntent } from '../flight/input.ts';
 
@@ -46,6 +47,8 @@ const SNAP_DISTANCE = 50;
 export interface ShipView {
   readonly id: string;
   readonly blueprint: string;
+  /** A built hull's grid, as a share code; empty for a catalogue draught. */
+  readonly hull: string;
   readonly callsign: string;
   readonly x: number;
   readonly y: number;
@@ -147,11 +150,13 @@ export class Session {
    * Waits for the server to create this client's hull, because joining is not
    * the same as existing in the simulation.
    */
-  static async attach(room: FlightRoom): Promise<Session> {
+  static async attach(room: FlightRoom, hulls: HullBook): Promise<Session> {
     const self = await waitForOwnShip(room);
 
-    const { blueprints, modules, tuning } = content();
-    const blueprint = blueprints.get(self.blueprint);
+    const { modules, tuning } = content();
+    // The captain's own hull may be one they built, which no catalogue
+    // describes; the hull book resolves either kind.
+    const blueprint = hulls.learn(self.blueprint, self.hull);
     if (!blueprint) {
       throw new Error(`the server assigned draught "${self.blueprint}", which this build lacks`);
     }
@@ -212,6 +217,7 @@ export class Session {
       out.push({
         id,
         blueprint: ship.blueprint,
+        hull: ship.hull,
         callsign: ship.callsign,
         // `predict.value` covers both cases: the reconciled local hull and the
         // interpolated remote ones.
