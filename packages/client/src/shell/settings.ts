@@ -13,6 +13,7 @@
  */
 
 import { DEFAULT_VOLUMES, type Volumes } from '../audio/mix.ts';
+import { invalidatePalette } from '../flight/palette.ts';
 import { existingMix } from '../audio/shared.ts';
 
 /** Everything a captain can be asked to press. */
@@ -128,6 +129,9 @@ export function applySettings(settings: Settings): void {
   root.dataset.motion = settings.motion;
   root.dataset.palette = settings.palette;
   root.dataset.quality = settings.quality;
+  // The renderer reads the tokens, not this object, so it only needs telling
+  // that what it read has changed.
+  invalidatePalette();
   existingMix()?.setVolumes(settings.volumes);
 }
 

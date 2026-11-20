@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Volumes } from '../audio/mix.ts';
 import { playNotice } from '../audio/notices.ts';
+import { PAD_CONTROLS, connectedPad } from '../flight/gamepad.ts';
 import {
   ACTIONS,
   ACTION_NAMES,
@@ -58,6 +59,23 @@ export function Settings({
 
   useEffect(() => {
     screen.current?.focus();
+  }, []);
+
+  // Which pad is plugged in, if any. Polled rather than listened for: a pad
+  // connected before the page loaded fires no event, and a pad that has not
+  // been touched since is invisible to `getGamepads` in some browsers until
+  // a button is pressed — so this keeps asking while the screen is open.
+  const [pad, setPad] = useState<string | undefined>(() => connectedPad());
+  useEffect(() => {
+    const look = (): void => setPad(connectedPad());
+    const timer = window.setInterval(look, 1000);
+    window.addEventListener('gamepadconnected', look);
+    window.addEventListener('gamepaddisconnected', look);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('gamepadconnected', look);
+      window.removeEventListener('gamepaddisconnected', look);
+    };
   }, []);
 
   // While a cell is listening, the next key goes to it and nowhere else.
@@ -249,14 +267,56 @@ export function Settings({
           >
             Back to the standard keys
           </button>
+        </footer>
+      </section>
+
+      <section className="panel shell__block shell__block--wide" aria-label="Gamepad">
+        <header className="panel-header">
+          <h2>Gamepad</h2>
           <span className="micro">
-            A gamepad is read as well as the keys, with the same actions on the sticks and
-            the face buttons.
+            {pad === undefined
+              ? 'Nothing connected. Plug one in and press a button.'
+              : padName(pad)}
+          </span>
+        </header>
+        <table className="shell__keys">
+          <thead>
+            <tr>
+              <th scope="col">Action</th>
+              <th scope="col">Control</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ACTIONS.map((action) => (
+              <tr key={action}>
+                <th scope="row">{ACTION_NAMES[action]}</th>
+                <td>
+                  <span className="shell__pad">{PAD_CONTROLS[action]}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <footer className="shell__foot">
+          <span className="micro">
+            Read alongside the keys rather than instead of them: either hand can fly, and a
+            pad is never required for anything.
           </span>
         </footer>
       </section>
     </main>
   );
+}
+
+/**
+ * A pad's name, shortened.
+ *
+ * Browsers report something like "Xbox 360 Controller (Vendor: 045e
+ * Product: 028e)". The part in brackets tells a captain nothing.
+ */
+function padName(id: string): string {
+  const trimmed = id.replace(/\s*\((?:Vendor|STANDARD GAMEPAD).*$/i, '').trim();
+  return trimmed === '' ? 'A gamepad is connected' : trimmed;
 }
 
 /** A small set of named choices, as a segmented control. */

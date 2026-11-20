@@ -43,6 +43,16 @@ export interface Screen {
   /** Bot traffic to fly in the same system during this capture. */
   readonly bots?: number;
   /**
+   * A gunner flown only for this capture, which hunts one callsign.
+   *
+   * For the one screen that needs a hull to actually be lost. The traffic
+   * bots wander; a patrol answers for a posted captain on its own schedule
+   * and took longer than any timeout worth having. This is spawned when the
+   * screen starts and stopped when it finishes, so nothing else in the run
+   * is being shot at.
+   */
+  readonly gunner?: { readonly hunt: string; readonly system: string; readonly draught: string };
+  /**
    * Capture a run of frames instead of one still.
    *
    * For motion a still cannot judge — the stamp is 260ms end to end, and a
@@ -428,15 +438,16 @@ export const SCREENS: readonly Screen[] = [
     settle: '.hud',
     settleMs: 1500,
     bots: 2,
+    // A gunner of its own, which hunts this captain by name and nothing
+    // else. A patrol does answer for a posted captain, and twice it took
+    // longer than any timeout worth having: a patrol is on its own schedule
+    // and the sky it crosses is wide. The gunner is a bot flying the same
+    // protocol a browser does, firing on a captain the Prize Court has
+    // already posted.
+    gunner: { hunt: 'Act of God', system: 'parity', draught: 'fair-wear-and-tear' },
     // A fragile gunboat with a hold worth dropping, in the Home Roads, with
     // a berth at the far side of the system behind it — so the panel's last
     // line is about somewhere the captain is not.
-    //
-    // Shot down by a patrol rather than by the Unlettered: raiders stand off
-    // a berth and come in on their own schedule, and a hull waiting for them
-    // off Tret waited two and a half minutes and was still waiting. Firing on
-    // lawful traffic where law reaches gets the Prize Court's attention
-    // inside a few seconds, and a patrol does the rest.
     seed: {
       callsign: 'Act of God',
       at: 'the-bourse',
@@ -451,10 +462,7 @@ export const SCREENS: readonly Screen[] = [
     },
     act: async (page) => {
       await page.waitForSelector('.hud', { timeout: 20_000 });
-      // Somebody to fire on has to be there first. The Unlettered and the
-      // patrols are spawned once a captain is in the system, which is not
-      // the instant the HUD appears — and a run that engaged an empty sky
-      // got posted by nobody and was never answered for.
+      // The gunner has to be in the sky before there is anything to lose to.
       await page.waitForFunction(
         () => {
           const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
@@ -463,13 +471,14 @@ export const SCREENS: readonly Screen[] = [
         undefined,
         { timeout: 60_000 },
       );
-      // Nothing to do but be answered for. Closing on the nearest hull
-      // brings the patrol to them sooner; the hull carries a gun but this
-      // is not a fight it is going to win.
+      // Nothing to do but be answered for. The hull carries a gun and fires
+      // it, because a capture of a captain sitting still while they are shot
+      // to pieces is a capture of the wrong thing; this is not a fight it is
+      // going to win.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
       await engageNearest(page, 90);
-      await page.waitForSelector('.flight__written-off', { timeout: 150_000 });
+      await page.waitForSelector('.flight__written-off', { timeout: 120_000 });
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
       // read rather than photographing the sentence that says it is being.
@@ -501,6 +510,47 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.hud', { timeout: 20_000 });
       await flyToRock(page, 40);
       await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'title',
+    description:
+      'The title: the name, the premise in a line, and the three doors. No art behind '
+      + 'it — the flight view is the art, and a title screen competing with it would lose.',
+    path: '/',
+    settle: '.title__plate',
+    settleMs: 400,
+  },
+  {
+    name: 'settings',
+    description:
+      'Settings: the four volumes, the interface scale, motion, palette and effects, '
+      + 'every key a captain presses, bindable, and what a gamepad does. Each takes '
+      + 'effect as it is changed.',
+    path: '/',
+    settle: '.title__plate',
+    settleMs: 300,
+    act: async (page) => {
+      await page.click('.title__doors button:text("Settings")');
+      await page.waitForSelector('.shell__keys', { timeout: 20_000 });
+      await page.waitForTimeout(400);
+      // One cell listening, which is the whole of how a key is bound.
+      await page.locator('.shell__key').first().click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: 'credits',
+    description:
+      'Credits, read from CREDITS.md itself at build time and set as a document, so the '
+      + 'screen and the file cannot drift.',
+    path: '/',
+    settle: '.title__plate',
+    settleMs: 300,
+    act: async (page) => {
+      await page.click('.title__doors button:text("Credits")');
+      await page.waitForSelector('.credits__sheet', { timeout: 20_000 });
+      await page.waitForTimeout(400);
     },
   },
   {

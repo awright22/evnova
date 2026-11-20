@@ -192,6 +192,19 @@
   border-bottom: var(--border-width) solid var(--rule-faint);
 }
 
+/*
+ * A pad control is a label, not a button: nothing to press, because the
+ * hardware already named it. Lower contrast than a key cell so the two
+ * tables do not read as the same kind of thing.
+ */
+.shell__pad {
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
 .shell__foot {
   display: flex;
   flex-wrap: wrap;

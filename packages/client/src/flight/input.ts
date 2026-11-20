@@ -9,6 +9,8 @@
  * names.
  */
 
+import { DEFAULT_BINDINGS, type Action, type Binding } from '../shell/settings.ts';
+
 export interface FlightIntent {
   /** -1 left, 0 hold, 1 right. */
   readonly turn: -1 | 0 | 1;
@@ -22,36 +24,49 @@ export interface FlightIntent {
   readonly fireSecondary: boolean;
 }
 
-const TURN_LEFT = new Set(['ArrowLeft', 'KeyA']);
-const TURN_RIGHT = new Set(['ArrowRight', 'KeyD']);
-const THRUST = new Set(['ArrowUp', 'KeyW']);
-const BRAKE = new Set(['ArrowDown', 'KeyS']);
-const FIRE_PRIMARY = new Set(['Space']);
-const FIRE_SECONDARY = new Set(['ShiftLeft', 'ShiftRight']);
+/**
+ * What each action is bound to, from the captain's settings.
+ *
+ * Held actions read a set; the edges read a pair. Taken as a whole rather
+ * than key by key so that rebinding is one swap, and so a captain who has
+ * never opened the settings gets exactly what they always got.
+ */
+function keysFor(bindings: Record<Action, Binding>): {
+  held: Record<'turnLeft' | 'turnRight' | 'thrust' | 'brake' | 'firePrimary' | 'fireSecondary', Set<string>>;
+  edges: Record<'cycleTarget' | 'land' | 'board' | 'chart' | 'jump', Set<string>>;
+  consumed: Set<string>;
+} {
+  const set = (action: Action): Set<string> =>
+    new Set(bindings[action].filter((code) => code !== ''));
 
-/** Pressed once rather than held: these are edges, not states. */
-const CYCLE_TARGET = 'Tab';
-const LAND = 'KeyL';
-const BOARD = 'KeyB';
-const CHART = 'KeyM';
-const JUMP = 'KeyJ';
+  const held = {
+    turnLeft: set('turnLeft'),
+    turnRight: set('turnRight'),
+    thrust: set('thrust'),
+    brake: set('brake'),
+    firePrimary: set('firePrimary'),
+    fireSecondary: set('fireSecondary'),
+  };
+  const edges = {
+    cycleTarget: set('cycleTarget'),
+    land: set('land'),
+    board: set('board'),
+    chart: set('chart'),
+    jump: set('jump'),
+  };
 
-/** Keys the game consumes, so the page does not also scroll or tab away. */
-const CONSUMED = new Set([
-  ...TURN_LEFT,
-  ...TURN_RIGHT,
-  ...THRUST,
-  ...BRAKE,
-  ...FIRE_PRIMARY,
-  CYCLE_TARGET,
-  LAND,
-  BOARD,
-  CHART,
-  JUMP,
-]);
+  // Keys the game consumes, so the page does not also scroll or tab away.
+  const consumed = new Set<string>();
+  for (const codes of [...Object.values(held), ...Object.values(edges)]) {
+    for (const code of codes) consumed.add(code);
+  }
+
+  return { held, edges, consumed };
+}
 
 export class KeyboardInput {
   private readonly pressed = new Set<string>();
+  private keys: ReturnType<typeof keysFor>;
   /** Edge-triggered presses, drained by the frame loop. */
   private cycleRequests = 0;
   private landRequests = 0;
@@ -62,18 +77,24 @@ export class KeyboardInput {
   private readonly onKeyUp: (event: KeyboardEvent) => void;
   private readonly onBlur: () => void;
 
-  constructor(target: Window = window) {
+  constructor(
+    target: Window = window,
+    bindings: Record<Action, Binding> = DEFAULT_BINDINGS,
+  ) {
+    this.keys = keysFor(bindings);
+
     this.onKeyDown = (event) => {
       // Never swallow a key while the captain is typing somewhere.
       if (isTextEntry(event.target)) return;
-      if (CONSUMED.has(event.code)) event.preventDefault();
+      if (this.keys.consumed.has(event.code)) event.preventDefault();
       // Cycling the mark is an edge: holding Tab should not spin through
       // every hull in the system.
-      if (event.code === CYCLE_TARGET && !event.repeat) this.cycleRequests++;
-      if (event.code === LAND && !event.repeat) this.landRequests++;
-      if (event.code === BOARD && !event.repeat) this.boardRequests++;
-      if (event.code === CHART && !event.repeat) this.chartRequests++;
-      if (event.code === JUMP && !event.repeat) this.jumpRequests++;
+      const { edges } = this.keys;
+      if (edges.cycleTarget.has(event.code) && !event.repeat) this.cycleRequests++;
+      if (edges.land.has(event.code) && !event.repeat) this.landRequests++;
+      if (edges.board.has(event.code) && !event.repeat) this.boardRequests++;
+      if (edges.chart.has(event.code) && !event.repeat) this.chartRequests++;
+      if (edges.jump.has(event.code) && !event.repeat) this.jumpRequests++;
       this.pressed.add(event.code);
     };
     this.onKeyUp = (event) => {
@@ -103,18 +124,25 @@ export class KeyboardInput {
 
   /** Sample the current intent. Called once per fixed step. */
   sample(): FlightIntent {
-    const left = anyPressed(this.pressed, TURN_LEFT);
-    const right = anyPressed(this.pressed, TURN_RIGHT);
+    const { held } = this.keys;
+    const left = anyPressed(this.pressed, held.turnLeft);
+    const right = anyPressed(this.pressed, held.turnRight);
     // Both keys held cancel out, rather than the later one winning.
     const turn: -1 | 0 | 1 = left === right ? 0 : left ? -1 : 1;
 
     return {
       turn,
-      thrust: anyPressed(this.pressed, THRUST) ? 1 : 0,
-      brake: anyPressed(this.pressed, BRAKE),
-      firePrimary: anyPressed(this.pressed, FIRE_PRIMARY),
-      fireSecondary: anyPressed(this.pressed, FIRE_SECONDARY),
+      thrust: anyPressed(this.pressed, held.thrust) ? 1 : 0,
+      brake: anyPressed(this.pressed, held.brake),
+      firePrimary: anyPressed(this.pressed, held.firePrimary),
+      fireSecondary: anyPressed(this.pressed, held.fireSecondary),
     };
+  }
+
+  /** Take new bindings without rebuilding the view they are flying in. */
+  rebind(bindings: Record<Action, Binding>): void {
+    this.keys = keysFor(bindings);
+    this.pressed.clear();
   }
 
   /** How many times the captain asked for the next mark since the last call. */

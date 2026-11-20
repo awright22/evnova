@@ -17,6 +17,7 @@ import { circleBrain } from './brains/circle.ts';
 import { fighterBrain } from './brains/fighter.ts';
 import { factorBrain } from './brains/factor.ts';
 import { traderBrain } from './brains/trader.ts';
+import { hunterBrain } from './brains/hunter.ts';
 import { wanderBrain } from './brains/wander.ts';
 
 interface RunnerOptions {
@@ -29,6 +30,8 @@ interface RunnerOptions {
   systemId: string;
   draught: string | undefined;
   quiet: boolean;
+  /** The callsign the hunter brain goes after. */
+  hunt: string | undefined;
 }
 
 function parseOptions(argv: readonly string[]): RunnerOptions {
@@ -45,6 +48,7 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
       system: { type: 'string', default: 'parity' },
       draught: { type: 'string' },
       quiet: { type: 'boolean', default: false },
+      hunt: { type: 'string' },
     },
   });
 
@@ -52,6 +56,9 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
   const seconds = Number(values.seconds);
   if (!Number.isInteger(bots) || bots < 1) throw new Error(`--bots must be a positive integer`);
   if (!Number.isFinite(seconds) || seconds <= 0) throw new Error(`--seconds must be positive`);
+  if (values.brain === 'hunter' && (values.hunt ?? '') === '') {
+    throw new Error('--brain hunter needs --hunt <callsign>');
+  }
 
   return {
     endpoint: values.endpoint,
@@ -67,13 +74,14 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
     systemId: values.system,
     draught: values.draught,
     quiet: values.quiet === true,
+    hunt: values.hunt,
   };
 }
 
 /** The shipped designs, cycled through when no draught is named. */
 const DRAUGHTS = ['prudent-return', 'force-majeure', 'fair-wear-and-tear'] as const;
 
-function makeBrain(kind: string, index: number): BotBrain {
+function makeBrain(kind: string, index: number, hunt: string | undefined): BotBrain {
   switch (kind) {
     case 'circle':
       // Alternate direction so bots do not stack into one orbit.
@@ -92,9 +100,14 @@ function makeBrain(kind: string, index: number): BotBrain {
       // Works the commission board: takes what is posted, buys what it has
       // to carry, flies it where it is wanted and lands.
       return factorBrain({ seed: `bot-${index}` });
+    case 'hunter':
+      // One named hull, until it is a wreck. The caller has already been
+      // told it needs a callsign.
+      return hunterBrain(hunt!);
     default:
       throw new Error(
-        `unknown brain "${kind}" (expected: circle, wander, fighter, trader, router, factor)`,
+        'unknown brain "' + kind + '" (expected: circle, wander, fighter, trader, '
+          + 'router, factor, hunter)',
       );
   }
 }
@@ -163,7 +176,7 @@ async function main(): Promise<void> {
         callsign: options.account
           ? `Bot ${Date.now().toString(36).slice(-4)}-${String(i + 1).padStart(2, '0')}`
           : `Bot-${String(i + 1).padStart(2, '0')}`,
-        brain: makeBrain(options.brain, i),
+        brain: makeBrain(options.brain, i, options.hunt),
         account: options.account,
         systemId: options.systemId,
         // With no draught named, bots spread across the shipped designs so a

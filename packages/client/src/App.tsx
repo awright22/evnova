@@ -483,7 +483,11 @@ function Game({
         <>
           {snapshot.room && (
             <FlightView
-              key={snapshot.epoch}
+              // The renderer bakes the palette into its textures and takes
+              // the effect density at startup, so those two settings rebuild
+              // it. Nobody is flying while the settings are open, and it is
+              // the honest alternative to a repaint path used twice a year.
+              key={`${snapshot.epoch}:${settings.palette}:${settings.quality}`}
               room={snapshot.room}
               purse={purse}
               notice={snapshot.notice}
@@ -494,6 +498,7 @@ function Game({
                   : chart?.byId.get(snapshot.course)?.name
               }
               convoy={convoyCallsigns}
+              bindings={settings.bindings}
               onLand={(portId) => client.land(portId)}
               onOpenChart={() => setChartOpen(true)}
               onJump={() => client.jumpPlotted()}

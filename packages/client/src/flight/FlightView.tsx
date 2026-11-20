@@ -26,13 +26,18 @@ import {
 import type { AudioMix } from '../audio/mix.ts';
 import { sharedMix } from '../audio/shared.ts';
 import { playNotice } from '../audio/notices.ts';
-import { motionIsReduced } from '../shell/settings.ts';
+import {
+  motionIsReduced,
+  type Action,
+  type Binding,
+} from '../shell/settings.ts';
 import { CombatAudio } from '../audio/combat.ts';
 import { EngineSound } from '../audio/engine.ts';
 import { Hud, type HudReadout } from '../hud/Hud.tsx';
 import { drawRadar, type RadarContact } from '../hud/radar.ts';
 import { Session } from '../net/session.ts';
 import { KeyboardInput } from './input.ts';
+import { GamepadInput, asked, mergeIntents } from './gamepad.ts';
 import { palette } from './palette.ts';
 import { HullBook } from './hulls.ts';
 import { Effects } from './effects.ts';
@@ -76,6 +81,13 @@ export interface FlightViewProps {
    * room's ships know who they are, not which account they belong to.
    */
   readonly convoy: ReadonlySet<string>;
+  /**
+   * The captain's key bindings, from the settings screen.
+   *
+   * Changing them while flying rebinds in place rather than rebuilding the
+   * renderer, so the hull keeps its position and the backdrop keeps its stars.
+   */
+  readonly bindings: Record<Action, Binding>;
 }
 
 export function FlightView({
@@ -90,6 +102,7 @@ export function FlightView({
   onCancelJump,
   composing,
   convoy,
+  bindings,
 }: FlightViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const radarRef = useRef<HTMLCanvasElement | null>(null);
@@ -127,6 +140,14 @@ export function FlightView({
   // The frame loop is started once; these keep it reading current values
   // rather than the ones captured when it started.
   const keyboardRef = useRef<KeyboardInput | undefined>(undefined);
+
+  // Rebind in place when the settings change, rather than tearing the
+  // renderer down: the captain is mid-flight when they open the settings.
+  const bindingsRef = useRef(bindings);
+  bindingsRef.current = bindings;
+  useEffect(() => {
+    keyboardRef.current?.rebind(bindings);
+  }, [bindings]);
 
   // Something else has the keyboard: let go of anything held, so a key down
   // when the composer opened does not fly the ship through the conversation.
@@ -169,6 +190,10 @@ export function FlightView({
     let scene: Scene | undefined;
     let session: Session | undefined;
     let keyboard: KeyboardInput | undefined;
+    // One pad reader for the view. It asks the browser each frame rather
+    // than listening for connect events, because a pad that was plugged in
+    // before the page loaded fires no event at all.
+    const pad = new GamepadInput();
     let mix: AudioMix | undefined;
     let engine: EngineSound | undefined;
     let combat: CombatAudio | undefined;
@@ -234,7 +259,7 @@ export function FlightView({
       scene.resize(app.screen.width, app.screen.height);
       app.stage.addChild(scene.root);
 
-      keyboard = new KeyboardInput();
+      keyboard = new KeyboardInput(window, bindingsRef.current);
       keyboardRef.current = keyboard;
 
       // Browsers refuse to start audio without a gesture, so the mix is built
@@ -401,7 +426,9 @@ export function FlightView({
         lastNow = now;
 
         // 1. Advance the predictor and send exactly the inputs it asks for.
-        const due = session.tick(now, keyboard!.sample());
+        // Both hands at once: whichever is asking for something wins.
+        const padIntent = pad.sample();
+        const due = session.tick(now, mergeIntents(keyboard!.sample(), padIntent));
         if (stepLog.length < 600) stepLog.push(due);
 
         // 2. Only then read positions: a read before the sends is a step stale.
@@ -454,7 +481,9 @@ export function FlightView({
         }
 
         // Travel is asked for in edges: the chart, and being taken alongside.
-        if (keyboard!.takeChartRequest()) liveRef.current.onOpenChart();
+        if (asked(keyboard!.takeChartRequest(), pad.takeChartRequest())) {
+          liveRef.current.onOpenChart();
+        }
 
         // The nearest berth within reach, which is what L lands at.
         let nearestBerth: { id: string; name: string; distance: number } | undefined;
@@ -466,7 +495,7 @@ export function FlightView({
             }
           }
         }
-        if (keyboard!.takeLandRequest() && nearestBerth) {
+        if (asked(keyboard!.takeLandRequest(), pad.takeLandRequest()) && nearestBerth) {
           liveRef.current.onLand(nearestBerth.id);
         }
 
@@ -496,20 +525,20 @@ export function FlightView({
 
         // B puts a party aboard whatever is drifting alongside. The server
         // checks all of it again; this is only which hull was meant.
-        if (keyboard!.takeBoardRequest() && nearestPrize) {
+        if (asked(keyboard!.takeBoardRequest(), pad.takeBoardRequest()) && nearestPrize) {
           session.board(nearestPrize.id);
         }
 
         // J means three things, in the order the captain would expect: stop
         // spooling, spool for the plotted course, or open the chart to plot one.
-        if (keyboard!.takeJumpRequest()) {
+        if (asked(keyboard!.takeJumpRequest(), pad.takeJumpRequest())) {
           const own = room.state.ships.get(selfId);
           if (own && own.jumpTo !== '') liveRef.current.onCancelJump();
           else if (!liveRef.current.onJump()) liveRef.current.onOpenChart();
         }
 
         // Cycling the mark is an edge, and the server decides whether it took.
-        const cycles = keyboard!.takeCycleRequests();
+        const cycles = keyboard!.takeCycleRequests() + pad.takeCycleRequests();
         if (cycles > 0) {
           const options = session.targetableIds();
           if (options.length > 0) {

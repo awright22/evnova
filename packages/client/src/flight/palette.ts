@@ -46,6 +46,18 @@ export interface Palette {
 
 let cached: Palette | undefined;
 
+/**
+ * Forget the read palette.
+ *
+ * The tokens are read once, because reading twenty computed properties is
+ * not something to do per frame. The colour-vision-safe setting changes
+ * them underneath, so the setting drops this and the next read picks the
+ * new hues up.
+ */
+export function invalidatePalette(): void {
+  cached = undefined;
+}
+
 export function palette(): Palette {
   cached ??= {
     void: token('--void', 0x070a10),

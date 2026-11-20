@@ -290,6 +290,31 @@ async function main(): Promise<void> {
           );
         }
 
+        // A gunner for this screen alone, if it asked for one. Spawned here
+        // rather than with the traffic so nothing else in the run is being
+        // shot at, and stopped in the same `finally` the companions are.
+        let gunner: ManagedProcess | undefined;
+        if (screen.gunner) {
+          gunner = start(
+            `gunner for ${screen.name}`,
+            'pnpm',
+            [
+              'exec', 'tsx', 'tools/bot/src/main.ts',
+              '--bots', '1',
+              '--seconds', '600',
+              '--brain', 'hunter',
+              '--hunt', screen.gunner.hunt,
+              '--system', screen.gunner.system,
+              '--draught', screen.gunner.draught,
+              '--endpoint', `ws://127.0.0.1:${options.serverPort}`,
+              '--quiet',
+            ],
+            { cwd: REPO_ROOT },
+          );
+          // Long enough to join and find its mark, which it waits for.
+          await sleep(4000);
+        }
+
         // A screen that cannot be captured is reported and the run goes on.
         // A capture run is twenty minutes of flying; losing the other
         // twenty-nine screens because one of them did not find anybody to
@@ -305,6 +330,7 @@ async function main(): Promise<void> {
           console.warn(`  ! ${screen.name} was not captured: ${missed.at(-1)?.why ?? ''}`);
         } finally {
           for (const context of held) await context.close();
+          if (gunner) await gunner.stop();
         }
         if (file === undefined) continue;
         captured.push({ name: screen.name, file, description: screen.description });
