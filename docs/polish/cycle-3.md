@@ -133,7 +133,15 @@ A fix that trades one failure for another is worth naming as such. The only
 reason this one was caught in the same cycle is that the sweep runs every
 screen, not the ones I happened to be thinking about.
 
-**N6. Two of the three required browsers have never been run.** Spec section
+**N6. A screen that fails while being driven left no picture.** The capture
+harness photographs a screen that never settles — which is what made cycle
+2's five missing screens legible in minutes. It did not photograph one that
+settled and then failed inside its `act`, which is where most of the
+interesting failures are: the screen is up, and something it was asked to do
+did not happen. `posted` failed that way in this sweep and left nothing to
+look at. It does both now.
+
+**N7. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So

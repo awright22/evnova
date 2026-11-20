@@ -561,7 +561,25 @@ async function capture(
     if (screen.settleMs) await sleep(screen.settleMs);
     if (screen.act) {
       await page.focus('body');
-      await screen.act(page);
+      try {
+        await screen.act(page);
+      } catch (error) {
+        // Photographed on the way out, the same as a settle that never
+        // came. `posted` failed inside its act in this cycle — sixty
+        // seconds of firing and then a timeout on `.hud__posted` — and
+        // left no picture at all, because only a settle failure was being
+        // photographed. The act is where most of the interesting failures
+        // are: the screen is up, and something it was asked to do did not
+        // happen.
+        const body = (await page.locator('body').innerText().catch(() => '')).slice(0, 400);
+        await page
+          .screenshot({ path: resolve(options.outDir, `${screen.name}-stuck.png`) })
+          .catch(() => undefined);
+        const why = error instanceof Error ? error.message.split('\n')[0] ?? '' : String(error);
+        throw new Error(`${screen.name} could not be driven: ${why}\nOn screen:\n${body}`, {
+          cause: error,
+        });
+      }
     }
 
     let file = `${screen.name}.png`;
