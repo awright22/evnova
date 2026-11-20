@@ -1480,12 +1480,16 @@ export const SCREENS: readonly Screen[] = [
     name: 'register-refused',
     description: 'The Register when the server will not take the callsign: the refusal is in the form.',
     path: '/',
-    settle: '.register',
+    settle: '.title__plate',
     settleMs: 400,
     act: async (page) => {
+      // Through the title first: `/` has been the title since M9, and this
+      // screen waited for `.register` on it like the other two.
+      await page.getByRole('button', { name: /enter the register/i }).first().click();
+      await page.waitForSelector('.register', { timeout: 20_000 });
       // A callsign the server already holds, so the refusal is the real one.
-      await page.fill('.register input[name="callsign"]', 'Alongside');
-      await page.click('.register button[type="submit"]');
+      await page.locator('.register__input').first().fill('Alongside');
+      await page.getByRole('button', { name: /file for an open ticket/i }).first().click();
       await page.waitForTimeout(1200);
     },
   },
