@@ -225,7 +225,7 @@ owner. It fails with both file names when it does not.
 
 ### Minors
 
-**N1. The Bourse's panels cut their last visible row in half.** A scroller
+**N1. Panels across the game cut their last visible row in half.** A scroller
 whose content runs past its edge reads as a layout fault rather than as more
 below. Cycle 1 tried a mask and reverted it, because CSS cannot tell an
 overflowing scroller from a full one and the fade cut complete lists too.
@@ -233,7 +233,11 @@ The answer is to let the element say: a small hook watches scroll position,
 the box and the content, and sets `data-more`; the stylesheet fades the
 bottom edge only when there is in fact more there. Bottom only — every table
 here keeps a sticky header, and fading that would dim the column names.
-Applied to all four of the Bourse's scrollers.
+Applied to all four of the Bourse's scrollers, to the company and order
+panels inside it, and to the admin page's ledger, goods, listings and
+stockpiles — the first admin capture showed three tables each cut through
+its last row. The rule lives in `base.css` now rather than in one
+stylesheet, so any scroller that answers gets it.
 
 **N2. "Also at this berth" headed an empty box.** The heading means "and
 these as well", and it filters out everything with a row of its own above —

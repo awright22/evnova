@@ -247,3 +247,18 @@ h3 {
   white-space: nowrap;
   border: 0;
 }
+
+/*
+ * A scroller that says when there is more below it.
+ *
+ * `overflow-y: auto` looks identical on a panel with forty rows and one with
+ * three, so a fade on the bottom edge either cuts complete lists or never
+ * appears. The element answers for itself through `data-more`, set by
+ * `useScroller`, and this fades the edge only when the answer is yes.
+ * Static, not animated: the avoid list rules out shimmer on things that are
+ * not moving. Bottom only, because the tables that use this keep sticky
+ * headers that already cover the top edge.
+ */
+[data-more='below'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
+}

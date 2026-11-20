@@ -15,6 +15,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ALL_CATEGORIES, categoryLabel, isFaucet, isTransfer } from '@marque/shared';
 
+import { useScroller } from '../shell/scroller.ts';
+
 import './admin.css';
 
 interface LedgerRow {
@@ -78,6 +80,12 @@ export function Admin({
   readonly endpoint: string;
   readonly deviceToken: string | undefined;
 }): React.JSX.Element {
+  // Each of these tables runs past its panel and cut its last row in half.
+  const ledgerScroll = useScroller();
+  const goodsScroll = useScroller();
+  const listingsScroll = useScroller();
+  const stockpilesScroll = useScroller();
+
   const [state, setState] = useState<AdminState | undefined>(undefined);
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState('');
@@ -210,7 +218,7 @@ export function Admin({
               : 'Out by ' + (state.ledger.net - state.ledger.heldByCaptains).toLocaleString()}
           </span>
         </header>
-        <div className="admin__scroll">
+        <div className="admin__scroll" ref={ledgerScroll.ref} data-more={ledgerScroll.more}>
         <table className="admin__table">
           <thead>
             <tr>
@@ -259,7 +267,7 @@ export function Admin({
           <h2>Goods</h2>
           <span className="micro">{state.commodities.length} across the Reach</span>
         </header>
-        <div className="admin__scroll">
+        <div className="admin__scroll" ref={goodsScroll.ref} data-more={goodsScroll.more}>
         <table className="admin__table">
           <thead>
             <tr>
@@ -308,7 +316,7 @@ export function Admin({
           <h2>Listings</h2>
           <span className="micro">{state.listings.length} companies</span>
         </header>
-        <div className="admin__scroll">
+        <div className="admin__scroll" ref={listingsScroll.ref} data-more={listingsScroll.more}>
         <table className="admin__table">
           <thead>
             <tr>
@@ -343,7 +351,7 @@ export function Admin({
           <h2>Stockpiles</h2>
           <span className="micro">{state.berths.length} berths</span>
         </header>
-        <div className="admin__scroll">
+        <div className="admin__scroll" ref={stockpilesScroll.ref} data-more={stockpilesScroll.more}>
           {state.berths.map((berth) => (
             <div key={berth.portId} className="admin__berth">
               <h3>
