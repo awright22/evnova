@@ -33,9 +33,13 @@ clients than it thinks it has.
 
 **A gunner with traffic around it never concentrated its fire.** The mark was
 whatever was nearest *that instant*, so every pass re-aimed at whichever hull
-had drifted closest. A Force Majeure is written off by about seven seconds of
-a Short Measure's fire; what twelve runs of the write-off capture were
-actually doing was spraying four hundred rounds across five hulls. Cycle 1
+had drifted closest — spraying rounds across five hulls instead of putting
+them through one. The gunner's own telemetry, added later in this cycle,
+measured what concentrated fire actually costs: a Force Majeure's 885
+structure takes a Short Measure roughly forty to sixty seconds at point-blank
+range with two guns, or about twenty damage a second. An earlier draft of
+this document said seven seconds. That was a guess, and it was wrong by most
+of a minute. Cycle 1
 had this down as "a crippled captain survives four minutes of fire, which
 means a fight between two whole hulls is very long indeed" — which would
 have been a real finding if it had been true. `engageNearest` takes a

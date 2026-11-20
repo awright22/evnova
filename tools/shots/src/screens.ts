@@ -248,11 +248,11 @@ async function engageNearest(
      * One hull, by callsign, and nothing else.
      *
      * Without it the mark is whatever is nearest *this instant*, so a
-     * gunner with traffic around it re-aims every pass and sprays four
-     * hundred rounds across five hulls instead of putting eight hundred
-     * damage through one. A Force Majeure is written off by about seven
-     * seconds of a Short Measure's fire; four minutes of not quite hitting
-     * anything is what this was doing instead.
+     * gunner with traffic around it re-aims every pass and sprays rounds
+     * across five hulls instead of putting them through one. Measured: a
+     * Force Majeure's 885 structure takes a Short Measure forty to sixty
+     * seconds at point-blank with two guns. Four minutes of not quite
+     * hitting anything is what this was doing instead.
      */
     readonly mark?: string;
   } = {},
