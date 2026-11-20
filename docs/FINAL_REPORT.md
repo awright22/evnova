@@ -36,8 +36,9 @@ selling with margin and liquidation by the exchange itself, a per-captain
 holding cap, and the Gazette printing a line whenever something moves a
 company's earnings.
 
-**Work and standing.** 19 commission templates and three multi-stage chains
-with their own endings, a letters-of-marque system with monopoly goods,
+**Work and standing.** 19 commission templates across the five kinds the
+spec names — delivery, passengers, bounty, escort and smuggling, against a
+floor of eight — and three multi-stage chains with their own endings, a letters-of-marque system with monopoly goods,
 company standing that changes prices and access at a berth, fleets with
 shared commissions, player-to-player trade, convoys, mining, boarding a
 disabled hull for its cargo, and a test range where a draught can be flown
