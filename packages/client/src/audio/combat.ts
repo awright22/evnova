@@ -30,7 +30,22 @@ export type CombatSound =
   | 'moduleDisabled'
   | 'explosionSmall'
   | 'explosionLarge'
+  | 'intercept'
   | 'lock';
+
+/** One beam's voice, kept for as long as the beam is. */
+interface HeldVoice {
+  readonly panner: StereoPannerNode;
+  readonly output: GainNode;
+  readonly low: OscillatorNode;
+  readonly high: OscillatorNode;
+  /** The rasp's gain, which opens only while the beam is on something. */
+  readonly rasp: GainNode;
+  /** The hum's filter, which opens with it. */
+  readonly colour: BiquadFilterNode;
+  x: number;
+  y: number;
+}
 
 export class CombatAudio {
   private readonly context: AudioContext;
@@ -44,6 +59,9 @@ export class CombatAudio {
   /** Sounds started in the current frame, to stop a volley stacking into mush. */
   private readonly recent = new Map<CombatSound, number>();
 
+  /** Beams currently sounding, keyed the way the beams themselves are. */
+  private readonly held = new Map<string, HeldVoice>();
+
   constructor(mix: AudioMix) {
     this.context = mix.context;
     this.bus = mix.busFor('effects');
@@ -53,6 +71,119 @@ export class CombatAudio {
   setListener(x: number, y: number): void {
     this.listenerX = x;
     this.listenerY = y;
+
+    // A held voice has to follow the listener as well as its own source,
+    // because both move: the ear is on the captain's hull.
+    for (const voice of this.held.values()) this.placeHeld(voice);
+  }
+
+  /**
+   * Keep a beam sounding, for as long as it is held.
+   *
+   * Everything else here is a one-shot, because everything else is an
+   * event. A beam is a state: it starts when a trigger goes down, runs
+   * until it comes up, and changes while it runs — a line on nothing is a
+   * hum, and a line on a hull gains a rasp. So it is a voice that is kept
+   * rather than a sound that is played, keyed the way the beam is.
+   */
+  holdBeam(key: string, x: number, y: number, hitting: boolean): void {
+    const now = this.context.currentTime;
+    let voice = this.held.get(key);
+
+    if (!voice) {
+      const panner = this.context.createStereoPanner();
+      const output = this.context.createGain();
+      output.gain.setValueAtTime(0, now);
+      output.gain.linearRampToValueAtTime(1, now + 0.06);
+      panner.connect(output);
+      output.connect(this.bus);
+
+      // The hum: two detuned saws an octave apart, which is enough body to
+      // sit under a fight without becoming a drone.
+      const low = this.context.createOscillator();
+      low.type = 'sawtooth';
+      low.frequency.value = 96;
+      const high = this.context.createOscillator();
+      high.type = 'sawtooth';
+      high.frequency.value = 193;
+
+      const hum = this.context.createGain();
+      hum.gain.value = 0.09;
+      const colour = this.context.createBiquadFilter();
+      colour.type = 'lowpass';
+      colour.frequency.value = 900;
+      colour.Q.value = 0.8;
+
+      low.connect(hum);
+      high.connect(hum);
+      hum.connect(colour);
+      colour.connect(panner);
+
+      // The rasp: filtered noise that only opens while the beam is on
+      // something, which is the whole of the difference a captain hears.
+      const rasp = this.context.createBufferSource();
+      rasp.buffer = this.noise;
+      rasp.loop = true;
+      const raspBand = this.context.createBiquadFilter();
+      raspBand.type = 'bandpass';
+      raspBand.frequency.value = 1700;
+      raspBand.Q.value = 1.1;
+      const raspGain = this.context.createGain();
+      raspGain.gain.value = 0;
+
+      rasp.connect(raspBand);
+      raspBand.connect(raspGain);
+      raspGain.connect(panner);
+
+      low.start(now);
+      high.start(now);
+      rasp.start(now);
+
+      voice = { panner, output, low, high, rasp: raspGain, colour, x, y };
+      this.held.set(key, voice);
+    }
+
+    voice.x = x;
+    voice.y = y;
+    this.placeHeld(voice);
+
+    // On something: the rasp opens and the hum brightens.
+    voice.rasp.gain.setTargetAtTime(hitting ? 0.085 : 0, now, 0.05);
+    voice.colour.frequency.setTargetAtTime(hitting ? 2200 : 900, now, 0.08);
+  }
+
+  /** Let one go, with a short fall rather than a cut. */
+  releaseBeam(key: string): void {
+    const voice = this.held.get(key);
+    if (!voice) return;
+    this.held.delete(key);
+
+    const now = this.context.currentTime;
+    voice.output.gain.cancelScheduledValues(now);
+    voice.output.gain.setValueAtTime(voice.output.gain.value, now);
+    voice.output.gain.linearRampToValueAtTime(0, now + 0.09);
+
+    voice.low.stop(now + 0.12);
+    voice.high.stop(now + 0.12);
+    voice.rasp.gain.setValueAtTime(0, now);
+  }
+
+  /** Stop every held voice, for a view that is going away. */
+  releaseAll(): void {
+    for (const key of [...this.held.keys()]) this.releaseBeam(key);
+  }
+
+  /** Pan and attenuate a held voice from where it is now. */
+  private placeHeld(voice: HeldVoice): void {
+    const distance = Math.hypot(voice.x - this.listenerX, voice.y - this.listenerY);
+    const attenuation = REFERENCE_DISTANCE / Math.max(REFERENCE_DISTANCE, distance);
+    const now = this.context.currentTime;
+    voice.output.gain.setTargetAtTime(attenuation * attenuation, now, 0.05);
+    voice.panner.pan.setTargetAtTime(
+      Math.max(-MAX_PAN, Math.min(MAX_PAN, ((voice.x - this.listenerX) / MAX_DISTANCE) * 4)),
+      now,
+      0.05,
+    );
   }
 
   /**
@@ -114,6 +245,21 @@ export class CombatAudio {
         // A rail clunk, then a roar that recedes.
         this.tone(destination, now, { from: 120, to: 48, duration: 0.1, level: 0.4, type: 'square' });
         this.burst(destination, now + 0.05, { duration: 0.9, frequency: 420, q: 0.6, level: 0.3, decay: 0.9 });
+        break;
+
+      case 'intercept':
+        // A dry snap, high and quiet. It has to be unmistakable for a gun —
+        // a captain hearing it should know something was stopped, not that
+        // something was fired — so it is shorter, thinner and has no body
+        // under it at all.
+        this.burst(destination, now, { duration: 0.045, frequency: 3400, q: 2.6, level: 0.3 });
+        this.tone(destination, now, {
+          from: 1800,
+          to: 900,
+          duration: 0.05,
+          level: 0.1,
+          type: 'sine',
+        });
         break;
 
       case 'shieldHit':
@@ -255,5 +401,9 @@ const MIN_GAP: Record<CombatSound, number> = {
   moduleDisabled: 0.25,
   explosionSmall: 0.12,
   explosionLarge: 0.12,
+  // Short, because a pair of watches firing at a volley is several in a
+  // row and the ear should read "they are being dealt with" rather than
+  // one noise.
+  intercept: 0.04,
   lock: 0.2,
 };

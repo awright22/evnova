@@ -164,6 +164,8 @@ export function FlightView({
     let mix: AudioMix | undefined;
     let engine: EngineSound | undefined;
     let combat: CombatAudio | undefined;
+    /** Beams that were sounding last frame, so the ones that stopped are let go. */
+    const heldBeams = new Set<string>();
     let frame = 0;
 
     const start = async (): Promise<void> => {
@@ -312,6 +314,7 @@ export function FlightView({
         // sparks on a hull or a shake would say the captain took a hit.
         if (event.kind === PROJECTILE_KIND.defense) {
           effects.defenseIntercept(event.x, event.y);
+          combat?.play('intercept', event.x, event.y);
           return;
         }
 
@@ -554,6 +557,24 @@ export function FlightView({
           });
         });
 
+        // A beam is a state, so its sound is a voice that is kept rather
+        // than a sound that is played: held while the entry is on the wire,
+        // let go when it leaves.
+        if (combat) {
+          const sounding = new Set<string>();
+          for (const beam of beams) {
+            sounding.add(beam.id);
+            const owner = frames.find((frame) => frame.id === beam.owner);
+            if (!owner) continue;
+            combat.holdBeam(beam.id, owner.x, owner.y, beam.hitting);
+          }
+          for (const key of heldBeams) {
+            if (!sounding.has(key)) combat.releaseBeam(key);
+          }
+          heldBeams.clear();
+          for (const key of sounding) heldBeams.add(key);
+        }
+
         effects.update(dtMs);
 
         scene.resize(app.screen.width, app.screen.height);
@@ -691,6 +712,9 @@ export function FlightView({
       cancelAnimationFrame(frame);
       keyboard?.destroy();
       engine?.stop();
+      // A held voice outlives the frame loop that was feeding it, so a view
+      // that goes away while a beam is down would leave a hum behind.
+      combat?.releaseAll();
       void mix?.close();
       scene?.destroy();
       session?.destroy();

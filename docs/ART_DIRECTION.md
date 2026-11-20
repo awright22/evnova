@@ -390,7 +390,7 @@ cell is unfinished work. Minimum two channels per row.
 | Fire missile | Rack door, launch bloom, thick trail | Rail clunk then a receding roar | 3px launch shove, rack count decrements |
 | Hit dealt | Impact spark on the target, damage ticks | Confirming thud, pitched by damage | Crosshair pips flare outward 120ms |
 | Hold a beam | Line from the muzzle, energy running along it, brighter where it lands | Continuous hum, gaining a rasp while it is on something | Rises over `--motion-instant`, falls over `--motion-quick`; length never animates |
-| Cut into rock | The same line, ending on a rock; the rock dulls and shrinks as it goes | Lower, grinding under the hum | Hold ring round the rock being worked |
+| Cut into rock | The same line, ending on a rock; the rock dulls and shrinks as it goes | The held hum with its rasp open, as on any hull | Hold ring round the rock being worked |
 | Point defense intercepts | 80ms `--shield` flash and five small radial sparks where the round was | Short dry snap, quieter than a gun | No shake: a shake says the hull took it |
 | Hit taken on shields | Shield ripple at the impact point | Resonant shield ring | 2px shake, shield bar pulses |
 | Hit taken on hull | Sparks, white flash, scorch decal | Dull structural bang | 5px shake, hull bar pulses `--danger` |
