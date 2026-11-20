@@ -715,3 +715,24 @@ in-memory copy back, so a dividend — or now a fill or a liquidation — settle
 for a captain who happened to be online was erased by their next landing. The
 ledger keeps the world's copy in step instead, whether or not the caller
 holds one.
+
+**2026-11-20 — The range is a room of its own.** Spec M8 wants a draught
+flown and fought before it is paid for, and the thing that has to be true of
+it is that none of it reaches the captain's books. A mode of a system room
+would mean a guard on every path that writes — the ledger, the stockpiles,
+the hull row, the position, the Prize Court — and a guard is a thing that can
+be missed. The range reads a captain's licence and callsign and writes
+nothing at all, so the isolation holds by construction rather than by
+vigilance. It is the same simulation underneath: the same flight step, the
+same weapons, the same Unlettered brain behind the sparring hulls.
+
+**2026-11-20 — The range checks a design exactly as the Yard would.** A grid
+the warrant will not carry never leaves the ground, with the Yard's own
+problems listed. A range that flew what the counter would refuse would be
+teaching a captain about a hull they cannot have.
+
+**2026-11-20 — A hull under test travels as a share code.** The state's
+contract is that `blueprint` names a catalogue draught and anything else
+carries its grid in `hull`. The range forgot the second half and sent a
+session id as a draught name, which left the client with nothing to draw the
+hull from and nothing to predict its flight with.

@@ -17,6 +17,7 @@ import {
   regrowEveryBelt,
   scanEveryLane,
 } from './rooms/SystemRoom.ts';
+import { RangeRoom } from './rooms/RangeRoom.ts';
 
 // The Bourse moves on the world's own clock, not on a captain's action, so
 // the rooms are told when it has. Registered here because the World does not
@@ -45,6 +46,15 @@ export const server = defineServer({
      * them across the galaxy.
      */
     system: defineRoom(SystemRoom).filterBy(['systemId']),
+
+    /**
+     * The range: one captain, one draught, no books.
+     *
+     * Not filtered and capped at one client, because a range is private by
+     * definition — a captain is trying a hull out, not holding a fight
+     * somebody else can wander into. Each join creates its own.
+     */
+    range: defineRoom(RangeRoom),
   },
 
   routes,

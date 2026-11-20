@@ -162,6 +162,22 @@ export interface BourseState {
   readonly margin: MarginState | undefined;
 }
 
+/**
+ * The range, while a captain is on one.
+ *
+ * `problems` is the Yard's own verdict on the draught: a grid the warrant
+ * will not carry is refused out here exactly as it would be at the counter,
+ * rather than flown and then found out about.
+ */
+export interface RangeState {
+  /** The callsign on the hull under test. */
+  readonly flying: string;
+  /** The draught it is up against. */
+  readonly against: string;
+  readonly note: string;
+  readonly problems: readonly string[];
+}
+
 /** What a captain has on their books and at their moorings. */
 export interface YardState {
   readonly designs: readonly { id: string; name: string; placements: Placement[] }[];
@@ -214,6 +230,8 @@ export interface GameSnapshot {
   readonly yard: YardState | undefined;
   /** The Bourse, the Gazette and the standings, while alongside one. */
   readonly bourse: BourseState | undefined;
+  /** Set while the captain is on the range. */
+  readonly range: RangeState | undefined;
   /** Where this captain stands with the three charters. */
   readonly standing: StandingState | undefined;
   /** The berth's board and what the captain is carrying, while alongside. */
@@ -275,6 +293,9 @@ export class GameClient {
   private staple: StapleState | undefined;
   private yard: YardState | undefined;
   private bourse: BourseState | undefined;
+  /** True while the captain is on the range rather than in a real sky. */
+  private onRange = false;
+  private range: RangeState | undefined;
   private standing: StandingState | undefined;
   private commissions: CommissionState | undefined;
   private convoy: ConvoyState | undefined;
@@ -321,6 +342,7 @@ export class GameClient {
       staple: this.staple,
       yard: this.yard,
       bourse: this.bourse,
+      range: this.range,
       standing: this.standing,
       commissions: this.commissions,
       convoy: this.convoy,
@@ -563,6 +585,11 @@ export class GameClient {
       this.emit();
     });
 
+    room.onMessage('range', (payload) => {
+      this.range = payload as RangeState;
+      this.emit();
+    });
+
     room.onMessage('news', (payload) => {
       if (!this.bourse) return;
       this.bourse = { ...this.bourse, news: (payload as { headlines: Headline[] }).headlines };
@@ -644,6 +671,69 @@ export class GameClient {
   }
 
   /** Leave this room and join the destination's. */
+  /**
+   * Take a draught out on the range.
+   *
+   * A room of its own, so nothing out there can reach the captain's books.
+   * The system room is left first: a captain is in one sky at a time, and
+   * holding both would leave their hull sitting in the system they came
+   * from while they fly somewhere that does not exist.
+   */
+  async enterRange(
+    placements: readonly Placement[],
+    name?: string,
+    against?: string,
+  ): Promise<void> {
+    if (this.disposed) return;
+
+    const from = this.systemId;
+    const previous = this.room;
+    this.room = undefined;
+    this.range = { flying: '', against: against ?? '', note: '', problems: [] };
+    this.mode = { kind: 'connecting' };
+    this.emit();
+
+    try {
+      await previous?.leave();
+    } catch {
+      // Already gone.
+    }
+
+    try {
+      const room = await this.sdk.create<SystemState>(
+        'range',
+        {
+          ...(this.account ? { deviceToken: this.account.deviceToken } : {}),
+          systemId: from,
+          placements,
+          ...(name !== undefined ? { name } : {}),
+          ...(against !== undefined ? { against } : {}),
+        },
+        SystemState,
+      );
+      this.onRange = true;
+      this.attach(room);
+    } catch (error) {
+      this.onRange = false;
+      this.range = undefined;
+      this.fail(error);
+    }
+  }
+
+  /** Come back off the range, to the sky the captain actually lives in. */
+  async leaveRange(): Promise<void> {
+    if (!this.onRange) return;
+    this.onRange = false;
+    this.range = undefined;
+    await this.transferTo(this.systemId);
+  }
+
+  /** Put something else up against the draught under test. */
+  async spar(against: string): Promise<boolean> {
+    if (!this.onRange) return false;
+    return this.requestOk('spar', { against });
+  }
+
   private async transferTo(systemId: string): Promise<void> {
     const previous = this.room;
     this.room = undefined;

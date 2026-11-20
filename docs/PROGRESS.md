@@ -236,7 +236,7 @@ Done when:
 - [x] Beam weapons and point defense
 - [x] Boarding disabled ships for cargo
 - [x] Limit orders, and short selling with margin and liquidation, without breaking any invariant
-- [ ] A test range where a draught can be flown and fought before buying it
+- [x] A test range where a draught can be flown and fought before buying it
 - [ ] The admin page
 
 Done when:

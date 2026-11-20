@@ -27,6 +27,7 @@ import { Bourse } from './bourse/Bourse.tsx';
 import { Board } from './commissions/Board.tsx';
 import { Convoy } from './convoy/Convoy.tsx';
 import { Offers } from './offers/Offers.tsx';
+import { RangeBanner } from './flight/RangeBanner.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -351,6 +352,13 @@ export function App(): React.JSX.Element {
                 )
               }
               onSave={(name, placements) => client.saveDesign(name, placements)}
+              onTakeOut={(name, placements) => {
+                // The Yard closes behind them: the range is a sky, not a
+                // screen, and coming back reopens the counter where they
+                // left it.
+                setYardOpen(false);
+                void client.enterRange(placements, name);
+              }}
               onBuyLicence={(id) => void client.buyLicence(id)}
               onExport={(name, placements) => client.exportDesign(name, placements)}
               onImport={(code) => void client.importDesign(code)}
@@ -394,6 +402,13 @@ export function App(): React.JSX.Element {
               onJump={() => client.jumpPlotted()}
               onCancelJump={() => client.cancelJump()}
               composing={composing}
+            />
+          )}
+          {snapshot.range && (
+            <RangeBanner
+              range={snapshot.range}
+              onSpar={(against) => void client.spar(against)}
+              onLeave={() => void client.leaveRange()}
             />
           )}
           {chatOverlay}

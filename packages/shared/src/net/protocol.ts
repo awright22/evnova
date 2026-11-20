@@ -69,6 +69,7 @@ export const REJECTIONS = {
   'no-such-order': 'That order is no longer open.',
   'too-many-orders': 'You have as many orders standing as the Bourse will keep.',
   'limit-out-of-range': 'A limit has to be a price somebody might pay.',
+  'unknown-draught': 'The Register lists no such draught.',
   'barred-here': 'This company will not have you alongside.',
   'not-a-seat': 'Letters are issued at a company seat, not here.',
   'standing-too-low': 'This company does not trust you with that.',
@@ -231,6 +232,18 @@ export const PlaceOrderIntent = z.object({
   short: z.boolean().optional(),
 });
 export type PlaceOrderIntent = z.infer<typeof PlaceOrderIntent>;
+
+/**
+ * Put something else up on the range.
+ *
+ * A draught that beats a gunboat and cannot touch a turret is a thing to
+ * find out on a range rather than off Sato's Error.
+ */
+export const RangeSparIntent = z.object({
+  /** A catalogue draught, or empty to put the same thing up again. */
+  against: z.string().max(64),
+});
+export type RangeSparIntent = z.infer<typeof RangeSparIntent>;
 
 /** Withdraw a standing order. */
 export const CancelOrderIntent = z.object({
@@ -615,6 +628,7 @@ export const SERVER_MESSAGES = [
   'claim',
   'respawned',
   'order',
+  'range',
   'posted',
   'chat',
   'chat-backlog',

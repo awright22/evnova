@@ -71,6 +71,8 @@ export interface EditorProps {
   readonly serverProblems: readonly Problem[];
   readonly busy: boolean;
   onBuild: (name: string, placements: readonly Placement[], refitting: boolean) => void;
+  /** Take the draught out on the range, where nothing costs anything. */
+  onTakeOut: (name: string, placements: readonly Placement[]) => void;
   onSave: (name: string, placements: readonly Placement[]) => void;
   onBuyLicence: (id: string) => void;
   /** Encode the current draught as a code to paste. */
@@ -104,6 +106,7 @@ export function Editor({
   serverProblems,
   busy,
   onBuild,
+  onTakeOut,
   onSave,
   onBuyLicence,
   onExport,
@@ -688,6 +691,22 @@ export function Editor({
               onClick={() => onSave(name, state.placements)}
             >
               Keep the draught
+            </button>
+            <button
+              type="button"
+              className="button"
+              // Flying it costs nothing, so the only bar is that the warrant
+              // would carry it: the range refuses exactly what the counter
+              // would refuse, and for the same reasons.
+              disabled={busy || !survey.valid}
+              title={
+                survey.valid
+                  ? `Fly the ${name} on the range, and fight something in her`
+                  : `${problems.length} to answer before she can be flown`
+              }
+              onClick={() => onTakeOut(name, state.placements)}
+            >
+              Take her out
             </button>
             <button
               type="button"

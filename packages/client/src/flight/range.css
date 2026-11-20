@@ -1,0 +1,106 @@
+/*
+ * The range banner.
+ *
+ * Across the top, under the HUD's own header band, so it reads as a frame
+ * around the flight view rather than as part of the hull's instruments. An
+ * amber rule, because it is a condition the captain is in and not a warning.
+ */
+
+.range {
+  position: absolute;
+  top: calc(var(--space-2) * 4);
+  /*
+   * Stretched rather than centred by transform. An absolutely positioned
+   * box at `left: 50%` has only the right half of the screen to lay out in,
+   * so the bar wrapped its draughts onto a second line and left a hole where
+   * the first line should have been.
+   */
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-0-5);
+  pointer-events: none;
+}
+
+.range__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100vw - var(--space-4));
+  /* At a narrow viewport the draughts scroll rather than stack. */
+  overflow-x: auto;
+  padding: var(--space-1) var(--space-1-5);
+  border-left: 2px solid var(--amber-dim);
+  pointer-events: auto;
+}
+
+.range__title {
+  white-space: nowrap;
+}
+
+.range__leave {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.range__choices {
+  display: flex;
+  gap: var(--space-0-5);
+}
+
+.range__choice {
+  min-height: 22px;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: var(--border-width) solid var(--rule);
+  transition: background var(--motion-instant) var(--ease-standard);
+}
+
+.range__choice:hover {
+  color: var(--text-primary);
+  background: var(--hover);
+}
+
+.range__choice--on {
+  color: var(--text-primary);
+  background: var(--amber-wash);
+  border-color: var(--amber-dim);
+}
+
+.range__current {
+  max-width: calc(100vw - var(--space-4));
+  text-align: center;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}
+
+/* A draught the warrant will not carry never leaves the ground. */
+.range--refused .range__panel {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  max-width: 44ch;
+  padding: var(--space-2);
+  border-left: 2px solid var(--danger-dim);
+  pointer-events: auto;
+}
+
+.range__problems {
+  margin: 0;
+  padding-left: var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--size-body-sm);
+  line-height: var(--leading-body-sm);
+}

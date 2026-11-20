@@ -313,6 +313,9 @@ async function blockade(
   let marked = '';
   let markHpFirst = -1;
   let markHpLast = -1;
+  /** The last structure seen on each hull, so damage adds up across marks. */
+  const hpSeen = new Map<string, number>();
+  let damage = 0;
   let rounds = 0;
 
   while (Date.now() < until) {
@@ -335,6 +338,9 @@ async function blockade(
       if (ship.freighter && ship.destroyedAt > 0 && !seen.has(id)) {
         seen.add(id);
         destroyed++;
+        // Whatever it had left when it broke apart came off it too.
+        damage += hpSeen.get(id) ?? 0;
+        hpSeen.set(id, 0);
       }
     });
 
@@ -379,7 +385,15 @@ async function blockade(
     closest = Math.min(closest, best);
     if (startAt) moved = Math.max(moved, Math.hypot(me.x - startAt.x, me.y - startAt.y));
 
+    // Accumulated per hull, not measured between the first mark and the
+    // last. A blockade that kills one freighter and moves to the next had
+    // its "damage" read as the difference between a dead hull and a fresh
+    // one, which came out as none at all the moment the guns got good
+    // enough to finish anything.
     const hp = [...mark.moduleHp].reduce((a, b) => a + b, 0) + Math.round(mark.shield);
+    const previous = hpSeen.get(markId);
+    if (previous !== undefined) damage += Math.max(0, previous - hp);
+    hpSeen.set(markId, hp);
     if (markHpFirst < 0) markHpFirst = hp;
     markHpLast = hp;
     rounds = room.state.projectiles?.size ?? rounds;
@@ -396,7 +410,7 @@ async function blockade(
       `freighters left ${[...room.state.ships.values()].filter((v) => v.freighter && v.destroyedAt === 0).length}`,
   );
 
-  return { destroyed, damage: Math.max(0, markHpFirst - markHpLast) };
+  return { destroyed, damage };
 }
 
 async function main(): Promise<void> {

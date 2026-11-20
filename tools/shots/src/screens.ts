@@ -744,6 +744,37 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'range',
+    description:
+      'A draught out on the range: the banner saying none of it is real, what is up '
+      + 'against it, and a fight already in progress. Nothing out here touches the '
+      + "captain's marks, cargo, hull or standing.",
+    path: '/?callsign=Trials&harness=1',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Yard")');
+      await page.waitForSelector('.grid', { timeout: 20_000 });
+      await page.waitForTimeout(600);
+
+      // The hull they walked in flying is a valid draught, so it can go
+      // straight out: the subject here is the range, not the editor.
+      await page.click('button:text("Take her out")');
+      await page.waitForSelector('.range', { timeout: 30_000 });
+      await page.waitForSelector('.hud', { timeout: 20_000 });
+      await page.waitForTimeout(800);
+
+      // Close on what is up, so the capture is of a fight rather than of two
+      // specks a thousand units apart.
+      await engageNearest(page, 30, { untilHit: true });
+      await page.waitForTimeout(250);
+    },
+  },
+  {
     name: 'board',
     description:
       "The Factor's board: what this berth is paying for, the one being read with its "
