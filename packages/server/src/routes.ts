@@ -154,6 +154,20 @@ export const routes = createRouter({
       .prepare('SELECT COUNT(*) AS total FROM pilots')
       .get() as { total: number };
 
+    // What is in every hold, valued at base price. Marks alone understate a
+    // captain in the middle of a run: the cargo they are carrying was bought
+    // with marks and is worth something, and a report that ignored it would
+    // call every trading bot a loss-maker for being mid-voyage.
+    const holds = world_.store.raw
+      .prepare('SELECT commodity_id AS id, SUM(units) AS units FROM cargo GROUP BY commodity_id')
+      .all() as { id: string; units: number }[];
+    const { commodities } = content();
+    const cargoValue = holds.reduce(
+      (sum, row) => sum + row.units * (commodities.get(row.id)?.basePrice ?? 0),
+      0,
+    );
+    const cargoUnits = holds.reduce((sum, row) => sum + row.units, 0);
+
     return Promise.resolve(
       json({
         commodities: world_.market.survey(),
@@ -164,6 +178,8 @@ export const routes = createRouter({
           net: categories.reduce((sum, row) => sum + row.total, 0),
           heldByCaptains: held.total,
           captains: captains.total,
+          cargoUnits,
+          cargoValue,
         },
       }),
     );

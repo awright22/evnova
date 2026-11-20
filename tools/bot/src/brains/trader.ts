@@ -51,6 +51,50 @@ const SHORTAGE = 0.1;
 /** How long to wait for an order to be answered before moving on. */
 const ORDER_GAP_STEPS = 6;
 
+/** Berths to carry a hold past before taking whatever is offered for it. */
+const STALE_LEGS = 3;
+
+/**
+ * Which lane to take.
+ *
+ * Carrying something, the bot goes where somebody eats it: a berth short of
+ * a good pays most for it, and a berth that neither makes nor eats it pays
+ * what it would pay for anything. Empty, it goes where something is made,
+ * because that is where a glut to buy will be.
+ *
+ * This uses only what a captain can see — the chart says who trades what —
+ * and it is the difference between a circuit and a trade. Choosing at random
+ * meant carrying Ore to berths with no use for it, and losing the fee on
+ * every leg.
+ */
+function chooseLane(links: readonly string[], carrying: string, rng: Rng): string {
+  const { systems } = content();
+
+  const appetite = (systemId: string): number => {
+    const system = systems.get(systemId);
+    if (!system) return 0;
+
+    let score = 0;
+    for (const port of system.ports) {
+      if (!port.trade) continue;
+      if (carrying !== '') {
+        score += port.trade.consumes[carrying] ?? 0;
+      } else {
+        // Empty: anywhere that makes anything will have a glut to sell.
+        for (const rate of Object.values(port.trade.produces)) score += rate;
+      }
+    }
+    return score;
+  };
+
+  const ranked = [...links].sort((a, b) => appetite(b) - appetite(a));
+  const best = ranked[0];
+  if (best !== undefined && appetite(best) > 0) return best;
+
+  // Nowhere on this lane wants it: take any lane rather than sit still.
+  return links[rng.int(0, links.length - 1)]!;
+}
+
 /** Steps to spend alongside before launching, so the berth's drift shows. */
 const DWELL_STEPS = 45;
 
@@ -69,6 +113,17 @@ export function traderBrain(options: TraderOptions): BotBrain {
   let spoolingFor = '';
   /** Berths visited since buying, so a hold is not carried forever. */
   let legsCarried = 0;
+  /**
+   * What the hold cost, per unit.
+   *
+   * A bot that sells whatever it is carrying wherever it happens to be sells
+   * at a loss most of the time: the berth it bought from had a glut, and the
+   * next one along need not be short of the same thing. Remembering the price
+   * paid is the least a captain would do, and it turns an aimless circuit
+   * into a trade.
+   */
+  let paidPerUnit = 0;
+  let carryingId = '';
   let nextOrderStep = 0;
   /** The berth already asked for, so the approach is not restarted. */
   let askedToLand = '';
@@ -121,18 +176,21 @@ export function traderBrain(options: TraderOptions): BotBrain {
           launchAtStep = view.step + DWELL_STEPS;
         }
 
-        const market = view.market;
+        // Only trade on this berth's own prices. A market left over from the
+        // last berth is how a bot comes to ask for something it is not
+        // carrying.
+        const market = view.market?.port === view.landedAt ? view.market : undefined;
         if (market && view.step >= nextOrderStep) {
           nextOrderStep = view.step + ORDER_GAP_STEPS;
 
-          // Sell first: a full hold cannot buy. Sell into a shortage by
-          // preference, because that is where the berth pays most, and sell
-          // anything at all rather than carry it on a third leg.
+          // Sell first: a full hold cannot buy. Sell at a profit wherever one
+          // is on offer, and cut the loss rather than carry a hold round the
+          // Reach forever.
           const carried = market.listings.filter((listing) => listing.carried > 0);
-          const wanted = carried
-            .filter((listing) => listing.pressure < -SHORTAGE)
-            .sort((a, b) => a.pressure - b.pressure);
-          const toSell = wanted[0] ?? (legsCarried >= 2 ? carried[0] : undefined);
+          const profitable = carried
+            .filter((listing) => listing.commodityId !== carryingId || listing.bid > paidPerUnit)
+            .sort((a, b) => b.bid - a.bid);
+          const toSell = profitable[0] ?? (legsCarried >= STALE_LEGS ? carried[0] : undefined);
 
           if (toSell) {
             view.trade('sell', toSell.commodityId, Math.min(lot, toSell.carried));
@@ -169,6 +227,8 @@ export function traderBrain(options: TraderOptions): BotBrain {
             const pick = glut[0];
             if (pick) {
               legsCarried = 0;
+              carryingId = pick.commodityId;
+              paidPerUnit = pick.ask;
               view.trade('buy', pick.commodityId, Math.min(lot, room));
               return;
             }
@@ -202,7 +262,7 @@ export function traderBrain(options: TraderOptions): BotBrain {
       ) {
         if (spoolingFor === '') {
           if (view.purse.propellant >= view.purse.jumpCost) {
-            spoolingFor = system.links[rng.int(0, system.links.length - 1)]!;
+            spoolingFor = chooseLane(system.links, carryingId, rng);
             view.jump(spoolingFor);
           } else {
             // Not enough Propellant to leave: work the berths again and buy
@@ -234,7 +294,9 @@ export function traderBrain(options: TraderOptions): BotBrain {
       // approach takes a couple of seconds and asking again during it is
       // ignored, so there is nothing to gain by repeating it.
       if (distance <= berth.radius + LANDING_RANGE) {
-        if (speed <= LANDING_SPEED * 0.8) {
+        // Well inside the server's limit: it judges the hull's real speed and
+        // this one is predicted, and a refusal costs a whole approach.
+        if (speed <= LANDING_SPEED * 0.5) {
           if (askedToLand !== berth.id) {
             askedToLand = berth.id;
             view.land(berth.id);

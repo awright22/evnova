@@ -339,7 +339,11 @@ function economySections(options: Options, samples: readonly Sample[]): string {
     .map(([name, row]) => `| ${name} | ${row.total.toLocaleString()} | ${row.count} |`)
     .join('\n');
 
-  const grew = last.ledger.heldByCaptains - first.ledger.heldByCaptains;
+  // Net worth, not just marks: a captain halfway through a voyage is holding
+  // cargo they paid for, and counting only the purse calls that a loss.
+  const worthNow = last.ledger.heldByCaptains + last.ledger.cargoValue;
+  const worthBefore = first.ledger.heldByCaptains + first.ledger.cargoValue;
+  const grew = worthNow - worthBefore;
   const perCaptain = last.ledger.captains > 0 ? grew / last.ledger.captains : 0;
   const reconciles = last.ledger.net === last.ledger.heldByCaptains;
 
@@ -376,6 +380,8 @@ Invariant 4 says the marks every captain holds equals faucets minus sinks.
 | Faucets minus sinks | ${last.ledger.net.toLocaleString()} |
 | Reconciles | ${reconciles ? 'yes' : '**NO**'} |
 | Captains | ${last.ledger.captains} |
+| In their holds | ${last.ledger.cargoUnits.toLocaleString()} units, worth ${last.ledger.cargoValue.toLocaleString()} at base |
+| Net worth now | ${worthNow.toLocaleString()} |
 | Change over the run | ${grew >= 0 ? '+' : ''}${grew.toLocaleString()} (${perCaptain >= 0 ? '+' : ''}${perCaptain.toFixed(0)} each) |
 
 | Category | Total | Postings |

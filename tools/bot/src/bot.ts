@@ -173,6 +173,29 @@ export interface BotOptions {
   readonly onJumped?: (systemId: string, deviceToken: string | undefined) => void;
 }
 
+/**
+ * Where the Register says this captain is.
+ *
+ * The same lookup the browser does before joining. Falls back to the opening
+ * system from content if the Register cannot answer, which is no worse than
+ * the assumption it replaced.
+ */
+async function berthOf(endpoint: string, deviceToken: string): Promise<string> {
+  const httpBase = endpoint.replace(/^ws/, "http").replace(/\/$/, "");
+  try {
+    const response = await fetch(`${httpBase}/account/berth`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deviceToken }),
+    });
+    if (!response.ok) return content().tuning.start.system;
+    const body = (await response.json()) as { systemId?: string };
+    return body.systemId ?? content().tuning.start.system;
+  } catch {
+    return content().tuning.start.system;
+  }
+}
+
 /** Netcode health, sampled from the SDK's own telemetry. */
 export interface BotTelemetry {
   readonly callsign: string;
@@ -237,11 +260,12 @@ export class Bot {
       options.roomName ?? "system",
       {
         callsign: options.callsign,
-        // A captain joins the system their row names; an anonymous hull takes
-        // whichever it was told.
-        systemId: deviceToken
-          ? content().tuning.start.system
-          : options.systemId,
+        // A captain joins the system their row names, which only the server
+        // knows: it is configurable, and a jump moves it. Taking the opening
+        // system from content instead was right only until either happened,
+        // and the room refuses the mismatch rather than silently moving the
+        // captain. An anonymous hull takes whichever it was told.
+        systemId: deviceToken ? await berthOf(options.endpoint, deviceToken) : options.systemId,
         ...(deviceToken !== undefined ? { deviceToken } : {}),
         ...(options.blueprint !== undefined
           ? { blueprint: options.blueprint }

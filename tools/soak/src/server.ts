@@ -144,6 +144,9 @@ export interface EconomyReport {
     net: number;
     heldByCaptains: number;
     captains: number;
+    /** What every hold is carrying, and what it is worth at base price. */
+    cargoUnits: number;
+    cargoValue: number;
   };
 }
 

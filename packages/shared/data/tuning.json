@@ -55,7 +55,7 @@
   },
   "ports": {
     "$comment": "What a berth charges. The Staple prices Propellant properly in M4; until then these are the port's own rates.",
-    "landingFee": 60,
+    "landingFee": 25,
     "propellantPrice": 8,
     "repairPricePerPoint": 1.4,
     "ordnancePrice": 22,
@@ -68,9 +68,9 @@
     "ordnance": 24
   },
   "market": {
-    "$comment": "Price is the base price scaled by target over stock, raised to the elasticity, and clamped to the tier's band. Elasticity at 0.6 means a berth down to a quarter of its target quotes about 2.3x: enough that a shortage is worth flying to, not so much that one hold empties a berth's purse. The spread is what a berth keeps between what it pays and what it charges, and is what makes invariant 1 true: buying and selling back at one berth always loses it.",
+    "$comment": "Price is the base price scaled by target over stock, raised to the elasticity, and clamped to the tier's band. Elasticity at 0.6 means a berth down to a quarter of its target quotes about 2.3x: enough that a shortage is worth flying to, not so much that one hold empties a berth's purse. The spread is what a berth keeps between what it pays and what it charges, and is what makes invariant 1 true: buying and selling back at one berth always loses it. Six per cent, with a landing fee of 25, because the starting draught carries twenty units: at twelve per cent and a fee of sixty, the costs of a leg exceeded the whole margin on a hold that size and the only possible trade was a losing one. The soak measured it.",
     "elasticity": 0.6,
-    "spread": 0.12,
+    "spread": 0.06,
     "bands": {
       "raw": { "min": 0.35, "max": 3.2 },
       "refined": { "min": 0.4, "max": 2.8 },
