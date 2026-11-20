@@ -11,7 +11,10 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress
 
 ## M0. Foundations — complete
 
-- [x] Monorepo, commands, and CI that runs check and build on every push
+- [x] Monorepo, commands, and CI that runs check and build on every push — the
+  workflow was written in M0 and ran on every push, but `pnpm install` failed
+  on a git dependency pinned to SSH, so no job reached a test until cycle 3
+  found it. See `docs/polish/cycle-3.md`, B1.
 - [x] `docs/DESIGN.md` with architecture, data model, message protocol and a risk list
 - [x] `docs/ART_DIRECTION.md`
 - [x] `docs/LORE.md`
