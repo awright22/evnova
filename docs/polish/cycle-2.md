@@ -245,23 +245,41 @@ impression to settle now.
 
 **N4. The screen called `combat` was a photograph of no combat.** Two hulls
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
-zero, and a landing prompt across the bottom.
+zero, and a landing prompt across the bottom. Four faults, found in order,
+each one hiding the next:
 
-The first diagnosis was wrong and finding that out found the real one. I
-read it as `untilHit` returning at the very edge of reach and added a
-"close in to 520 units first" gate. That made it *worse* — range 1414, the
-mark off the edge of the screen — because the `untilHit` check is only
-reached from inside the already-on-the-mark-and-in-range branch, so it had
-never returned out of range at all; the new gate simply stopped it returning,
-and the capture ran its full forty-five seconds and photographed the sky.
+1. I read it as `untilHit` returning at the very edge of reach and added a
+   "close in to 520 units first" gate. That made it *worse* — range 1414,
+   mark off screen — because the `untilHit` check is only reached from
+   inside the already-on-the-mark-and-in-range branch, so it had never
+   returned out of range at all. The gate simply stopped it returning, and
+   the capture ran its full forty-five seconds and photographed the sky.
+2. **No fixed mark.** `engageNearest` takes whatever is nearest *this
+   instant* unless the caller names one. The write-off capture was given an
+   explicit mark earlier in this same cycle and the fix was left there, so
+   every other caller went on re-aiming at whichever hull had drifted
+   closest and closing with none of them. It latches onto its first mark now
+   and keeps it.
+3. **Nothing a starter can catch.** Traffic under way outruns it, and with
+   the link over two seconds under software rasterisation the control loop
+   cannot close a gap it has to steer across. Both captures get a mark with
+   its engines gone, which is what the write-off capture already does — and
+   the fight came down to 324 units.
+4. **The mark had to be posted.** Firing on a lawful captain got the
+   capture's own captain posted, and the screen carried "the Prize Court has
+   posted you" across the middle of it. True, and not what the screen is
+   about.
 
-The actual cause: `engageNearest` takes whatever is nearest *this instant*
-unless the caller names a mark. The write-off capture was given an explicit
-mark in this same cycle and the fix was left there, so every other caller
-went on re-aiming at whichever hull had drifted closest and closing with
-none of them. It latches onto its first mark now and keeps it, which is what
-the write-off gunner's fix should have been in the first place. The gate is
-gone. `beams` takes the same path and the same fix.
+And then a fifth, in the fix itself: `untilHit` compared the mark's *shield*
+against its value at the start, and a crippled mark's shields are already
+down — `0 < 0 - 1` is never true, so the check could not fire against
+exactly the kind of mark the fix had just introduced. It answers for
+structure too now.
+
+What is still true: rounds are discrete, and whether any are in the gap at
+the instant of the shutter is luck at this latency. The screen's description
+says so rather than claiming otherwise. `beams` holds a continuous beam and
+does not have that problem.
 
 **N5. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
