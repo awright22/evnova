@@ -10,6 +10,8 @@
  * exactly what the server ran.
  */
 
+import { appendFileSync } from 'node:fs';
+
 import { ClientState, Room, validate, type Client, type StepContext } from '@colyseus/core';
 import { config } from '../config.ts';
 import {
@@ -255,6 +257,37 @@ export function refreshCommissions(accountIds: readonly string[]): void {
       if (room.resendCommissions(accountId)) break;
     }
   }
+}
+
+/**
+ * Where a slow step's breakdown is written, when anybody asks for one.
+ *
+ * To a file rather than to the console: a soak runs the server as a child
+ * with its output piped into a buffer nobody reads, so a `console.log` of a
+ * slow tick is a measurement that cannot be collected. `MARQUE_TICK_TRACE`
+ * names the file; the threshold is `MARQUE_TICK_TRACE_MS`, 3 by default.
+ */
+const TRACE_PATH = process.env.MARQUE_TICK_TRACE ?? '';
+const TRACE_OVER_MS = Number(process.env.MARQUE_TICK_TRACE_MS ?? '3');
+
+function traceSlowTick(
+  totalMs: number,
+  parts: {
+    npcs: number;
+    flight: number;
+    combat: number;
+    persist: number;
+    ships: number;
+    room: string;
+  },
+): void {
+  if (TRACE_PATH === '' || totalMs <= TRACE_OVER_MS) return;
+  appendFileSync(
+    TRACE_PATH,
+    `${totalMs.toFixed(2)}ms ${parts.room} npcs=${parts.npcs.toFixed(2)} ` +
+      `flight=${parts.flight.toFixed(2)} combat=${parts.combat.toFixed(2)} ` +
+      `persist=${parts.persist.toFixed(2)} ships=${parts.ships}\n`,
+  );
 }
 
 export class SystemRoom extends Room<{
@@ -2187,15 +2220,14 @@ export class SystemRoom extends Room<{
 
     this.state.tick = ctx.tick;
     const total = performance.now() - startedAt;
-    if (process.env.MARQUE_TICK_TRACE === '1' && total > 3) {
-      console.log(
-        `[slow tick ${total.toFixed(2)}ms] npcs=${(afterNpcs - startedAt).toFixed(2)} ` +
-          `flight=${(afterFlight - afterNpcs).toFixed(2)} ` +
-          `combat=${(afterCombat - afterFlight).toFixed(2)} ` +
-          `persist=${(performance.now() - afterCombat).toFixed(2)} ` +
-          `ships=${this.state.ships.size}`,
-      );
-    }
+    traceSlowTick(total, {
+      npcs: afterNpcs - startedAt,
+      flight: afterFlight - afterNpcs,
+      combat: afterCombat - afterFlight,
+      persist: performance.now() - afterCombat,
+      ships: this.state.ships.size,
+      room: this.roomId,
+    });
     this.tick.record(total);
   }
 

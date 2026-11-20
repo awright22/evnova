@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { content } from '../content/load.ts';
-import { capacityFor, netRate, openingPile, pressure, targetStock, throughput } from './market.ts';
+import type { CommodityDef, PortDef } from '../content/schema.ts';
+import {
+  capacityFor,
+  inputsFor,
+  netRate,
+  openingPile,
+  pressure,
+  supplyFor,
+  targetStock,
+  throughput,
+  workingRate,
+} from './market.ts';
 import { unitPrice } from './price.ts';
 
 const { commodities, systems, tuning } = content();
@@ -113,6 +124,165 @@ describe('berth markets', () => {
           targetStock(port, commodity, tuning),
         );
       }
+    }
+  });
+});
+
+describe('production chains', () => {
+
+  /** A berth by id, from the real galaxy. */
+  function berth(id: string): PortDef {
+    for (const system of systems.values()) {
+      const port = system.ports.find((candidate) => candidate.id === id);
+      if (port) return port;
+    }
+    throw new Error(`no berth called "${id}"`);
+  }
+
+  const good = (id: string): CommodityDef => {
+    const found = commodities.get(id);
+    if (!found) throw new Error(`no commodity "${id}"`);
+    return found;
+  };
+
+  it('knows what a refinery is made to run on, and what it is not', () => {
+    // Quorum refines Alloy out of Ore, and feeds its people on Provisions.
+    expect(inputsFor(berth('quorum'), good('alloy'), commodities)).toEqual(['ore']);
+  });
+
+  it('treats a salvage yard as having nothing to run out of', () => {
+    // Flotsam picks Alloy out of wrecks: it consumes no raw good at all.
+    expect(inputsFor(berth('flotsam'), good('alloy'), commodities)).toEqual([]);
+  });
+
+  it('counts nothing a berth eats for its own sake as an input', () => {
+    // Countinghouse makes Circuitry out of Alloy. The Leaf and the
+    // Provisions are for the people, not for the line.
+    expect(inputsFor(berth('countinghouse'), good('circuitry'), commodities)).toEqual(['alloy']);
+  });
+
+  it('gives a raw good no inputs, however much the berth eats', () => {
+    // Ballast digs Ore and buys Machinery to do it with; a mine does not
+    // stop because a crate of Machinery is late.
+    expect(inputsFor(berth('ballast'), good('ore'), commodities)).toEqual([]);
+  });
+
+  it('runs a well-stocked line at full tilt', () => {
+    const port = berth('quorum');
+    const full = (): number => 10_000;
+    expect(supplyFor(port, good('alloy'), 1, full, commodities)).toBe(1);
+    expect(workingRate(port, good('alloy'), 1, full, commodities)).toBe(
+      port.trade?.produces.alloy ?? 0,
+    );
+  });
+
+  it('stops a line that has run out of what it is made of', () => {
+    const port = berth('quorum');
+    const dry = (id: string): number => (id === 'ore' ? 0 : 10_000);
+    expect(supplyFor(port, good('alloy'), 1, dry, commodities)).toBe(0);
+    expect(workingRate(port, good('alloy'), 1, dry, commodities)).toBe(0);
+  });
+
+  it('converts a trickle at the rate the trickle arrives', () => {
+    const port = berth('quorum');
+    const wanted = (port.trade?.consumes.ore ?? 0) * 1;
+    // A quarter of an hour's Ore on hand, and an hour to work.
+    const trickle = (id: string): number => (id === 'ore' ? wanted / 4 : 10_000);
+
+    expect(supplyFor(port, good('alloy'), 1, trickle, commodities)).toBeCloseTo(0.25, 6);
+    expect(workingRate(port, good('alloy'), 1, trickle, commodities)).toBeCloseTo(
+      (port.trade?.produces.alloy ?? 0) * 0.25,
+      6,
+    );
+  });
+
+  it('stops eating what a stopped line cannot use', () => {
+    const port = berth('quorum');
+    const dry = (id: string): number => (id === 'ore' ? 0 : 10_000);
+    // With no Alloy to make, the Ore line consumes nothing — there is
+    // nothing to consume — and the figure does not go negative on a berth
+    // that is only waiting.
+    expect(workingRate(port, good('ore'), 1, dry, commodities)).toBe(0);
+  });
+
+  it('keeps feeding the people whether or not the line is running', () => {
+    const port = berth('quorum');
+    const dry = (id: string): number => (id === 'ore' ? 0 : 10_000);
+    // Provisions are eaten because people are there. A berth with its
+    // refinery stopped still runs its Provisions down.
+    expect(workingRate(port, good('provisions'), 1, dry, commodities)).toBeLessThan(0);
+    expect(workingRate(port, good('provisions'), 1, dry, commodities)).toBe(
+      -(port.trade?.consumes.provisions ?? 0),
+    );
+  });
+
+  it('throttles a line by its narrowest input, not its widest', () => {
+    // Ropewalk makes Machinery out of Alloy and Circuitry.
+    const port = berth('ropewalk');
+    expect(inputsFor(port, good('machinery'), commodities).sort()).toEqual(['alloy', 'circuitry']);
+
+    const short = (id: string): number =>
+      id === 'circuitry' ? (port.trade?.consumes.circuitry ?? 0) * 0.5 : 10_000;
+    expect(supplyFor(port, good('machinery'), 1, short, commodities)).toBeCloseTo(0.5, 6);
+  });
+
+  it('never lets a berth deadlock itself on its own output', () => {
+    // A berth that needed B to make A and A to make B would sit at zero
+    // forever, because each line would be waiting on the other. Sideways
+    // inputs are allowed, so this is the thing that keeps them safe.
+    for (const system of systems.values()) {
+      for (const port of system.ports) {
+        for (const made of commodities.values()) {
+          if ((port.trade?.produces[made.id] ?? 0) <= 0) continue;
+          for (const input of inputsFor(port, made, commodities)) {
+            const other = commodities.get(input);
+            if (!other) continue;
+            expect(
+              inputsFor(port, other, commodities),
+              `${port.id} makes ${made.id} from ${input} and ${input} from ${made.id}`,
+            ).not.toContain(made.id);
+          }
+        }
+      }
+    }
+  });
+
+  it('never makes something out of nothing: every chain ends at a raw good', () => {
+    for (const system of systems.values()) {
+      for (const port of system.ports) {
+        for (const commodity of commodities.values()) {
+          for (const input of inputsFor(port, commodity, commodities)) {
+            const made = commodities.get(input);
+            expect(made, `${port.id} says ${commodity.id} is made of ${input}`).toBeDefined();
+          }
+        }
+      }
+    }
+  });
+
+  it('leaves the Reach able to make everything it eats', () => {
+    // Every good something consumes is made somewhere, at a berth that can
+    // actually run: either it needs no inputs, or its inputs are made too.
+    const madeSomewhere = new Set<string>();
+    for (const system of systems.values()) {
+      for (const port of system.ports) {
+        for (const [id, rate] of Object.entries(port.trade?.produces ?? {})) {
+          if (rate > 0) madeSomewhere.add(id);
+        }
+      }
+    }
+
+    const eaten = new Set<string>();
+    for (const system of systems.values()) {
+      for (const port of system.ports) {
+        for (const [id, rate] of Object.entries(port.trade?.consumes ?? {})) {
+          if (rate > 0) eaten.add(id);
+        }
+      }
+    }
+
+    for (const id of eaten) {
+      expect(madeSomewhere.has(id), `nothing in the Reach makes ${id}`).toBe(true);
     }
   });
 });

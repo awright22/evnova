@@ -21,6 +21,7 @@ import {
   type Charter,
   driftStock,
   netRate,
+  workingRate,
   openingPile,
   pressure,
   quote,
@@ -499,8 +500,20 @@ export class Market {
         for (const port of system.ports) {
           if (!port.services.includes('staple')) continue;
 
+          // Read the whole berth once. Every line's rate depends on what the
+          // berth has on hand at the start of the interval, so they are all
+          // worked out against the same reading rather than against each
+          // other's leavings — otherwise the order of this loop would decide
+          // which line got the Ore.
+          const before = new Map<string, number>();
           for (const commodity of commodities.values()) {
-            const rate = netRate(port, commodity.id);
+            before.set(commodity.id, this.pileOf(port, commodity).stock);
+          }
+          const stockOf = (id: string): number => before.get(id) ?? 0;
+
+          for (const commodity of commodities.values()) {
+            if (netRate(port, commodity.id) === 0) continue;
+            const rate = workingRate(port, commodity, hours, stockOf, commodities);
             if (rate === 0) continue;
 
             const pile = this.pileOf(port, commodity);
