@@ -578,7 +578,16 @@ export const SCREENS: readonly Screen[] = [
     path: '/?callsign=Free%20Captain&harness=1',
     settle: '.hud',
     settleMs: 2500,
-    bots: 2,
+    // No traffic.
+    //
+    // The mark below is the whole subject of this screen, and lawful hulls
+    // around it are only something to hit by accident: firing at point-blank
+    // clipped one, the Prize Court posted the capture's own captain, and the
+    // sky came after them. The sweep caught the result — this screen showing
+    // the write-off panel, because the captain had been killed by a bot
+    // called Due Process. (Which at least proves the panel now outlives the
+    // six seconds it used to get.)
+    bots: 0,
     // A mark with its engines gone.
     //
     // Three runs photographed this screen with nothing happening in it,
@@ -627,7 +636,10 @@ export const SCREENS: readonly Screen[] = [
     path: '/?callsign=Close%20Order&harness=1',
     settle: '.hud',
     settleMs: 2500,
-    bots: 2,
+    // No traffic, for the reason given on `combat`: a beam sweeping at close
+    // quarters clips whatever is lawful and nearby, and the capture's captain
+    // is posted for it.
+    bots: 0,
     // Seeded rather than asked for with `?draught=`: the Close Order needs a
     // Frigate Warrant, and a captain who has just walked in holds an Open
     // Ticket. The hull is put under them the way the Moorings would.

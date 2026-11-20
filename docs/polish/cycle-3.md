@@ -45,7 +45,20 @@ by anything that was watching.
 
 ### Minors
 
-**N1. Two of the three required browsers have never been run.** Spec section
+**N1. The combat capture photographed its own captain's death.** The sweep
+caught `combat` showing the write-off panel: at point-blank the gunner
+clipped a lawful hull, the Prize Court posted it, the sky came after it, and
+a bot called Due Process finished the job. Cycle 2 gave both this screen and
+`beams` a crippled, posted mark so there would be something to fight; the
+traffic around them was left in, and a beam or a burst sweeping at close
+quarters hits whatever else is nearby. Both run with no traffic now — the
+mark is the subject, and everything else is only something to hit by
+accident.
+
+It is the one good thing about the failure: the screen is proof that the
+write-off panel now outlives the six seconds cycle 2 found it had.
+
+**N2. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So
