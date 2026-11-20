@@ -191,3 +191,28 @@ prefixed for Safari now as a cheap hedge. But "we have never looked" is
 worth writing down rather than leaving as an assumption, which is the same
 lesson cycle 2 kept learning about screens nobody had captured.
 `docs/HUMAN_TODO.md` has the steps.
+
+## What this cycle was
+
+Cycle 2 was about things you can only see. This one was about things nothing
+was watching.
+
+The blocker was not in the game at all: a continuous integration workflow
+that had run on every push since M0, failed on every one of them, and was
+ticked as done in `docs/PROGRESS.md` the whole time. Four jobs — the check
+and build, the netcode under latency, the server's authority, two browser
+clients — none of which had ever executed. Thirty-two red runs that nobody,
+including me across three milestones, had looked at.
+
+Nine of the ten findings are in the harnesses rather than the game, and
+that is the shape of a cycle that follows one like cycle 2: with the screens
+fixed, what is left is the machinery that looks at them. Four of the nine
+are failures my own fixes caused or uncovered — a closing burn that stopped
+one capture to save another, a write-off panel that now outlives its six
+seconds and so takes over a screen it should not, a stamp wait that was
+right about the problem and wrong about the fix twice.
+
+The pattern worth keeping: every one of those was found because the sweep
+runs all thirty-nine screens and the suite runs all seven commands, not
+because I thought to check the thing I had just changed. A cycle that only
+re-ran what it had touched would have found none of them.
