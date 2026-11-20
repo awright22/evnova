@@ -11,6 +11,21 @@
 app = "marque"
 primary_region = "iad"
 
+# How long the host waits after SIGTERM before killing the process.
+#
+# `packages/server/src/main.ts` handles SIGINT and SIGTERM, flushes every
+# captain and closes the database on the way out, and that is a write to a
+# SQLite file plus a room shutdown. This used to be a comment on `[deploy]
+# strategy`, which governs none of it — the window is this key, and it was not
+# set, so whatever Fly's default is was the window. It is top-level on
+# purpose: a bare key after a table header belongs to that table, and written
+# further down it would have become a setting on the health check.
+#
+# Fly's documented default could not be checked from here — fly.io does not
+# resolve through this container's network policy — which is the other reason
+# to state it rather than rely on it.
+kill_timeout = "30s"
+
 [build]
   dockerfile = "Dockerfile"
 
@@ -43,8 +58,9 @@ primary_region = "iad"
     path = "/health"
     timeout = "5s"
 
-# Give the process time to flush captains and close the database before the
-# host kills it. The server handles SIGINT and SIGTERM.
+# Replace the machine in one step rather than running two at once: the world
+# is one SQLite file on one volume, and a second process holding it open is
+# not a state this server is written for.
 [deploy]
   strategy = "immediate"
 

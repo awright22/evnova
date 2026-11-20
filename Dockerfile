@@ -7,9 +7,14 @@
 # --- build ----------------------------------------------------------------
 FROM node:22-bookworm-slim AS build
 
-# node-gyp needs these to compile better-sqlite3. They stay in this stage.
+# node-gyp needs python3, make and g++ to compile better-sqlite3. git is for
+# pnpm, not for us: colyseus declares `@colyseus/uwebsockets-transport` as a
+# required peer, and that resolves `uWebSockets.js` from a git remote, so the
+# install shells out to git whether or not the server imports any of it. A
+# slim image has no git, and this stage had never been built, so nothing had
+# ever found that out. They all stay in this stage.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
+  && apt-get install -y --no-install-recommends python3 make g++ git ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable

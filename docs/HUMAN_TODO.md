@@ -24,6 +24,7 @@ refuses everything else at the proxy. Checked on 2026-11-19:
 | `orm.drizzle.team`, `pixijs.download` | **403** | Library documentation |
 | `fonts.google.com`, `api.fontsource.org` | **403** | Fonts |
 | `freesound.org`, `opengameart.org` | **403** | Openly licensed audio and icons |
+| `fly.io` | **does not resolve** | Checking documented defaults in `fly.toml` |
 
 **What I am doing instead**, all of which the spec permits:
 
