@@ -12,6 +12,7 @@
 
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { once } from 'node:events';
+import { createServer } from 'node:net';
 
 /**
  * Start a process in its own group.
@@ -74,13 +75,23 @@ export async function stopGroup(
  * Returns nothing when the port is free, and throws otherwise. Call it before
  * spawning: it turns "the assertions all failed strangely" into one sentence
  * naming the real problem.
+ *
+ * It binds the port rather than asking it a question. The first version
+ * fetched `/health` and treated any failure as "free", which cannot tell
+ * nothing-is-listening from something-is-listening-that-will-not-answer —
+ * and a game server left behind by a killed capture run is exactly the
+ * second. That run then failed forty-five seconds later with a stack trace
+ * about matchmaking. Binding is the only question whose answer is the one
+ * that matters: can this process have the port.
  */
 export async function requirePortFree(port: number, what = 'a server'): Promise<void> {
-  try {
-    await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(1500) });
-  } catch {
-    return;
-  }
+  const taken = await new Promise<boolean>((decide) => {
+    const probe = createServer();
+    probe.once('error', () => decide(true));
+    probe.once('listening', () => probe.close(() => decide(false)));
+    probe.listen(port, '127.0.0.1');
+  });
+  if (!taken) return;
   throw new Error(
     `something is already listening on :${port}. That is probably ${what} left ` +
       `by an earlier run; stop it and try again.`,
