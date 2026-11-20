@@ -43,6 +43,7 @@ import {
 // point. The Gazette is one; nothing else on this screen uses it.
 import '@fontsource/eb-garamond/latin-400.css';
 
+import { Stamp } from '../seal/Stamp.tsx';
 import { formatQuote, PriceChart } from './chart.tsx';
 import './bourse.css';
 
@@ -1310,13 +1311,13 @@ function Ticket({
         )}
 
         <div className="ticket__confirm">
-          <button
-            type="button"
-            className="button button--primary"
+          <Stamp
+            issuer={listing.parent}
+            issuerName={listing.parent}
             disabled={
               busy || shares < 1 || shares > ceiling || (when === 'limit' && wanted <= 0)
             }
-            onClick={() =>
+            onStamp={() =>
               when === 'limit'
                 ? onLeave(listing.ticker, shares, wanted, shorting)
                 : onSend(listing.ticker, shares)
@@ -1337,7 +1338,7 @@ function Ticket({
                 {shares > 0 ? `${formatMarks(shares)} ${listing.ticker}` : listing.ticker}
               </>
             )}
-          </button>
+          </Stamp>
           <span className="micro">
             {when === 'limit'
               ? 'It stands until it fills or you withdraw it. Nothing is held back meanwhile.'

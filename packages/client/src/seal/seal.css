@@ -1,0 +1,70 @@
+/*
+ * A seal is struck, not drawn: flat lines in one colour, no gradient, no
+ * bevel, no wax. `color` carries the issuer's livery and everything inherits
+ * it, so one element decides what colour the mark is.
+ */
+
+.seal {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.seal__rim {
+  fill: none;
+  stroke: currentcolor;
+  /*
+   * In device pixels, not in the viewBox's units. The art direction gives
+   * the rim as 1.5px, and a seal struck at thirty pixels off a hundred-unit
+   * box would otherwise draw it at a sixth of that and read as a smudge.
+   */
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The outer rim at document size, which the name is set between. */
+.seal__rim--outer {
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.seal__ring {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.8;
+}
+
+.seal__tick {
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: butt;
+}
+
+.seal__device {
+  fill: currentcolor;
+  stroke: none;
+}
+
+/* A chevron is open at the back, so it is a line rather than a shape. */
+.seal__device--open {
+  fill: none;
+  stroke: currentcolor;
+  /* Thicker than the rim, because a chevron is the device and not the edge. */
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: miter;
+  stroke-linecap: butt;
+}
+
+.seal__name {
+  fill: currentcolor;
+  opacity: 0.7;
+  font-family: var(--font-condensed);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}

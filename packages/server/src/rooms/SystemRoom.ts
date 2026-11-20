@@ -1762,6 +1762,9 @@ export class SystemRoom extends Room<{
       /** What this berth's Yard stocks, so the palette shows only the rest. */
       stock: berth?.yardStock ?? {},
       berthName: berth?.name ?? '',
+      // Whose yard it is, because a bill carries the seal of the house that
+      // will be honouring it.
+      owner: berth?.owner ?? 'neutral',
 
       /**
        * The warrant ladder, with what each one covers.
@@ -1797,6 +1800,9 @@ export class SystemRoom extends Room<{
     // arrives. That cost an afternoon.
     this.clients.get(sessionId)?.send('market', {
       port: port.id,
+      // Whose berth it is, because an order struck at a Staple carries the
+      // seal of the house that honours it.
+      owner: port.owner,
       listings: world().market.listingsFor(port, pilot),
       holdCapacity: this.holdCapacityOf(pilot),
       holdUsed: world().market.cargoUnits(pilot.accountId),

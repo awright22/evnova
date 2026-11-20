@@ -90,6 +90,8 @@ export type GameMode =
 /** What a berth is trading, as the Staple shows it. */
 export interface StapleState {
   readonly port: string;
+  /** Whose berth it is: the seal struck on an order here. */
+  readonly owner: string;
   readonly listings: readonly {
     commodityId: string;
     name: string;
@@ -197,6 +199,8 @@ export interface YardState {
   /** The highest tier this berth's Yard stocks from each maker. */
   readonly stock: Partial<Record<string, number>>;
   readonly berthName: string;
+  /** Whose berth it is: the seal struck on a bill here. */
+  readonly owner: string;
   /** The warrant ladder, lowest first, with what each one covers. */
   readonly licences: readonly {
     id: string;

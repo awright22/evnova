@@ -8,6 +8,7 @@
 
 export * from './math/scalar.ts';
 export * from './math/rng.ts';
+export * from './art/seal.ts';
 export * from './sim/timing.ts';
 export * from './sim/profile.ts';
 export * from './sim/flight.ts';

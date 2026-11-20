@@ -15,6 +15,8 @@ import { useMemo, useState } from 'react';
 
 import type { CommissionOffer, HeldCommissionLine } from '@marque/shared';
 
+import { Stamp } from '../seal/Stamp.tsx';
+
 import './board.css';
 
 /**
@@ -243,14 +245,19 @@ export function Board({
                 </dl>
 
                 <div className="board__actions">
-                  <button
-                    type="button"
-                    className="button button--primary"
+                  {/*
+                    A commission is a document, and taking it on is signing
+                    it: the issuing house's seal, or the berth's own where a
+                    commission is posted by nobody in particular.
+                  */}
+                  <Stamp
+                    issuer={chosen.charter ?? 'neutral'}
+                    issuerName={chosen.charter ? CHARTERS[chosen.charter] : 'the berth'}
                     disabled={busy}
-                    onClick={() => onTake(chosen.id)}
+                    onStamp={() => onTake(chosen.id)}
                   >
                     Take it on
-                  </button>
+                  </Stamp>
                   <span className="micro">
                     The terms are fixed when you take it, not when you deliver.
                   </span>

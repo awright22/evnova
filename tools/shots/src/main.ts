@@ -379,8 +379,19 @@ async function capture(
       await screen.act(page);
     }
 
-    const file = `${screen.name}.png`;
-    await page.screenshot({ path: resolve(options.outDir, file) });
+    let file = `${screen.name}.png`;
+    if (screen.frames) {
+      // A run of frames, for motion. The act above has set it going; this
+      // follows it through.
+      for (let i = 0; i < screen.frames.count; i++) {
+        const frame = `${screen.name}-${String(i + 1).padStart(2, '0')}.png`;
+        await page.screenshot({ path: resolve(options.outDir, frame) });
+        if (i === 0) file = frame;
+        if (i + 1 < screen.frames.count) await sleep(screen.frames.everyMs);
+      }
+    } else {
+      await page.screenshot({ path: resolve(options.outDir, file) });
+    }
 
     if (consoleErrors.length > 0) {
       // Not fatal to the capture, but the spec forbids raw error text and

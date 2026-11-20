@@ -1,0 +1,165 @@
+/*
+ * The stamp.
+ *
+ * Four phases in 260ms, as the art direction sets them out. Nothing here is
+ * decorative: the press is the hand, the strike is the seal meeting the
+ * paper, the settle is the ink spreading, and the rest is the document
+ * going back to being a document.
+ */
+
+.stamp {
+  position: relative;
+  display: inline-flex;
+}
+
+/*
+ * While the mark is on the paper it is above everything beside it. A seal
+ * struck under the next control would read as a thing behind the page
+ * rather than a thing pressed onto it.
+ */
+.stamp--strike,
+.stamp--settle,
+.stamp--struck {
+  z-index: 2;
+}
+
+.stamp__control {
+  transition:
+    transform var(--motion-instant) var(--ease-exit),
+    background var(--motion-instant) var(--ease-exit);
+}
+
+/* 1. Press: the control goes down 2px and darkens. */
+.stamp--press .stamp__control {
+  transform: translateY(2px);
+  background: var(--active);
+}
+
+/*
+ * The impression, struck over the document beside the control. Pointer
+ * events pass through it: it is a mark on the paper, not a thing to click.
+ */
+.stamp__impression {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  animation: stamp-strike 50ms var(--ease-emphasis) both;
+}
+
+/*
+ * Struck on the corner of the control it confirms, the way a clerk brings a
+ * stamp down beside what they are signing. Not above it: on a table a mark
+ * floating over the heading belongs to no row.
+ */
+.stamp--corner .stamp__impression {
+  right: -12px;
+  bottom: -10px;
+}
+
+/*
+ * On a document it lands on the paper above, over what it confirms: mostly
+ * clear of the control, because the control is still live and a captain
+ * reading it should not have to read it through a seal.
+ */
+.stamp--above .stamp__impression {
+  right: -22px;
+  bottom: calc(100% - 18px);
+}
+
+/* 2. Strike: 108% and no alpha, settling to 100% and full. */
+@keyframes stamp-strike {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/*
+ * The amber rim at the impression's edge, one frame on the strike. Drawn as
+ * a ring on the wrapper rather than on the seal, so it is the edge of the
+ * impression and not a part of the mark.
+ */
+.stamp--strike .stamp__impression::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--amber);
+  border-radius: 50%;
+  animation: stamp-rim 50ms steps(1, end) both;
+}
+
+@keyframes stamp-rim {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* 3. Settle: the edge softens as the ink spreads, and the deboss appears. */
+.stamp--settle .stamp__impression,
+.stamp--struck .stamp__impression {
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 55%));
+}
+
+.stamp--settle .stamp__impression {
+  animation: stamp-spread 80ms var(--ease-standard) both;
+}
+
+@keyframes stamp-spread {
+  from {
+    filter: drop-shadow(0 1px 0 rgb(0 0 0 / 55%)) blur(0.4px);
+  }
+
+  to {
+    filter: drop-shadow(0 1px 0 rgb(0 0 0 / 55%)) blur(0);
+  }
+}
+
+/*
+ * The paper under the press. One pixel, and only while the control is down:
+ * the page acknowledges the hand and then goes back to being still.
+ */
+.paper--pressed {
+  transform: translateY(1px);
+}
+
+/*
+ * Reduced motion: no press, no shift, no scale. The impression fades, and
+ * the thud still plays, because the stamp is the confirmation and a captain
+ * who has turned motion down has not asked to stop being told things.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .stamp__control,
+  .paper--pressed {
+    transform: none;
+    transition: none;
+  }
+
+  .stamp__impression,
+  .stamp--settle .stamp__impression {
+    animation: stamp-fade 120ms linear both;
+  }
+
+  .stamp--strike .stamp__impression::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@keyframes stamp-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

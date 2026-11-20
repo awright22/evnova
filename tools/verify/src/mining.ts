@@ -11,6 +11,7 @@
 
 import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
+  LANDING_RANGE,
   LANDING_SPEED,
   PROJECTILE_KIND,
   SERVER_MESSAGES,
@@ -343,11 +344,23 @@ async function main(): Promise<void> {
     );
 
     // Back to the berth, which is where the hold is counted.
-    await flyTo(room, flying, profile, berth.x, berth.y, berth.radius + 300, 240_000);
+    // Well inside the berth's reach rather than at the edge of it: a hull
+    // that stops at the tolerance and then coasts has to still be in reach
+    // when it gets there.
+    const home = await flyTo(room, flying, profile, berth.x, berth.y, berth.radius + 180, 300_000);
     // In reach is not the same as slow enough: `flyTo` stops steering once
     // the mark is inside its tolerance, and a berth refuses a hull that
     // arrives at a hundred a second.
     await brakeTo(room, flying, LANDING_SPEED / 2, 30_000);
+
+    const me = room.state.ships.get(room.sessionId);
+    const away2 = me ? Math.hypot(berth.x - me.x, berth.y - me.y) : -1;
+    record(
+      'and can fly the cargo back to the berth it came from',
+      home && away2 >= 0 && away2 <= berth.radius + LANDING_RANGE,
+      `${Math.round(away2)} units from ${berth.name}, which takes a hull at ` +
+        `${berth.radius + LANDING_RANGE}` + (home ? '' : ' — and the flight timed out'),
+    );
 
     let back = '';
     try {

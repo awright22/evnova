@@ -448,6 +448,14 @@ whenever an unintended look appears, then fix it.
 - EB Garamond anywhere outside an in-world document
 - Sails, rigging, tricorns, compass roses, rope borders, wax-drip seals — the
   1600s are in the institutions, not the props
+- A seal with a single device off the centre, which reads as an accident
+  rather than as a die somebody cut. A device repeats two, three or six times
+  on the grid, never once
+- A seal struck small with its strokes scaled down with it: at thirty pixels a
+  1.5px rim drawn in viewBox units is a quarter of a pixel and reads as a
+  smudge. Strokes are in device pixels, whatever the size
+- An impression struck under the control beside it. A mark is on the paper,
+  not behind it
 - Animated gradients, shimmer or pulsing idle states on static elements
 - Drop-shadowed text for contrast; fix the surface instead
 - Icon-only buttons without a tooltip and an accessible label

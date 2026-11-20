@@ -10,6 +10,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { StapleState } from '../game/GameClient.ts';
+import { Stamp } from '../seal/Stamp.tsx';
 import './staple.css';
 
 export interface StapleProps {
@@ -138,22 +139,29 @@ export function Staple({
                 <td className="staple__num data">{row.carried.toLocaleString()}</td>
                 <td className="staple__orders">
                   <div className="staple__order-pair">
-                    <button
-                      type="button"
+                    {/*
+                      An order at a Staple is a document like any other, so
+                      it is stamped: the berth's own seal, struck small
+                      because a row is a line and not a bill.
+                    */}
+                    <Stamp
+                      issuer={state.owner}
                       className="button staple__order"
+                      size={30}
                       disabled={busy || row.stock < 1 || room < 1 || marks < row.ask}
-                      onClick={() => onTrade('buy', row.commodityId, lot)}
+                      onStamp={() => onTrade('buy', row.commodityId, lot)}
                     >
                       Buy
-                    </button>
-                    <button
-                      type="button"
+                    </Stamp>
+                    <Stamp
+                      issuer={state.owner}
                       className="button staple__order"
+                      size={30}
                       disabled={busy || row.carried < 1}
-                      onClick={() => onTrade('sell', row.commodityId, lot)}
+                      onStamp={() => onTrade('sell', row.commodityId, lot)}
                     >
                       Sell
-                    </button>
+                    </Stamp>
                   </div>
                 </td>
               </tr>

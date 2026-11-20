@@ -357,6 +357,7 @@ function Game(): React.JSX.Element {
               marks={purse.marks}
               stock={snapshot.yard?.stock ?? {}}
               berthName={snapshot.yard?.berthName ?? port.name}
+              owner={snapshot.yard?.owner ?? port.owner}
               licences={snapshot.yard?.licences ?? []}
               staple={snapshot.staple}
               hold={hold}

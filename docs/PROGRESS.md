@@ -863,6 +863,7 @@ ending is drawn as an in-world document — dark panel, serif body, a rule under
 the heading — but there is no seal in the corner and confirming it is a
 button, not an impression. That is the largest piece of section 4 still
 unbuilt, and it belongs to M8's polish rather than to the mechanics here.
+*(Built in M8: see that report.)*
 
 ### What the captures and the harnesses found
 

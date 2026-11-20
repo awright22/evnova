@@ -751,3 +751,23 @@ repository is not one anybody can undo. The new figures are validated before
 they are swapped, so a bad one leaves the world running on the last good set,
 and a restart goes back to what is committed. What is already built keeps the
 numbers it was built with; everything read per call picks them up at once.
+
+**2026-11-20 — A seal is geometry in shared, not a drawing in the client.**
+The same mark goes on a document, on port chrome and on a hull, and those
+are drawn by different renderers that have to agree to the point. The design
+is derived from a seed on the issuer's id and nothing else, so an institution
+strikes the same mark in every session: a captain learns a seal the way they
+learn a flag.
+
+**2026-11-20 — The stamp sends the intent on the press, not on the strike.**
+The sequence is 260ms, and a captain should not wait two hundred of them for
+their order to reach the server. What the sequence confirms is that the order
+was given, not whether to give it. Under reduced motion the press and the
+page's shift are dropped and the impression simply fades — the thud still
+plays, because the stamp is the confirmation and a captain who turned motion
+down has not asked to stop being told things.
+
+**2026-11-20 — One audio context for the session.** The flight view used to
+make its own mix and close it on unmount, which was fine while flying was the
+only thing that made a noise. The stamp happens on the port screens, where
+that view is gone.

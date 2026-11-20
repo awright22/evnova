@@ -11,7 +11,7 @@
  * server, which is what actually charges; this is the quote.
  */
 
-import { useCallback, useMemo, useReducer, useState } from 'react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   boundsOf,
@@ -30,6 +30,7 @@ import {
 } from '@marque/shared';
 
 import type { StapleState } from '../game/GameClient.ts';
+import { Stamp } from '../seal/Stamp.tsx';
 import { Grid } from './Grid.tsx';
 import { cellsCovered, designReducer, emptyDesign, type DesignAction } from './design.ts';
 import './yard.css';
@@ -52,6 +53,8 @@ export interface EditorProps {
   /** The highest tier this berth's Yard stocks from each maker. */
   readonly stock: Partial<Record<string, number>>;
   readonly berthName: string;
+  /** Whose berth it is: the seal struck on the bill. */
+  readonly owner: string;
   /** The warrant ladder, lowest first. */
   readonly licences: readonly {
     id: string;
@@ -99,6 +102,7 @@ export function Editor({
   marks,
   stock,
   berthName,
+  owner,
   licences: ladder,
   staple,
   hold,
@@ -124,6 +128,8 @@ export function Editor({
   const [picked, setPicked] = useState<ModuleDef | undefined>(undefined);
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
   const [hover, setHover] = useState<{ x: number; y: number } | undefined>(undefined);
+  // The bill, which shifts a pixel under the stamp's press.
+  const bill = useRef<HTMLElement | null>(null);
   const [name, setName] = useState(flyingName);
   /** Show the whole catalogue, including what this berth cannot supply. */
   const [showAll, setShowAll] = useState(false);
@@ -519,7 +525,7 @@ export function Editor({
         </footer>
       </section>
 
-      <section className="yard__readout">
+      <section className="yard__readout" ref={bill}>
         <div className="yard__survey panel">
           <header className="panel-header">
             <h2>Survey</h2>
@@ -708,9 +714,9 @@ export function Editor({
             >
               Take her out
             </button>
-            <button
-              type="button"
-              className="button button--primary"
+            <Stamp
+              issuer={owner}
+              paper={bill}
               disabled={busy || !survey.valid || marks < owed || purchase.unavailable}
               // A greyed button with no reason beside it is a dead end. The
               // bill already turns red when it cannot be met; this says by
@@ -726,10 +732,10 @@ export function Editor({
                         ? `Refit the ${flyingName}`
                         : `Build the ${name}`
               }
-              onClick={() => onBuild(name, state.placements, refitting)}
+              onStamp={() => onBuild(name, state.placements, refitting)}
             >
               {refitting ? 'Refit' : 'Build'}
-            </button>
+            </Stamp>
           </div>
         </div>
       </section>

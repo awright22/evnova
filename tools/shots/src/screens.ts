@@ -42,6 +42,16 @@ export interface Screen {
   readonly act?: (page: Page) => Promise<void>;
   /** Bot traffic to fly in the same system during this capture. */
   readonly bots?: number;
+  /**
+   * Capture a run of frames instead of one still.
+   *
+   * For motion a still cannot judge — the stamp is 260ms end to end, and a
+   * photograph of it says nothing about whether it lands. Written as
+   * `name-01.png` and so on. A screenshot itself takes a little time under
+   * software rasterisation, so the spacing is a floor rather than a
+   * metronome; what matters is that the whole sequence is covered.
+   */
+  readonly frames?: { readonly count: number; readonly everyMs: number };
 }
 
 /**
@@ -772,6 +782,52 @@ export const SCREENS: readonly Screen[] = [
       // specks a thousand units apart.
       await engageNearest(page, 30, { untilHit: true });
       await page.waitForTimeout(250);
+    },
+  },
+  {
+    name: 'stamp',
+    description:
+      'The stamp, frame by frame: the control presses, the seal strikes at 108% with an '
+      + "amber rim at its edge, the ink spreads, and the berth's mark is left on the "
+      + 'order. The signature interaction of the game, caught across its 260ms.',
+    path: '/?callsign=Supercargo',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the floor")');
+      await page.waitForSelector('.staple', { timeout: 20_000 });
+      await page.waitForTimeout(500);
+
+      // Struck, and then followed: the frames below start the instant the
+      // control goes down.
+      await page.locator('.stamp__control:text("Buy")').first().click({ noWaitAfter: true });
+    },
+    frames: { count: 6, everyMs: 45 },
+  },
+  {
+    name: 'stamp-document',
+    description:
+      "The stamp at document size: the issuing house's seal struck on a commission, its "
+      + 'name set round the rim, the ink spread and the deboss under it.',
+    path: '/?callsign=Supercargo%20Three',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Read the board")');
+      await page.waitForSelector('.board', { timeout: 20_000 });
+      await page.waitForTimeout(500);
+
+      await page.locator('.board__actions .stamp__control').click({ noWaitAfter: true });
+      // Past the sequence, so the capture is of the mark as it rests.
+      await page.waitForTimeout(500);
     },
   },
   {
