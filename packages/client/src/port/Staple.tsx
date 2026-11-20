@@ -36,6 +36,14 @@ export function Staple({
   const [lot, setLot] = useState<number>(10);
 
   const room = Math.max(0, state.holdCapacity - state.holdUsed);
+  /**
+   * More aboard than the bays hold.
+   *
+   * Reachable by refitting into a smaller hull with a full hold, and the
+   * figure read as a plain "118 of 36" with nothing to say about it. The
+   * berth already refuses more, so this is the line that says why.
+   */
+  const overladen = state.holdUsed > state.holdCapacity;
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent): void => {
@@ -70,9 +78,14 @@ export function Staple({
           <h2>the Staple</h2>
           <div className="staple__hold">
             <span className="label">Hold</span>
-            <span className="data">
+            <span className={`data${overladen ? ' is-loss' : ''}`}>
               {state.holdUsed} of {state.holdCapacity}
             </span>
+            {overladen && (
+              <span className="micro staple__overladen">
+                Over her bays. Sell something or shift it to another hull.
+              </span>
+            )}
             <span className="label">Marks</span>
             <span className="data staple__marks">{marks.toLocaleString()}</span>
           </div>

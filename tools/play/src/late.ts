@@ -187,10 +187,14 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
   // on the hub's header and "saved draughts are listed" was looking for
   // them on the wrong screen.
   const yard = await page.locator('.yard').first().innerText();
+  // The draught's name is the value of a field, which `innerText` does not
+  // see — so this read the fittings catalogue and reported the Yard as not
+  // knowing what it was looking at.
+  const drawn = await page.locator('.yard__name').first().inputValue();
   book.record(
     'the Yard knows what the captain is flying',
-    /close order/i.test(yard),
-    yard.slice(0, 40).replace(/\s+/g, ' '),
+    /close order/i.test(drawn),
+    drawn === '' ? 'the name field is empty' : drawn,
   );
   book.record('saved draughts are listed', /third dividend/i.test(yard));
   book.record('no figure in the Yard is undefined', !/undefined|NaN/.test(yard));
