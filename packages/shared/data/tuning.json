@@ -84,9 +84,9 @@
     "capacityMultiple": 3.5
   },
   "freight": {
-    "$comment": "What the Reach's own freighters move, from surplus to shortage. Deliberately slower than a captain: an overused lane has to decay faster than the freighters repair it, and a rested one has to recover while nobody is looking. threshold is how far from target a berth must be before freight bothers with it, as a fraction, and maxHops is how far a load will travel: the Reach is six lanes across, so freight can in principle reach anywhere, which it must, because Leaf is grown only in the Marque and chewed only in the Home Roads.",
-    "unitsPerHour": 260,
-    "threshold": 0.08,
+    "$comment": "What the Reach's own freighters move, from surplus to shortage. Deliberately slower than a captain: an overused lane has to decay faster than the freighters repair it, and a rested one has to recover while nobody is looking. threshold is how far from target a berth must be before freight bothers with it, as a fraction: set wide on purpose, because freight that holds every berth within a few per cent of target leaves a captain nothing to carry. It is the floor under the economy, not its market maker, and the band it leaves open is the trade. and maxHops is how far a load will travel: the Reach is six lanes across, so freight can in principle reach anywhere, which it must, because Leaf is grown only in the Marque and chewed only in the Home Roads.",
+    "unitsPerHour": 150,
+    "threshold": 0.25,
     "maxHops": 6
   },
   "law": {

@@ -52,6 +52,23 @@ export async function startServer(options: {
   latencyMs: number;
   /** A throwaway database, so a soak never writes into the real world. */
   databaseUrl?: string;
+  /**
+   * How much faster the economy runs than the clock.
+   *
+   * A soak at real time proves only that a brand-new world sits at its
+   * targets, which it does by construction. The spec asks for accelerated
+   * time; this is where it is asked for.
+   */
+  economyTimeScale?: number;
+  /**
+   * Where the soak's captains open their accounts.
+   *
+   * Parity is the opening system for a player, and it is a finance hub: both
+   * its berths only consume, so there is no glut in it to buy and a trading
+   * bot correctly does nothing there. A soak about the economy starts its
+   * captains where goods are made.
+   */
+  startingSystem?: string;
 }): Promise<RunningServer> {
   const child: ChildProcess = spawnGroup('pnpm', ['exec', 'tsx', 'src/main.ts'], {
     cwd: resolve(REPO_ROOT, 'packages/server'),
@@ -60,6 +77,12 @@ export async function startServer(options: {
       PORT: String(options.port),
       NODE_ENV: 'development',
       ...(options.databaseUrl !== undefined ? { DATABASE_URL: options.databaseUrl } : {}),
+      ...(options.economyTimeScale !== undefined
+        ? { ECONOMY_TIME_SCALE: String(options.economyTimeScale) }
+        : {}),
+      ...(options.startingSystem !== undefined
+        ? { STARTING_SYSTEM: options.startingSystem }
+        : {}),
       ...(options.latencyMs > 0 ? { COLYSEUS_LATENCY: String(options.latencyMs) } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -96,6 +119,42 @@ export async function startServer(options: {
 }
 
 /** Read the server's metrics, aggregated across every live room. */
+/** Where one commodity stands across the Reach, as the server reports it. */
+export interface CommodityReport {
+  commodityId: string;
+  name: string;
+  basePrice: number;
+  floor: number;
+  ceiling: number;
+  low: number;
+  high: number;
+  mean: number;
+  berths: number;
+  stock: number;
+  atFloor: number;
+  atCeiling: number;
+  empty: number;
+  full: number;
+}
+
+export interface EconomyReport {
+  commodities: CommodityReport[];
+  ledger: {
+    categories: { category: string; total: number; count: number }[];
+    net: number;
+    heldByCaptains: number;
+    captains: number;
+  };
+}
+
+/** The economy, aggregate and read-only. */
+export async function fetchEconomy(port: number): Promise<EconomyReport> {
+  const response = await fetch(`http://127.0.0.1:${port}/economy`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  return (await response.json()) as EconomyReport;
+}
+
 export async function fetchMetrics(port: number): Promise<ServerMetrics> {
   const response = await fetch(`http://127.0.0.1:${port}/metrics`, {
     signal: AbortSignal.timeout(5000),

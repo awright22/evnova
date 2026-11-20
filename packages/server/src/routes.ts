@@ -137,6 +137,38 @@ export const routes = createRouter({
     }
   }),
 
+  /**
+   * The economy, for the soak's report and the admin page.
+   *
+   * Read-only and aggregate: prices and stock across the Reach, and the
+   * ledger's totals by category. It names no captain, so it gives away
+   * nothing about anyone; it is the shape of the world, not its people.
+   */
+  economy: createEndpoint('/economy', { method: 'GET' }, () => {
+    const world_ = world();
+    const categories = world_.ledger.totals();
+    const held = world_.store.raw
+      .prepare('SELECT COALESCE(SUM(marks), 0) AS total FROM pilots')
+      .get() as { total: number };
+    const captains = world_.store.raw
+      .prepare('SELECT COUNT(*) AS total FROM pilots')
+      .get() as { total: number };
+
+    return Promise.resolve(
+      json({
+        commodities: world_.market.survey(),
+        ledger: {
+          categories,
+          // Faucets minus sinks. Invariant 4 says this equals the marks every
+          // captain holds, so reporting both means the soak can check it.
+          net: categories.reduce((sum, row) => sum + row.total, 0),
+          heldByCaptains: held.total,
+          captains: captains.total,
+        },
+      }),
+    );
+  }),
+
   /** The galaxy, for the chart. Static content, so it is cacheable. */
   galaxy: createEndpoint('/galaxy', { method: 'GET' }, () => {
     const { systems } = content();

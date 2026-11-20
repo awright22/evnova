@@ -46,7 +46,7 @@ export const FLUSH_INTERVAL_MS = 2000;
  * The interval only decides how smooth the drift is; how far it moves comes
  * from the clock, so changing this does not change the economy.
  */
-const ECONOMY_INTERVAL_MS = 30_000;
+const ECONOMY_INTERVAL_MS = 10_000;
 
 /** How often a daily snapshot is considered. */
 const SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
@@ -108,7 +108,7 @@ export class World {
    */
   tickEconomy(): void {
     const now = this.clock.now();
-    const hours = (now - this.lastEconomyAt) / 3_600_000;
+    const hours = ((now - this.lastEconomyAt) / 3_600_000) * config.economyTimeScale;
     if (hours <= 0) return;
     this.lastEconomyAt = now;
 
@@ -120,7 +120,7 @@ export class World {
     } catch (error) {
       // A failed drift must not stop the world; the next one covers the gap,
       // because the elapsed time is measured and not assumed.
-      this.lastEconomyAt = now - hours * 3_600_000;
+      this.lastEconomyAt = now - (hours / config.economyTimeScale) * 3_600_000;
       console.error('drifting the economy failed:', error);
     }
   }

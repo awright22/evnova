@@ -101,6 +101,10 @@ export interface BotView {
     commodity: string,
     units: number,
   ) => void;
+  /** Buy one of the berth's own services: Propellant, Ordnance, repairs. */
+  readonly service: (
+    name: "propellant" | "ordnance" | "repair" | "composition",
+  ) => void;
   readonly jump: (systemId: string) => void;
 }
 
@@ -122,6 +126,8 @@ export interface BotMarket {
     ask: number;
     bid: number;
     stock: number;
+    /** How far from target, as a fraction: positive is a glut. */
+    pressure: number;
     carried: number;
   }[];
   readonly holdCapacity: number;
@@ -149,6 +155,22 @@ export interface BotOptions {
    * no standing: every berth refuses it. A brain that trades needs one.
    */
   readonly account?: boolean;
+  /**
+   * Reuse an account already on the Register, instead of opening one.
+   *
+   * A bot that takes a lane has to rejoin in the destination's room as the
+   * same captain, which means signing in with the token it already holds.
+   */
+  readonly deviceToken?: string;
+  /**
+   * Told when the server says this captain has arrived somewhere else.
+   *
+   * The bot cannot follow by itself: a jump moves the captain to another
+   * room, and the hull in this one is gone. Staying would mean predicting
+   * against a ship the server no longer has, which is exactly what it looks
+   * like — a client diverging on velocity. The runner replaces the bot.
+   */
+  readonly onJumped?: (systemId: string, deviceToken: string | undefined) => void;
 }
 
 /** Netcode health, sampled from the SDK's own telemetry. */
@@ -192,8 +214,8 @@ export class Bot {
   static async connect(options: BotOptions): Promise<Bot> {
     const sdk = new ColyseusSDK(options.endpoint);
     // A trading bot needs a captain's row, which only the Register issues.
-    let deviceToken: string | undefined;
-    if (options.account) {
+    let deviceToken: string | undefined = options.deviceToken;
+    if (options.account && deviceToken === undefined) {
       const httpBase = options.endpoint
         .replace(/^ws/, "http")
         .replace(/\/$/, "");
@@ -227,6 +249,59 @@ export class Bot {
       },
       SystemState,
     );
+
+    // Catch what the server says before anything is awaited.
+    //
+    // The purse is sent while the captain joins, and the next await here is a
+    // poll that can take a few hundred milliseconds: registering handlers
+    // after it threw that first purse away, so a trading bot believed it had
+    // no marks and no Propellant, and never had the fuel to take a lane. The
+    // state these land in is held in plain variables until the bot exists.
+    const inbox = {
+      purse: undefined as Partial<BotPurse> | undefined,
+      market: undefined as BotMarket | undefined,
+      landedAt: undefined as string | undefined,
+      jumpedTo: undefined as string | undefined,
+      /** The bot, once it exists. The handlers above close over this. */
+      bot: undefined as Bot | undefined,
+    };
+
+    const handled = new Set<string>([
+      "purse",
+      "market",
+      "landed",
+      "at-port",
+      "jump-complete",
+    ]);
+
+    room.onMessage("purse", (payload) => {
+      inbox.purse = payload as Partial<BotPurse>;
+      inbox.bot?.notePurse(inbox.purse);
+    });
+    room.onMessage("market", (payload) => {
+      inbox.market = payload as BotMarket;
+      inbox.bot?.noteMarket(inbox.market);
+    });
+    for (const type of ["landed", "at-port"] as const) {
+      room.onMessage(type, (payload) => {
+        inbox.landedAt = (payload as { port: string }).port;
+        inbox.bot?.noteLanded(inbox.landedAt);
+      });
+    }
+    room.onMessage("jump-complete", (payload) => {
+      inbox.jumpedTo = (payload as { system: string }).system;
+      inbox.bot?.noteJumped(inbox.jumpedTo);
+    });
+
+    // The rest are presentation broadcasts for browsers. Registering no-ops
+    // keeps the SDK from warning once per message that nothing is listening —
+    // but only for types nothing else is listening for, because a second
+    // handler for a type replaces the first, and a no-op registered over the
+    // purse handler is how this bot came to think it had no marks.
+    for (const type of SERVER_MESSAGES) {
+      if (!handled.has(type)) room.onMessage(type, () => undefined);
+    }
+
 
     const self = await waitForOwnShip(room);
 
@@ -281,30 +356,16 @@ export class Bot {
     });
 
     const bot = new Bot(room, self, predict, me, input, options, profile);
+    inbox.bot = bot;
     bot.noteBound(self);
+    bot.noteToken(deviceToken);
 
-    // What a trading brain needs: the purse, the berth's prices, and whether
-    // it is standing on one.
-    const handled = new Set<string>(["purse", "market", "landed", "at-port"]);
-    room.onMessage("purse", (payload) =>
-      bot.notePurse(payload as Partial<BotPurse>),
-    );
-    room.onMessage("market", (payload) => bot.noteMarket(payload as BotMarket));
-    room.onMessage("landed", (payload) =>
-      bot.noteLanded((payload as { port: string }).port),
-    );
-    room.onMessage("at-port", (payload) =>
-      bot.noteLanded((payload as { port: string }).port),
-    );
+    // Hand over anything that arrived while the hull was being waited for.
+    if (inbox.purse) bot.notePurse(inbox.purse);
+    if (inbox.market) bot.noteMarket(inbox.market);
+    if (inbox.landedAt !== undefined) bot.noteLanded(inbox.landedAt);
+    if (inbox.jumpedTo !== undefined) bot.noteJumped(inbox.jumpedTo);
 
-    // The rest are presentation broadcasts for browsers. Registering no-ops
-    // keeps the SDK from warning once per message that nothing is listening —
-    // but only for types nothing else is listening for, because a second
-    // handler for a type replaces the first, and a no-op registered over the
-    // purse handler is how this bot came to think it had no marks.
-    for (const type of SERVER_MESSAGES) {
-      if (!handled.has(type)) room.onMessage(type, () => undefined);
-    }
     bot.start();
     return bot;
   }
@@ -371,10 +432,35 @@ export class Bot {
   private landedAt: string | undefined;
   /** The hull the predictor is bound to, so a relaunch can rebind. */
   private boundTo: ShipState | undefined;
+  private deviceToken: string | undefined;
+  private jumped = false;
 
   /** Record the hull bound at connect time. */
   noteBound(ship: ShipState): void {
     this.boundTo = ship;
+  }
+
+  /** The account this bot flies as, so a replacement can be the same captain. */
+  noteToken(token: string | undefined): void {
+    this.deviceToken = token;
+  }
+
+  get token(): string | undefined {
+    return this.deviceToken;
+  }
+
+  /** The captain has arrived in another system; this room is no longer theirs. */
+  noteJumped(systemId: string): void {
+    if (this.jumped) return;
+    this.jumped = true;
+    this.landedAt = undefined;
+    this.market = undefined;
+    this.options.onJumped?.(systemId, this.deviceToken);
+  }
+
+  /** True once the captain has left this room for another system. */
+  get hasJumped(): boolean {
+    return this.jumped;
   }
   /** Orders sent and orders refused, for the soak's report. */
   private trades = 0;
@@ -400,6 +486,11 @@ export class Bot {
 
   private frame(): void {
     if (this.closed) return;
+
+    // Gone to another system: this room's hull is the server's, not ours.
+    // Predicting on would report divergence that is only this bot looking at
+    // the wrong room.
+    if (this.jumped) return;
 
     // While alongside there is no hull to predict. Ticking the predictor
     // against one the server has removed is what made a trading bot report
@@ -460,6 +551,9 @@ export class Bot {
           { side, commodity, units },
           () => this.refusedTrades++,
         );
+      },
+      service: (name) => {
+        this.send("port", { service: name, units: 0 });
       },
       jump: (systemId: string) => {
         this.send("jump", { system: systemId });

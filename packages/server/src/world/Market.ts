@@ -69,6 +69,28 @@ export interface Listing {
   readonly carried: number;
 }
 
+/** Where one commodity stands across the whole Reach. */
+export interface CommoditySurvey {
+  readonly commodityId: string;
+  readonly name: string;
+  readonly basePrice: number;
+  readonly floor: number;
+  readonly ceiling: number;
+  readonly low: number;
+  readonly high: number;
+  readonly mean: number;
+  /** Berths that trade it. */
+  readonly berths: number;
+  /** Units of it in the Reach. */
+  readonly stock: number;
+  /** Berths quoting the clamp rather than a price. */
+  readonly atFloor: number;
+  readonly atCeiling: number;
+  /** Berths with none left, and berths that can hold no more. */
+  readonly empty: number;
+  readonly full: number;
+}
+
 /** What a trade actually did. */
 export interface TradeResult {
   readonly units: number;
@@ -296,6 +318,76 @@ export class Market {
         }
       }
     });
+  }
+
+  /**
+   * The whole economy in one shape, for the soak's report and the admin page.
+   *
+   * Per commodity: where its price sits across every berth that trades it,
+   * how many of those berths are pinned at a clamp, and how much of it exists
+   * in the Reach. The spec asks the soak to show that no price sits at a
+   * clamp for long and no stock runs to zero or without bound, and this is
+   * the measurement that answers both.
+   */
+  survey(): CommoditySurvey[] {
+    const { commodities, systems, tuning } = content();
+    const out: CommoditySurvey[] = [];
+
+    for (const commodity of commodities.values()) {
+      const band = tuning.market.bands[commodity.tier];
+      const floor = commodity.basePrice * band.min;
+      const ceiling = commodity.basePrice * band.max;
+
+      let low = Infinity;
+      let high = -Infinity;
+      let sum = 0;
+      let berths = 0;
+      let stock = 0;
+      let atFloor = 0;
+      let atCeiling = 0;
+      let empty = 0;
+      let full = 0;
+
+      for (const system of systems.values()) {
+        for (const port of system.ports) {
+          if (!port.services.includes('staple')) continue;
+
+          const pile = this.pileOf(port, commodity);
+          const price = unitPrice(pile.stock, pile, commodity, tuning);
+
+          berths++;
+          stock += pile.stock;
+          sum += price;
+          low = Math.min(low, price);
+          high = Math.max(high, price);
+
+          // Within a tenth of a mark of the clamp counts as sitting on it.
+          if (price <= floor + 0.1) atFloor++;
+          if (price >= ceiling - 0.1) atCeiling++;
+          if (pile.stock === 0) empty++;
+          if (pile.stock >= pile.capacity) full++;
+        }
+      }
+
+      out.push({
+        commodityId: commodity.id,
+        name: commodity.name,
+        basePrice: commodity.basePrice,
+        floor: Math.round(floor),
+        ceiling: Math.round(ceiling),
+        low: berths > 0 ? Math.round(low) : 0,
+        high: berths > 0 ? Math.round(high) : 0,
+        mean: berths > 0 ? Math.round(sum / berths) : 0,
+        berths,
+        stock,
+        atFloor,
+        atCeiling,
+        empty,
+        full,
+      });
+    }
+
+    return out;
   }
 
   // --- Writing ------------------------------------------------------------

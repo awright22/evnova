@@ -29,6 +29,9 @@ console.log(
     `  origins        ${config.allowedOrigins.length > 0 ? config.allowedOrigins.join(', ') : 'any (development)'}`,
     `  invite gate    ${config.inviteCode ? 'on' : 'off'}`,
     `  database       ${config.databaseUrl}`,
+    config.economyTimeScale !== 1
+      ? `  economy clock  ${config.economyTimeScale}x`
+      : null,
     latency ? `  latency sim    ${latency} ms round trip` : null,
   ]
     .filter((line) => line !== null)

@@ -58,7 +58,7 @@ function parseOptions(argv: readonly string[]): RunnerOptions {
     seconds,
     brain: values.brain,
     // Trading needs a captain's row whether or not it was asked for.
-    account: values.account === true || values.brain === 'trader',
+    account: values.account === true || values.brain === 'trader' || values.brain === 'router',
     systemId: values.system,
     draught: values.draught,
     quiet: values.quiet === true,
@@ -79,8 +79,14 @@ function makeBrain(kind: string, index: number): BotBrain {
       return fighterBrain(`bot-${index}`);
     case 'trader':
       return traderBrain({ seed: `bot-${index}` });
+    case 'router':
+      // Held to one system, so it works the same berths over and over. This
+      // is the brain that decays a route.
+      return traderBrain({ seed: `bot-${index}`, stay: true, lot: 20 });
     default:
-      throw new Error(`unknown brain "${kind}" (expected: circle, wander, fighter, trader)`);
+      throw new Error(
+        `unknown brain "${kind}" (expected: circle, wander, fighter, trader, router)`,
+      );
   }
 }
 

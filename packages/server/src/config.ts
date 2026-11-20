@@ -36,6 +36,19 @@ const schema = z.object({
   /** Empty takes the opening system from content, which is the usual case. */
   STARTING_SYSTEM: z.string().default(''),
 
+  /**
+   * How much faster the economy runs than the clock.
+   *
+   * 1 in production. The soak sets it high so a month of drift and freight
+   * happens in minutes: the spec asks for a soak at accelerated time, and
+   * the alternative is a run that proves only that a brand-new world sits
+   * exactly at its targets, which it does by construction.
+   *
+   * It scales elapsed time, not the tick rate, so the world moves the same
+   * distance however often the timer fires.
+   */
+  ECONOMY_TIME_SCALE: z.coerce.number().positive().default(1),
+
   /** Where daily snapshots are written. */
   SNAPSHOT_DIR: z.string().default('./data/snapshots'),
 
@@ -66,6 +79,7 @@ export const config = {
     .filter((name) => name.length > 0),
   startingMarks: env.STARTING_MARKS,
   startingSystem: env.STARTING_SYSTEM || content().tuning.start.system,
+  economyTimeScale: env.ECONOMY_TIME_SCALE,
   snapshotDir: env.SNAPSHOT_DIR,
   snapshotKeep: env.SNAPSHOT_KEEP,
 } as const;

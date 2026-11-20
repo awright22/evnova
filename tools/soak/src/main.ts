@@ -14,18 +14,25 @@
  * between "stable" and "not yet checked".
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { Bot, type BotTelemetry } from '@marque/bot/bot.ts';
+import { Bot, type BotBrain, type BotTelemetry } from '@marque/bot/bot.ts';
 import { circleBrain } from '@marque/bot/brains/circle.ts';
 import { fighterBrain } from '@marque/bot/brains/fighter.ts';
+import { traderBrain } from '@marque/bot/brains/trader.ts';
 import { wanderBrain } from '@marque/bot/brains/wander.ts';
 import { TICK_RATE } from '@marque/shared';
 
-import { startServer, fetchMetrics, type ServerMetrics } from './server.ts';
+import {
+  fetchEconomy,
+  fetchMetrics,
+  startServer,
+  type EconomyReport,
+  type ServerMetrics,
+} from './server.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -37,6 +44,10 @@ interface Options {
   port: number;
   outDir: string;
   fight: boolean;
+  trade: boolean;
+  economyTimeScale: number;
+  warmupSeconds: number;
+  startingSystem: string;
 }
 
 /**
@@ -60,6 +71,18 @@ function parseOptions(): Options {
       // A fight is the heaviest thing a room does: rounds in flight, hit
       // tests against every hull, and stats re-derived as modules are lost.
       fight: { type: 'boolean', default: false },
+      // Trading bots, which is what the economy milestone's soak is for.
+      trade: { type: 'boolean', default: false },
+      // A month of world time in a couple of minutes.
+      'economy-scale': { type: 'string', default: '900' },
+      // Seconds to let the world drift before the bots arrive. A brand-new
+      // world sits exactly at its targets, so bots that start immediately
+      // find no glut anywhere and correctly decide not to trade.
+      warmup: { type: 'string', default: '150' },
+      // Ostrand makes Ore and Ice at Ballast and consumes Alloy and Machinery
+      // at Dunnage: two berths in one system with opposite appetites, which
+      // is a route a bot can actually work.
+      'start-system': { type: 'string', default: 'ostrand' },
     },
   });
 
@@ -75,6 +98,10 @@ function parseOptions(): Options {
     port: Number(values.port),
     outDir: resolve(REPO_ROOT, values.out),
     fight: values.fight === true,
+    trade: values.trade === true,
+    economyTimeScale: Number(values['economy-scale']),
+    warmupSeconds: Number(values.warmup),
+    startingSystem: values['start-system'],
   };
 }
 
@@ -83,11 +110,21 @@ interface Sample {
   readonly atSeconds: number;
   readonly server: ServerMetrics;
   readonly bots: readonly BotTelemetry[];
+  /** Only taken on a trading run, where it is the point of the exercise. */
+  readonly economy?: EconomyReport;
 }
 
 async function main(): Promise<void> {
   const options = parseOptions();
   await mkdir(options.outDir, { recursive: true });
+
+  // A soak starts from a clean world. Reusing the database carried every
+  // earlier run's captains and ledger rows into this run's report, which made
+  // "total marks by category" the sum of every soak ever run here.
+  const soakDb = resolve(options.outDir, 'soak.db');
+  for (const suffix of ['', '-wal', '-shm']) {
+    await rm(`${soakDb}${suffix}`, { force: true });
+  }
 
   console.log(
     `Soak: ${options.bots} bots, ${options.minutes} min, ${options.latency}ms simulated latency`,
@@ -97,26 +134,89 @@ async function main(): Promise<void> {
     port: options.port,
     latencyMs: options.latency,
     // A soak runs the world hard; it does so in its own database.
-    databaseUrl: resolve(options.outDir, 'soak.db'),
+    databaseUrl: soakDb,
+    economyTimeScale: options.economyTimeScale,
+    ...(options.trade ? { startingSystem: options.startingSystem } : {}),
   });
   const bots: Bot[] = [];
   const samples: Sample[] = [];
 
+  // Let the world run before anyone arrives in it. Without this the bots
+  // reach their first berth while every stockpile is still exactly at target,
+  // find nothing worth buying anywhere, and the run measures an economy that
+  // has not happened yet.
+  if (options.trade && options.warmupSeconds > 0) {
+    const worldHours = (options.warmupSeconds * options.economyTimeScale) / 3600;
+    console.log(
+      `Letting the world run for ${options.warmupSeconds}s ` +
+        `(${worldHours.toFixed(0)}h of world time)...`,
+    );
+    await sleep(options.warmupSeconds * 1000);
+  }
+
   try {
-    // Half fly a fixed turn-and-burn, which is the hardest steady state for
-    // prediction; half wander, which exercises braking and arrival.
+    // Trading: most work a circuit across systems, and a quarter are held to
+    // one, which is what decays a route. Otherwise half fly a fixed
+    // turn-and-burn, the hardest steady state for prediction, and half
+    // wander, which exercises braking and arrival.
+    const stamp = Date.now().toString(36).slice(-4);
+
+    /**
+     * Follow a captain through a lane.
+     *
+     * A jump moves the captain to another room, and the hull in the old one
+     * is gone: a bot that stayed would predict against a ship the server no
+     * longer has and report it as divergence. The browser follows by
+     * reconnecting; so does this, as the same captain.
+     */
+    const follow = (index: number, brain: BotBrain) =>
+      (systemId: string, deviceToken: string | undefined): void => {
+        void (async () => {
+          const old = bots[index];
+          if (!old) return;
+          try {
+            await old.leave();
+          } catch {
+            // Already gone.
+          }
+          try {
+            bots[index] = await Bot.connect({
+              endpoint: `ws://127.0.0.1:${options.port}`,
+              callsign: old.telemetry.callsign,
+              brain,
+              deviceToken,
+              account: options.trade,
+              systemId,
+              onJumped: follow(index, brain),
+            });
+          } catch (error) {
+            console.error(`bot ${index + 1} could not follow to ${systemId}:`, error);
+          }
+        })();
+      };
+
     for (let i = 0; i < options.bots; i++) {
-      const brain = options.fight
-        ? fighterBrain(`soak-${i}`)
-        : i % 2 === 0
-          ? circleBrain(i % 4 === 0 ? 1 : -1)
-          : wanderBrain({ seed: `soak-${i}` });
+      const hammers = options.trade && i % 4 === 0;
+      const brain = options.trade
+        ? traderBrain({ seed: `soak-${i}`, stay: hammers, lot: hammers ? 20 : 10 })
+        : options.fight
+          ? fighterBrain(`soak-${i}`)
+          : i % 2 === 0
+            ? circleBrain(i % 4 === 0 ? 1 : -1)
+            : wanderBrain({ seed: `soak-${i}` });
+
       bots.push(
         await Bot.connect({
           endpoint: `ws://127.0.0.1:${options.port}`,
-          callsign: `Soak-${String(i + 1).padStart(2, '0')}`,
+          // A trading bot opens an account, and the Register refuses a
+          // callsign it already holds, so the run stamps its own.
+          callsign: options.trade
+            ? `Soak ${stamp}-${String(i + 1).padStart(2, '0')}`
+            : `Soak-${String(i + 1).padStart(2, '0')}`,
           brain,
-          systemId: 'parity',
+          account: options.trade,
+          systemId: options.trade ? options.startingSystem : 'parity',
+          ...(options.trade ? { onJumped: follow(i, brain) } : {}),
         }),
       );
     }
@@ -133,6 +233,7 @@ async function main(): Promise<void> {
         atSeconds,
         server: await fetchMetrics(options.port),
         bots: bots.map((bot) => bot.telemetry),
+        ...(options.trade ? { economy: await fetchEconomy(options.port) } : {}),
       });
       process.stdout.write(`  t+${atSeconds}s\r`);
     }
@@ -194,6 +295,104 @@ function assess(samples: readonly Sample[]): Verdict {
   return { pass, lines };
 }
 
+/**
+ * What the economy did, which is what the economy milestone's soak is for.
+ *
+ * The spec asks for the price range of every commodity, time spent at clamp
+ * limits, and total marks over time by ledger category, and sets the bar:
+ * credit growth inside a band, no price sitting at a clamp for long, no stock
+ * running to zero or without bound.
+ */
+function economySections(options: Options, samples: readonly Sample[]): string {
+  const withEconomy = samples.filter((sample) => sample.economy !== undefined);
+  const last = withEconomy.at(-1)?.economy;
+  const first = withEconomy.at(0)?.economy;
+  if (!last || !first) return '';
+
+  // How many samples each commodity spent pinned at a clamp, anywhere.
+  const clampedSamples = new Map<string, number>();
+  for (const sample of withEconomy) {
+    for (const row of sample.economy?.commodities ?? []) {
+      if (row.atFloor + row.atCeiling > 0) {
+        clampedSamples.set(row.commodityId, (clampedSamples.get(row.commodityId) ?? 0) + 1);
+      }
+    }
+  }
+
+  const priceRows = last.commodities
+    .map((row) => {
+      const clamped = clampedSamples.get(row.commodityId) ?? 0;
+      const share = withEconomy.length > 0 ? (clamped / withEconomy.length) * 100 : 0;
+      return (
+        `| ${row.name} | ${row.basePrice} | ${row.low}–${row.high} | ${row.mean} | ` +
+        `${row.floor}/${row.ceiling} | ${row.atFloor}/${row.atCeiling} | ` +
+        `${share.toFixed(0)}% | ${row.stock.toLocaleString()} | ${row.empty}/${row.full} |`
+      );
+    })
+    .join('\n');
+
+  const categories = new Map<string, { total: number; count: number }>();
+  for (const row of last.ledger.categories) categories.set(row.category, row);
+
+  const ledgerRows = [...categories.entries()]
+    .sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total))
+    .map(([name, row]) => `| ${name} | ${row.total.toLocaleString()} | ${row.count} |`)
+    .join('\n');
+
+  const grew = last.ledger.heldByCaptains - first.ledger.heldByCaptains;
+  const perCaptain = last.ledger.captains > 0 ? grew / last.ledger.captains : 0;
+  const reconciles = last.ledger.net === last.ledger.heldByCaptains;
+
+  const tradedBots = (samples.at(-1)?.bots ?? []).filter((bot) => bot.trades > 0);
+  const totalOrders = tradedBots.reduce((sum, bot) => sum + bot.trades, 0);
+  const refusedOrders = tradedBots.reduce((sum, bot) => sum + bot.refusedTrades, 0);
+
+  const traderRows = (samples.at(-1)?.bots ?? [])
+    .map((bot) => `| ${bot.callsign} | ${bot.marks.toLocaleString()} | ${bot.trades} | ${bot.refusedTrades} | ${bot.lastRefusal || '—'} |`)
+    .join('\n');
+
+  return `## The economy
+
+The world ran at ${options.economyTimeScale}x, so ${options.minutes} minute(s) of
+soak is about ${((options.minutes * 60 * options.economyTimeScale) / 86_400).toFixed(1)}
+day(s) of world time.
+
+### Prices
+
+A price sitting at a clamp means the band is doing the work the stockpile
+should be. The spec's bar is that no price sits at one for long.
+
+| Good | base | range now | mean | floor/ceiling | berths at each | samples clamped | stock in the Reach | empty/full berths |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+${priceRows}
+
+### Marks
+
+Invariant 4 says the marks every captain holds equals faucets minus sinks.
+
+| Measure | Value |
+|---|---|
+| Held by captains | ${last.ledger.heldByCaptains.toLocaleString()} |
+| Faucets minus sinks | ${last.ledger.net.toLocaleString()} |
+| Reconciles | ${reconciles ? 'yes' : '**NO**'} |
+| Captains | ${last.ledger.captains} |
+| Change over the run | ${grew >= 0 ? '+' : ''}${grew.toLocaleString()} (${perCaptain >= 0 ? '+' : ''}${perCaptain.toFixed(0)} each) |
+
+| Category | Total | Postings |
+|---|---:|---:|
+${ledgerRows}
+
+### Traders
+
+${totalOrders} order(s) sent, ${refusedOrders} refused.
+
+| callsign | marks | orders | refused | last refusal |
+|---|---:|---:|---:|---|
+${traderRows}
+
+`;
+}
+
 function buildReport(options: Options, samples: readonly Sample[]): string {
   const last = samples.at(-1);
   const verdict = assess(samples);
@@ -218,6 +417,7 @@ function buildReport(options: Options, samples: readonly Sample[]): string {
     .join('\n');
 
   const expectedInputs = Math.round(options.minutes * 60 * TICK_RATE);
+  const economy = options.trade ? economySections(options, samples) : '';
 
   return `# Soak report
 
@@ -248,7 +448,7 @@ system, and treats any frame-time spike over 33 ms as a bug.
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
 ${tickRows}
 
-## Clients at the end of the run
+${economy}## Clients at the end of the run
 
 Drift is the SDK's own reconcile-correction telemetry, classified by the SDK's
 own \`classifyDrift\`. A persistent EMA means the client and server simulations
@@ -266,7 +466,7 @@ can tell "not yet checked" from "checked and stable".
 | Measure | Arrives with |
 |---|---|
 | Bandwidth per client | M1, once the flight view sets the real patch payload |
-| Total marks over time by ledger category | M4, with the ledger |
+${options.trade ? '' : '| Total marks over time by ledger category | M4; run `pnpm sim -- --trade` |'}
 | Price range of every commodity, and time at clamp limits | M4, with the Staple |
 | Price range of every stock, and pool invariants | M6, with the Bourse |
 | Exploit bots versus honest trading bots | M6 |
