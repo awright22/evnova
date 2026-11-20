@@ -54,11 +54,9 @@
     }
   },
   "ports": {
-    "$comment": "What a berth charges. The Staple prices Propellant properly in M4; until then these are the port's own rates.",
+    "$comment": "What a berth charges for what is not a commodity. Propellant and Ordnance are commodities and are priced by the berth's own Staple, as spec section 9 requires; a fixed rate here meant a berth short of Propellant still sold it at the list price, and the same good had two prices.",
     "landingFee": 25,
-    "propellantPrice": 8,
     "repairPricePerPoint": 1.4,
-    "ordnancePrice": 22,
     "magazineCapacity": 60
   },
   "start": {

@@ -383,49 +383,64 @@ export class SystemRoom extends Room<{
           }
 
           case 'propellant': {
+            // Propellant is a commodity like any other: spec section 9 says
+            // jump fuel is bought at ports at the market price, so filling the
+            // tanks goes through the berth's own Staple and takes its stock
+            // down. Charging a fixed rate here meant a berth short of it still
+            // sold it at the list price, and the same good had two prices.
             const capacity = stats.propellantCapacity;
             const room = Math.max(0, capacity - pilot.propellant);
             if (room <= 0) return ctx.reject('no-room');
 
-            const units = message.units > 0 ? Math.min(message.units, room) : room;
-            const cost = units * prices.propellantPrice;
-            world().ledger.post(
-              {
-                accountId: pilot.accountId,
-                delta: -cost,
-                category: 'propellant',
-                reason: `${units} units of Propellant at ${port.name}`,
-              },
-              pilot,
-            );
-            pilot.propellant += units;
-            world().pilots.touch(pilot.accountId);
-            this.sendPurse(client.sessionId);
-            return { marks: pilot.marks, units, cost };
+            const wanted = message.units > 0 ? Math.min(message.units, room) : room;
+            try {
+              const filled = world().market.fill({
+                port,
+                commodityId: 'propellant',
+                units: wanted,
+                pilot,
+                now: Date.now(),
+              });
+              pilot.propellant += filled.units;
+              world().pilots.touch(pilot.accountId);
+              this.sendPurse(client.sessionId);
+              this.sendStaple(client.sessionId, port);
+              return { marks: pilot.marks, units: filled.units, cost: filled.marks };
+            } catch (error) {
+              if (error instanceof TradeRefused) return ctx.reject(error.reason);
+              throw error;
+            }
           }
 
           case 'ordnance': {
-            // A rack with an empty magazine is ballast.
+            // Ordnance is a commodity too, bought from the berth's own stock
+            // at the berth's own price. A rack with an empty magazine is
+            // ballast, and a berth that has been shot dry charges for it.
             const capacity = prices.magazineCapacity;
             const room = Math.max(0, capacity - pilot.ammo);
             if (room <= 0) return ctx.reject('no-room');
 
-            const units = message.units > 0 ? Math.min(message.units, room) : room;
-            const cost = units * prices.ordnancePrice;
-            world().ledger.post(
-              {
-                accountId: pilot.accountId,
-                delta: -cost,
-                category: 'cargo-purchase',
-                reason: `${units} units of Ordnance at ${port.name}`,
-              },
-              pilot,
-            );
-            pilot.ammo += units;
-            world().pilots.touch(pilot.accountId);
-            this.sendPurse(client.sessionId);
-            return { marks: pilot.marks, units, cost };
+            const wanted = message.units > 0 ? Math.min(message.units, room) : room;
+            try {
+              const filled = world().market.fill({
+                port,
+                commodityId: 'ordnance',
+                units: wanted,
+                pilot,
+                now: Date.now(),
+              });
+              pilot.ammo += filled.units;
+              world().pilots.touch(pilot.accountId);
+              this.sendPurse(client.sessionId);
+              this.sendStaple(client.sessionId, port);
+              return { marks: pilot.marks, units: filled.units, cost: filled.marks };
+            } catch (error) {
+              if (error instanceof TradeRefused) return ctx.reject(error.reason);
+              throw error;
+            }
           }
+
+
         }
       } catch (error) {
         if (error instanceof InsufficientMarks) return ctx.reject('cannot-afford');

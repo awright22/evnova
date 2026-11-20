@@ -227,7 +227,7 @@ export class Bot {
   private constructor(
     private readonly room: SystemRoom,
     private readonly self: ShipState,
-    private readonly predict: Predict<SystemState>,
+    private predict: Predict<SystemState>,
     private me: Reconciler<ShipState>,
     private readonly input: InputHandle<ShipInput>,
     private readonly options: BotOptions,
@@ -433,6 +433,17 @@ export class Bot {
    * done deliberately.
    */
   private rebind(ship: ShipState): void {
+    // A fresh predictor, not another reconciler on the old one. `reconciler()`
+    // appends to the list the predictor drives and nothing removes it, so
+    // rebinding on the same predictor left the hull that landing removed
+    // still being predicted and still consuming the input stream — two
+    // reconcilers fighting over one channel, which reports as divergence on
+    // velocity. This is what the browser does by remounting the flight view.
+    this.predict.dispose();
+    this.predict = Predict.get(this.room, { mode: 'lerp', delay: INTERP_DELAY_MS });
+    this.predict.attachAll('ships', { mode: 'lerp', fields: ['x', 'y', 'vx', 'vy'] });
+    this.predict.attachAll('ships', { mode: 'lerp', fields: ['angle'], angle: true });
+
     this.me = this.predict.reconciler(ship, {
       input: this.input,
       step: (ctx, state, cmd) => {

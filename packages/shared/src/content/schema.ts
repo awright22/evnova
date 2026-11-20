@@ -268,9 +268,7 @@ export const Tuning = z.object({
   }),
   ports: z.object({
     landingFee: z.int().nonnegative(),
-    propellantPrice: z.int().positive(),
     repairPricePerPoint: z.number().positive(),
-    ordnancePrice: z.int().positive(),
     magazineCapacity: z.int().positive(),
   }),
   licences: z.record(LicenceId, LicenceDef),

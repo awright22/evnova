@@ -354,6 +354,11 @@ export class Session {
 
   destroy(): void {
     this.me.reset();
+    // The predictor holds listeners on the room and a list of reconcilers it
+    // drives. A flight view is mounted again every time the captain launches
+    // from a berth, and each mount makes a fresh predictor, so leaving the old
+    // one attached accumulates them for as long as the session lasts.
+    this.predict.dispose();
   }
 }
 

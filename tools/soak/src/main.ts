@@ -26,6 +26,8 @@ import { traderBrain } from '@marque/bot/brains/trader.ts';
 import { wanderBrain } from '@marque/bot/brains/wander.ts';
 import { TICK_RATE } from '@marque/shared';
 
+import { requirePortFree } from '@marque/harness';
+
 import {
   fetchEconomy,
   fetchMetrics,
@@ -48,6 +50,7 @@ interface Options {
   economyTimeScale: number;
   warmupSeconds: number;
   startingSystem: string;
+  restSeconds: number;
 }
 
 /**
@@ -83,6 +86,10 @@ function parseOptions(): Options {
       // at Dunnage: two berths in one system with opposite appetites, which
       // is a route a bot can actually work.
       'start-system': { type: 'string', default: 'ostrand' },
+      // Seconds to keep watching after the bots leave. The spec's bar is that
+      // a route worked hard decays and a rested one recovers, and the second
+      // half of that can only be seen once nobody is working it.
+      rest: { type: 'string', default: '120' },
     },
   });
 
@@ -102,6 +109,7 @@ function parseOptions(): Options {
     economyTimeScale: Number(values['economy-scale']),
     warmupSeconds: Number(values.warmup),
     startingSystem: values['start-system'],
+    restSeconds: Number(values.rest),
   };
 }
 
@@ -117,6 +125,10 @@ interface Sample {
 async function main(): Promise<void> {
   const options = parseOptions();
   await mkdir(options.outDir, { recursive: true });
+
+  // One soak at a time. Two sharing a port means one of them is measuring a
+  // world the other is also trading in, and both write the same report.
+  await requirePortFree(options.port, 'a game server or another soak');
 
   // A soak starts from a clean world. Reusing the database carried every
   // earlier run's captains and ledger rows into this run's report, which made
@@ -140,6 +152,9 @@ async function main(): Promise<void> {
   });
   const bots: Bot[] = [];
   const samples: Sample[] = [];
+  /** The world as the bots left it, and after it had time to recover. */
+  let restedFrom: EconomyReport | undefined;
+  let restedTo: EconomyReport | undefined;
 
   // Let the world run before anyone arrives in it. Without this the bots
   // reach their first berth while every stockpile is still exactly at target,
@@ -238,7 +253,26 @@ async function main(): Promise<void> {
       process.stdout.write(`  t+${atSeconds}s\r`);
     }
 
-    const report = buildReport(options, samples);
+    // --- The rest ---------------------------------------------------------
+    //
+    // Everyone leaves, and the world is watched a while longer. Decay is what
+    // the bots did to the berths they worked; recovery is what freight and
+    // the berths' own production do once they stop.
+    if (options.trade && options.restSeconds > 0) {
+      restedFrom = samples.at(-1)?.economy;
+
+      console.log(`\nBots away; watching the world rest for ${options.restSeconds}s...`);
+      await Promise.allSettled(bots.map((bot) => bot.leave()));
+      bots.length = 0;
+
+      const restEnd = Date.now() + options.restSeconds * 1000;
+      while (Date.now() < restEnd) {
+        await sleep(Math.min(10_000, restEnd - Date.now()));
+        restedTo = await fetchEconomy(options.port);
+      }
+    }
+
+    const report = buildReport(options, samples, restedFrom, restedTo);
     const path = resolve(options.outDir, 'report.md');
     await writeFile(path, report);
     console.log(`\nReport written to ${path}`);
@@ -399,7 +433,117 @@ ${traderRows}
 `;
 }
 
-function buildReport(options: Options, samples: readonly Sample[]): string {
+/**
+ * What the bots did to the berths they worked, while they worked them.
+ *
+ * The first half of the spec's bar: a route hammered sees its margin decay.
+ * Buying a berth's glut costs more with every unit taken, so the price a
+ * captain pays there climbs across the run and the margin that drew them
+ * closes behind them.
+ */
+function decaySection(options: Options, samples: readonly Sample[]): string {
+  const traded = samples.filter((sample) => sample.economy !== undefined);
+  const first = traded.at(0)?.economy;
+  const last = traded.at(-1)?.economy;
+  if (!first || !last) return '';
+
+  const before = new Map(first.berths.map((berth) => [berth.portId, berth]));
+  const rows: string[] = [];
+
+  for (const berth of last.berths) {
+    if (berth.systemId !== options.startingSystem) continue;
+    const was = before.get(berth.portId);
+    if (!was) continue;
+
+    for (const good of berth.goods) {
+      const had = was.goods.find((candidate) => candidate.commodityId === good.commodityId);
+      if (!had || had.price === good.price) continue;
+
+      const moved = ((good.price - had.price) / had.price) * 100;
+      rows.push(
+        `| ${berth.portId} | ${good.commodityId} | ${had.price} | ${good.price} | ` +
+          `${moved >= 0 ? '+' : ''}${moved.toFixed(1)}% | ` +
+          `${had.stock.toLocaleString()} | ${good.stock.toLocaleString()} |`,
+      );
+    }
+  }
+
+  if (rows.length === 0) return '';
+
+  return `### Decay
+
+The berths the bots worked, from the first sample to the last. A price that
+rose is a margin that closed: every unit bought out of a glut costs more than
+the one before it, so a route worked hard pays less each time it is run.
+
+| berth | good | price at the start | price at the end | moved | stock then | stock now |
+|---|---|---:|---:|---:|---:|---:|
+${rows.join('\n')}
+
+`;
+}
+
+/**
+ * What the berths the bots worked did afterwards.
+ *
+ * The spec's bar for this milestone: a route hammered sees its margin decay,
+ * and a rested route recovers. The first half is what the bots did while they
+ * were here; this is the second, measured once they have gone.
+ */
+function recoverySection(
+  options: Options,
+  from?: EconomyReport,
+  to?: EconomyReport,
+): string {
+  if (!from || !to) return '';
+
+  const before = new Map(from.berths.map((berth) => [berth.portId, berth]));
+  const rows: string[] = [];
+
+  for (const berth of to.berths) {
+    if (berth.systemId !== options.startingSystem) continue;
+    const was = before.get(berth.portId);
+    if (!was) continue;
+
+    for (const good of berth.goods) {
+      const had = was.goods.find((candidate) => candidate.commodityId === good.commodityId);
+      if (!had) continue;
+
+      const towards = Math.abs(good.stock - good.target) - Math.abs(had.stock - had.target);
+      rows.push(
+        `| ${berth.portId} | ${good.commodityId} | ${had.stock.toLocaleString()} | ` +
+          `${good.stock.toLocaleString()} | ${good.target.toLocaleString()} | ` +
+          `${had.price} | ${good.price} | ` +
+          `${towards < 0 ? 'toward target' : towards > 0 ? 'away from target' : 'unchanged'} |`,
+      );
+    }
+  }
+
+  if (rows.length === 0) return '';
+
+  return `### Recovery
+
+The berths the bots worked, as they left them and after ${options.restSeconds}s
+of nobody trading — about ${((options.restSeconds * options.economyTimeScale) / 3600).toFixed(0)}
+hours of world time. Recovery is the stock moving back towards what the berth
+wants, which is freight and the berth's own production undoing the trade. A
+berth that makes a good naturally sits above its target and drifts further
+until freight carries the surplus off, so "away from target" on something a
+berth produces is the world working, not failing.
+
+| berth | good | stock then | stock now | target | price then | price now | |
+|---|---|---:|---:|---:|---:|---:|---|
+${rows.join('\n')}
+
+`;
+}
+
+function buildReport(
+  options: Options,
+  samples: readonly Sample[],
+  restedFrom?: EconomyReport,
+  restedTo?: EconomyReport,
+): string {
   const last = samples.at(-1);
   const verdict = assess(samples);
 
@@ -423,7 +567,11 @@ function buildReport(options: Options, samples: readonly Sample[]): string {
     .join('\n');
 
   const expectedInputs = Math.round(options.minutes * 60 * TICK_RATE);
-  const economy = options.trade ? economySections(options, samples) : '';
+  const economy = options.trade
+    ? economySections(options, samples) +
+      decaySection(options, samples) +
+      recoverySection(options, restedFrom, restedTo)
+    : '';
 
   return `# Soak report
 

@@ -171,6 +171,7 @@ export const routes = createRouter({
     return Promise.resolve(
       json({
         commodities: world_.market.survey(),
+        berths: world_.market.berthSurvey(),
         ledger: {
           categories,
           // Faucets minus sinks. Invariant 4 says this equals the marks every

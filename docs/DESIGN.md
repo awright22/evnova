@@ -450,3 +450,47 @@ eventually followed showed up as a single 54.8 ms tick against a 0.65 ms p99
 the best, allocating nothing. Worst tick fell to 5.1 ms and the mean tick by
 about a quarter.
 
+
+**2026-11-20 — An order is priced by walking it a unit at a time.** A closed
+form would be faster and would make invariant 2 an argument; summing the
+ladder makes it true by construction, because splitting an order is literally
+what the integration does. At the order sizes a hold can carry, the loop is
+not worth optimising away.
+
+**2026-11-20 — A berth's target stock, capacity and drift all follow from one
+pair of rates.** What it makes and what it eats, in units an hour, are the
+only numbers authored per berth; everything else is derived. Authoring four
+numbers per commodity per berth would have been 1,280 figures nobody could
+keep coherent.
+
+**2026-11-20 — Freight is the floor under the economy, not its market
+maker.** Holding every berth within a few per cent of target left a captain
+nothing to carry, so freight only acts on an imbalance past a quarter and
+moves slowly. The band it leaves open is the trade.
+
+**2026-11-20 — Berths hold five days of throughput.** At eighteen hours a
+berth emptied between freight runs and spent its life at the price ceiling,
+which is not a market. The time constant has to be long enough that a
+captain's hold is a nudge rather than a shock.
+
+**2026-11-20 — The spread is six per cent and the landing fee twenty-five
+marks.** At twelve and sixty, the costs of a leg exceeded the entire margin
+on the starting draught's twenty-unit hold: the only possible trade was a
+losing one, whatever route was flown. The soak measured it. Both numbers
+scale against a hold rather than a purse, so the shipyard's larger holds are
+what make trading properly profitable.
+
+**2026-11-20 — The soak measures net worth, not marks.** A captain halfway
+through a voyage is holding cargo they paid for; counting only the purse
+called every trading bot a loss-maker for being mid-run, and turned a +89 a
+captain into a -553.
+
+**2026-11-20 — The economy runs on a scalable clock.** `ECONOMY_TIME_SCALE`
+is 1 in production and high in the soak, scaling elapsed time rather than the
+tick rate, so the world moves the same distance however often the timer
+fires. Without it a soak proves only that a brand-new world sits at its
+targets, which it does by construction.
+
+**2026-11-20 — A push message may not share a name with a request.** They are
+one name space, so a push called `staple` was delivered as the answer to the
+`staple` request and the real answer never arrived. The push is `market`.

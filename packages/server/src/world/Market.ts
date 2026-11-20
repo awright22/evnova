@@ -91,6 +91,18 @@ export interface CommoditySurvey {
   readonly full: number;
 }
 
+/** One berth's holding of the goods it moves. */
+export interface BerthSurvey {
+  readonly portId: string;
+  readonly systemId: string;
+  readonly goods: {
+    commodityId: string;
+    stock: number;
+    target: number;
+    price: number;
+  }[];
+}
+
 /** What a trade actually did. */
 export interface TradeResult {
   readonly units: number;
@@ -195,6 +207,8 @@ export class Market {
     pilot: Pilot;
     holdCapacity: number;
     now: number;
+    /** False when the goods go into the tanks or the magazine, not the hold. */
+    intoHold?: boolean;
   }): TradeResult {
     const { commodities, tuning } = content();
     const commodity = commodities.get(options.commodityId);
@@ -247,8 +261,18 @@ export class Market {
       }
 
       this.writeStock(options.port.id, commodity.id, priced.stockAfter, options.now);
-      const held = options.side === 'buy' ? carried + priced.units : carried - priced.units;
-      this.writeCargo(options.pilot.accountId, commodity.id, held);
+
+      // Into the hold unless the caller is filling tanks or a magazine, which
+      // the hull carries elsewhere and counts separately.
+      const held =
+        options.intoHold === false
+          ? carried
+          : options.side === 'buy'
+            ? carried + priced.units
+            : carried - priced.units;
+      if (options.intoHold !== false) {
+        this.writeCargo(options.pilot.accountId, commodity.id, held);
+      }
 
       return {
         units: priced.units,
@@ -257,6 +281,36 @@ export class Market {
         carried: held,
         stock: priced.stockAfter,
       };
+    });
+  }
+
+  /**
+   * Buy a commodity into something other than the hold.
+   *
+   * Propellant goes into the tanks and Ordnance into the magazine, but both
+   * are bought from the berth's own stock at the berth's own price: spec
+   * section 9 says jump fuel is bought at ports like any other commodity.
+   * The caller moves it into whatever carries it; this moves the stock and
+   * the marks, in one transaction.
+   */
+  fill(options: {
+    port: PortDef;
+    commodityId: string;
+    units: number;
+    pilot: Pilot;
+    now: number;
+  }): TradeResult {
+    return this.trade({
+      side: 'buy',
+      port: options.port,
+      commodityId: options.commodityId,
+      units: options.units,
+      pilot: options.pilot,
+      // The tanks are not the hold, so the hold's limit does not apply: the
+      // caller has already checked what the tanks will take.
+      holdCapacity: Number.MAX_SAFE_INTEGER,
+      now: options.now,
+      intoHold: false,
     });
   }
 
@@ -385,6 +439,50 @@ export class Market {
         empty,
         full,
       });
+    }
+
+    return out;
+  }
+
+  /**
+   * Every berth's holding of the goods it actually moves.
+   *
+   * Per-berth rather than per-commodity, because route decay is a fact about
+   * one berth: a berth worked hard runs down and its prices rise, and a berth
+   * left alone recovers. The aggregate survey cannot show that, since a
+   * shortage at one berth and a glut at another cancel out in a range.
+   *
+   * Only the goods a berth makes or eats are reported: the rest sit at their
+   * baseline and would triple the size of this for nothing.
+   */
+  berthSurvey(): BerthSurvey[] {
+    const { commodities, systems, tuning } = content();
+    const out: BerthSurvey[] = [];
+
+    for (const system of systems.values()) {
+      for (const port of system.ports) {
+        if (!port.trade) continue;
+
+        const moves = new Set([
+          ...Object.keys(port.trade.produces),
+          ...Object.keys(port.trade.consumes),
+        ]);
+
+        const goods: BerthSurvey['goods'] = [];
+        for (const id of moves) {
+          const commodity = commodities.get(id);
+          if (!commodity) continue;
+          const pile = this.pileOf(port, commodity);
+          goods.push({
+            commodityId: id,
+            stock: pile.stock,
+            target: pile.target,
+            price: Math.round(unitPrice(pile.stock, pile, commodity, tuning)),
+          });
+        }
+
+        out.push({ portId: port.id, systemId: system.id, goods });
+      }
     }
 
     return out;

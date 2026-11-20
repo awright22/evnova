@@ -137,8 +137,15 @@ export interface CommodityReport {
   full: number;
 }
 
+export interface BerthReport {
+  portId: string;
+  systemId: string;
+  goods: { commodityId: string; stock: number; target: number; price: number }[];
+}
+
 export interface EconomyReport {
   commodities: CommodityReport[];
+  berths: BerthReport[];
   ledger: {
     categories: { category: string; total: number; count: number }[];
     net: number;
