@@ -132,15 +132,41 @@ back now, behind a "Go ashore" on the panel.
 
 ### Minors
 
-**N1. The Bourse's listings panel cuts its last visible row in half.** It is a
-scroller and nothing is lost, but a row cut mid-text reads as a layout fault
-rather than as more below. A mask-based fade was tried and reverted: CSS
-cannot tell whether a scroller is actually overflowing, so the fade would
-also cut a complete list. It needs either whole-row sizing or a
-scroll-driven fade, and neither is worth a wrong answer now.
+**N1. The Bourse's panels cut their last visible row in half.** A scroller
+whose content runs past its edge reads as a layout fault rather than as more
+below. Cycle 1 tried a mask and reverted it, because CSS cannot tell an
+overflowing scroller from a full one and the fade cut complete lists too.
+The answer is to let the element say: a small hook watches scroll position,
+the box and the content, and sets `data-more`; the stylesheet fades the
+bottom edge only when there is in fact more there. Bottom only — every table
+here keeps a sticky header, and fading that would dim the column names.
+Applied to all four of the Bourse's scrollers.
 
-**N2. The soak still logs one replay-buffer warning in three minutes.** Down
+**N2. A refusal stood under a panel about something else.** The flight view
+keeps the last refusal on screen, which is right while a captain is flying.
+The write-off capture photographed "The port declined that" sitting under
+"Written off at Parity". A state that takes over the screen clears the
+smaller notices it has made irrelevant; named on the avoid list.
+
+**N3. The soak still logs one replay-buffer warning in three minutes.** Down
 from one every run at ten seconds, and the drift telemetry shows nothing:
 every client matched, worst EMA 0.0000. The remaining case looks like a
 client whose hull is written off mid-burst. Noise rather than a fault, and
 recorded so a cycle that sees it get worse knows it was once better.
+
+## What this cycle cost, and what it bought
+
+Twenty-four capture runs and five harness faults to reach one screenshot —
+and that screenshot found the cycle's worst bug. The lesson is not that
+captures are expensive. It is that the parts of this project no test looks
+at are exactly the parts where a fault can sit for four milestones: the
+insurance hull was wrong from the day write-offs were written, and 618 unit
+tests, a soak, nine verification harnesses and two scripted play sessions
+all passed over it.
+
+The other lesson is about silence. Every one of the five harness faults
+failed by doing nothing and saying nothing — a gunner with no eyes, a port
+held by a dead process, a mark that had not arrived, a rejected promise, a
+helper that does not exist in the page. A harness that cannot fail loudly is
+a harness that reports the game's state incorrectly, and four of these were
+originally written up as findings about the *game*.
