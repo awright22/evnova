@@ -496,7 +496,11 @@ async function capture(
     if (screen.setup) await screen.setup(page);
 
     await page.goto(`${baseUrl}${screen.path ?? '/'}`, { waitUntil: 'networkidle' });
-    if (screen.settle) await page.waitForSelector(screen.settle, { timeout: 20_000 });
+    if (screen.settle) {
+      await page.waitForSelector(screen.settle, {
+        timeout: screen.settleTimeoutMs ?? 20_000,
+      });
+    }
     // Settle first, then act: the ship has to exist before it can be flown.
     if (screen.settleMs) await sleep(screen.settleMs);
     if (screen.act) {

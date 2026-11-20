@@ -62,7 +62,6 @@ const EXPECTED = [
   'arrival',
   'land',
   'launch',
-  'chat',
 ] as const;
 
 /**
@@ -92,6 +91,7 @@ const OUT_OF_REACH: Record<string, string> = {
   confirm: 'needs a convoy to dissolve',
   refused: 'needs a counter to decline something',
   contact: 'needs another captain to arrive while this one is watching',
+  chat: "needs another captain to say something: a captain's own line is not a notice",
   shieldHit: 'needs a round to land',
   hullHit: 'needs a round to land through shields',
 };
@@ -99,6 +99,27 @@ const OUT_OF_REACH: Record<string, string> = {
 interface Heard {
   readonly name: string;
   readonly at: number;
+}
+
+/**
+ * A screen the voyage had to reach.
+ *
+ * This is the only harness that flies a browser through a whole voyage, so
+ * it carries the screen checks too. It was the first thing to notice that
+ * a captain who landed could never launch again: the verify harnesses fly
+ * the bot client, which has no screens, and the capture harness lands for
+ * a photograph and never leaves.
+ */
+interface Check {
+  readonly name: string;
+  readonly passed: boolean;
+}
+
+const checks: Check[] = [];
+
+function record(name: string, passed: boolean): void {
+  checks.push({ name, passed });
+  console.log(`  ${passed ? 'ok  ' : 'FAIL'} ${name}`);
 }
 
 async function main(): Promise<void> {
@@ -250,6 +271,7 @@ async function listen(
     waitUntil: 'networkidle',
   });
   await sky(page, problems, 'at the start');
+  record('a captain who signs in is in the sky', true);
   await page.waitForTimeout(1200);
 
   // The order matters. A captain who jumps first arrives in the middle of
@@ -267,6 +289,7 @@ async function listen(
   console.log('  landing');
   await page.keyboard.press('KeyL');
   await page.waitForSelector('.port', { timeout: 30_000 });
+  record('coming alongside opens the berth', true);
   await page.waitForTimeout(800);
 
   // 3. The floor: hovering, pressing, and the stamp twice — bought and
@@ -302,6 +325,7 @@ async function listen(
   await launch.click({ timeout: 10_000 });
   await page.waitForTimeout(3000);
   await sky(page, problems, 'after launching');
+  record('launching puts the captain back in the sky', true);
   await page.focus('body');
 
   // 5. Under way, and turning: the engine loop and the manoeuvring jets.
@@ -324,9 +348,9 @@ async function listen(
   await page.waitForTimeout(2500);
   await page.keyboard.up('Space');
 
-  // 7. Saying something. The tick is this captain's own line coming back
-  //    down the same path another captain's would: the alternative is a
-  //    second browser for one sound.
+  // 7. Saying something. The tick belongs to a line somebody else sent —
+  //    a captain's own words are not news to them — so this exercises the
+  //    composer rather than the notice.
   console.log('  chat');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(400);
@@ -336,7 +360,10 @@ async function listen(
   await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
 
-  // 8. The chart: a lane hovered and plotted, then spooled and taken.
+  // 8. The chart: a lane hovered, a course plotted, then spooled and taken.
+  //    The lane link only picks a system out; plotting is its own control,
+  //    and the first version of this clicked the first and never the
+  //    second, so J opened the chart again and nothing ever spooled.
   console.log('  plotting');
   await page.keyboard.press('KeyM');
   await page.waitForSelector('.chart', { timeout: 20_000 });
@@ -346,16 +373,35 @@ async function listen(
     await lane.hover();
     await page.waitForTimeout(300);
     await lane.click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(500);
+  }
+  const plot = page.getByRole('button', { name: /plot the course/i }).first();
+  const plotted = (await plot.count()) > 0;
+  if (plotted) {
+    await plot.click();
+    await page.waitForTimeout(900);
   } else {
     await page.keyboard.press('Escape');
   }
+  record('a course can be plotted from the chart', plotted);
   await page.waitForTimeout(400);
 
   console.log('  jumping');
+  const before = await page.evaluate(`(function () {
+    var h = window.__marqueHarness;
+    return h ? h.room.state.systemId : '';
+  })()`);
   await page.keyboard.press('KeyJ');
   // Four seconds of spool, the lane itself, and the arrival on the far side.
   await page.waitForTimeout(14_000);
+  const after = await page.evaluate(`(function () {
+    var h = window.__marqueHarness;
+    return h ? h.room.state.systemId : '';
+  })()`);
+  record(
+    `a plotted lane takes the captain somewhere else (${String(before)} -> ${String(after)})`,
+    after !== '' && after !== before,
+  );
 
   const log = await page.evaluate(() => {
     const audio = (globalThis as { __marqueAudio?: { heard: Heard[] } }).__marqueAudio;
@@ -423,6 +469,7 @@ async function report(heard: readonly Heard[]): Promise<void> {
         ranAt: new Date().toISOString(),
         events: heard.length,
         counts: Object.fromEntries([...counts.entries()].sort()),
+        checks,
         expected: EXPECTED,
         missing,
         notReached: Object.fromEntries(
@@ -435,7 +482,13 @@ async function report(heard: readonly Heard[]): Promise<void> {
   );
   console.log(`\n${heard.length} event(s) logged to artifacts/audio.json`);
 
-  if (missing.length > 0) process.exitCode = 1;
+  const failed = checks.filter((check) => !check.passed);
+  if (failed.length > 0) {
+    console.error(`\nThe voyage failed ${failed.length} check(s):`);
+    for (const check of failed) console.error(`  ${check.name}`);
+  }
+
+  if (missing.length > 0 || failed.length > 0) process.exitCode = 1;
 }
 
 await main();

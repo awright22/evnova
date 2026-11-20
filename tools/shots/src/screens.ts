@@ -36,6 +36,16 @@ export interface Screen {
   readonly setup?: (page: Page) => Promise<void>;
   /** Wait for this selector before capturing. */
   readonly settle?: string;
+  /**
+   * How long to wait for it. Twenty seconds unless a screen says otherwise.
+   *
+   * A screen that spawns a gunner first has already spent four seconds of
+   * the run before its page is opened, and under software rasterisation a
+   * cold renderer can take another ten to put a HUD up. The write-off
+   * capture kept failing on the settle rather than on the thing it is
+   * about, which read as "the write-off never happened".
+   */
+  readonly settleTimeoutMs?: number;
   /** Extra settle time in ms, for animations that have no end selector. */
   readonly settleMs?: number;
   /** Drive the page before capturing: hold keys, wait, fly somewhere. */
@@ -444,6 +454,7 @@ export const SCREENS: readonly Screen[] = [
       + "the client's own reckoning of what the draught was worth.",
     path: '/?callsign=Act%20of%20God&harness=1',
     settle: '.hud',
+    settleTimeoutMs: 60_000,
     settleMs: 1500,
     bots: 2,
     // A gunner of its own, which hunts this captain by name and nothing
@@ -469,7 +480,7 @@ export const SCREENS: readonly Screen[] = [
       composition: 4000,
     },
     act: async (page) => {
-      await page.waitForSelector('.hud', { timeout: 20_000 });
+      await page.waitForSelector('.hud', { timeout: 60_000 });
       // The gunner has to be in the sky before there is anything to lose to.
       await page.waitForFunction(
         () => {

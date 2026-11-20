@@ -20,6 +20,7 @@ export type ProblemCode =
   | 'no-bridge'
   | 'many-bridges'
   | 'no-engine'
+  | 'no-tank'
   | 'overlap'
   | 'disconnected'
   | 'power-short'
@@ -84,6 +85,23 @@ export function validateDesign(
     problems.push({
       code: 'no-engine',
       message: 'No engine. The hull will not move under its own power.',
+      placements: [],
+    });
+  }
+
+  // --- At least one tank --------------------------------------------------
+  //
+  // A lane is taken on Propellant, and Propellant is carried in a tank. A
+  // hull with none can never leave the system it was built in, and nothing
+  // on board can put that right: it is not a design with a drawback, it is
+  // a design that strands whoever buys it. Three of the shipped draughts
+  // had this and nobody noticed until a scripted voyage pressed J and was
+  // told it had no fuel.
+  const tanks = indicesOfType('tank');
+  if (tanks.length === 0) {
+    problems.push({
+      code: 'no-tank',
+      message: 'No tank. The hull can fly, but it can never take a lane out of this system.',
       placements: [],
     });
   }

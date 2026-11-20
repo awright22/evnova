@@ -771,3 +771,44 @@ down has not asked to stop being told things.
 make its own mix and close it on unmount, which was fine while flying was the
 only thing that made a noise. The stamp happens on the port screens, where
 that view is gone.
+
+**2026-11-20 — A draught with no tank is refused.** Three shipped designs —
+Force Majeure, Short Measure, Close Order — carried no propellant tank. They
+flew, fought and traded, and could never take a lane out of the system they
+were built in, with nothing on board that could put it right. That is not a
+design with a drawback, it is a design that strands whoever buys it, so the
+survey now refuses it the way it refuses a hull with no engine, and the three
+designs have a tank. Found by `pnpm audio`, which pressed J and was told it
+had no fuel.
+
+**2026-11-20 — The client moves itself out of a berth.** Landing set the mode
+to port; nothing set it back, because the server has no push for a launch —
+it answers the intent and spawns the hull. So `launch()` now moves the mode
+on the server's `launched`, and only on it: a refusal leaves the captain
+alongside with the reason on the notice line rather than in a sky they are
+not in.
+
+**2026-11-20 — Hover and select are delegated at the document.** Two
+listeners on `document` match any enabled control, so a screen written next
+month already has them. Wired per screen, they would be missing from the next
+screen somebody writes, which is the failure mode the spec's "kept quiet and
+consistent" is really about. Controls with a voice of their own — the stamp —
+opt out by class, and a control that states a consequence asks for the
+heavier sound with `data-weight="destructive"` rather than by having its
+label read.
+
+**2026-11-20 — Music is generated, not looped.** No openly licensed music
+that fits "sparse and patient, ambient electronics with bowed strings and low
+piano" is reachable from the build environment, and the spec's fallback is to
+make it in code. Four layers scheduled against the audio clock with a second
+and a half of lookahead: a drone, bowed strings that do not resolve, a struck
+low piano, and a combat layer. One bed per region, so a region is a change of
+character rather than a change of track. It never arrives at the same bar
+twice, which suits the brief better than a loop would.
+
+**2026-11-20 — The audio audit is also the voyage check.** It is the only
+harness that flies a real browser through land, trade, launch, fight, plot
+and jump. The verify harnesses fly the bot client, which has no screens, and
+the capture harness lands for a photograph and never leaves — which is how a
+captain who could not launch again went unnoticed. It carries the screen
+assertions as well as the sound log.
