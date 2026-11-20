@@ -13,6 +13,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { Rng, clamp } from '@marque/shared';
 
+import { interceptAlpha, interceptScale, motion } from './beams.ts';
 import { PX_PER_UNIT } from './camera.ts';
 import { mix, palette } from './palette.ts';
 
@@ -45,6 +46,23 @@ interface Ripple {
   colour: number;
 }
 
+/**
+ * A point-defense intercept: a round stopped out in space.
+ *
+ * Its own pool rather than a spark with a long life, because the ring has to
+ * be able to hold still under reduced motion while the sparks around it keep
+ * flying — gameplay motion is never reduced, a growing ring is presentation.
+ */
+interface Flash {
+  active: boolean;
+  x: number;
+  y: number;
+  ageMs: number;
+  lifeMs: number;
+  /** Radius at full growth, in world units. */
+  radius: number;
+}
+
 interface Shockwave {
   active: boolean;
   x: number;
@@ -58,6 +76,7 @@ interface Shockwave {
 const MAX_PARTICLES = 3000;
 const MAX_RIPPLES = 64;
 const MAX_SHOCKWAVES = 24;
+const MAX_FLASHES = 48;
 
 export class Effects {
   readonly view = new Container();
@@ -68,12 +87,16 @@ export class Effects {
   private readonly particles: Particle[] = [];
   private readonly ripples: Ripple[] = [];
   private readonly shockwaves: Shockwave[] = [];
+  private readonly flashes: Flash[] = [];
   private readonly rng: Rng;
 
   /** Where the pool resumes scanning, so spawning stays O(1) amortised. */
   private cursor = 0;
 
-  constructor(seed = 'effects') {
+  constructor(
+    seed = 'effects',
+    private reducedMotion = false,
+  ) {
     this.rng = new Rng(seed);
     this.additive.blendMode = 'add';
     // Smoke and debris are solid; flame and sparks are light.
@@ -94,6 +117,14 @@ export class Effects {
     for (let i = 0; i < MAX_SHOCKWAVES; i++) {
       this.shockwaves.push({ active: false, x: 0, y: 0, ageMs: 0, lifeMs: 0, maxRadius: 0 });
     }
+    for (let i = 0; i < MAX_FLASHES; i++) {
+      this.flashes.push({ active: false, x: 0, y: 0, ageMs: 0, lifeMs: 0, radius: 0 });
+    }
+  }
+
+  /** As the camera's, so the setting can change without rebuilding the view. */
+  setReducedMotion(reduced: boolean): void {
+    this.reducedMotion = reduced;
   }
 
   get activeCount(): number {
@@ -150,6 +181,55 @@ export class Effects {
       flash.lifeMs = 60;
       flash.size = 4;
       flash.colour = 0xffffff;
+    }
+  }
+
+  /**
+   * Point defense taking a round down, at the round's position.
+   *
+   * This has to be told apart from a hull hit out of the corner of an eye, so
+   * it differs in all three of the things that carry that: it is shorter (the
+   * instant step against the hull hit's 220ms), it is smaller (a handful of
+   * short sparks against ten long ones), and it is blue rather than amber.
+   * Blue is already the colour of something being stopped — shield bars and
+   * shield ripples both — and it cannot be confused with the amber-to-white
+   * sparks of damage landing. It is not a shield ripple either: that is an arc
+   * hugging a hull, and this is a point out in space where the round was.
+   *
+   * Nothing here shakes the camera. A shake is the thing that says the hull
+   * took it, and the whole point of this effect is that the hull did not.
+   */
+  defenseIntercept(x: number, y: number): void {
+    const p = palette();
+    const m = motion();
+
+    const flash = this.flashes.find((f) => !f.active);
+    if (flash) {
+      flash.active = true;
+      flash.x = x;
+      flash.y = y;
+      flash.ageMs = 0;
+      flash.lifeMs = m.instant;
+      flash.radius = 2.8;
+    }
+
+    // A burst in every direction: a round coming apart, with no normal to
+    // fan away from, which also keeps the shape distinct from a hull hit.
+    for (let i = 0; i < 5; i++) {
+      const particle = this.take();
+      if (!particle) break;
+      const bearing = this.rng.range(-Math.PI, Math.PI);
+      const speed = this.rng.range(25, 95);
+      particle.active = true;
+      particle.kind = 'spark';
+      particle.x = x;
+      particle.y = y;
+      particle.vx = Math.cos(bearing) * speed;
+      particle.vy = Math.sin(bearing) * speed;
+      particle.ageMs = 0;
+      particle.lifeMs = this.rng.range(m.instant, m.quick);
+      particle.size = this.rng.range(0.35, 0.8);
+      particle.colour = mix(p.shield, 0xffffff, this.rng.next() * 0.45);
     }
   }
 
@@ -314,6 +394,31 @@ export class Effects {
         .moveTo(cx + Math.cos(from) * radius, cy + Math.sin(from) * radius)
         .arc(cx, cy, radius, from, to)
         .stroke({ width: 2 * (1 - t) + 0.5, color: ripple.colour, alpha: 0.8 * (1 - t) });
+    }
+
+    const p = palette();
+    for (const flash of this.flashes) {
+      if (!flash.active) continue;
+      flash.ageMs += dtMs;
+      if (flash.ageMs >= flash.lifeMs) {
+        flash.active = false;
+        continue;
+      }
+      const t = flash.ageMs / flash.lifeMs;
+      const alpha = interceptAlpha(t);
+      const radius = flash.radius * interceptScale(t, this.reducedMotion) * PX_PER_UNIT;
+      const cx = flash.x * PX_PER_UNIT;
+      const cy = flash.y * PX_PER_UNIT;
+
+      // A thin ring with a bright centre, which reads as a thing that went
+      // off rather than a thing that landed. The ring carries the shape and
+      // the centre carries the brightness, so neither has to be large.
+      this.additive
+        .circle(cx, cy, radius)
+        .stroke({ width: 1, color: p.shield, alpha: 0.85 * alpha });
+      this.additive
+        .circle(cx, cy, radius * 0.4)
+        .fill({ color: mix(p.shield, 0xffffff, 0.55), alpha: 0.75 * alpha });
     }
 
     for (const wave of this.shockwaves) {

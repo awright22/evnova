@@ -29,14 +29,19 @@ export interface Rock {
 }
 
 /**
- * The inner edge of a belt, as a fraction of the system's radius.
+ * The inner and outer edge of a belt, as fractions of the system's radius.
  *
  * Outside the clearance a jump needs, so a captain working a belt is not
- * sitting where they cannot leave from, and well off the berths, so mining
- * is somewhere you go rather than something you do while docked.
+ * sitting where they cannot leave from, and off the berths, so mining is
+ * somewhere you go rather than something you do while docked.
+ *
+ * Not much further out than that. At 0.42 to 0.78 the nearest rock in every
+ * system was eight to fourteen thousand units from its berth, which is a
+ * minute of flying each way before anything is cut: mining came out worth
+ * well under half of a trade run, and the difference was all commute.
  */
-const INNER = 0.42;
-const OUTER = 0.78;
+const INNER = 0.3;
+const OUTER = 0.62;
 
 /** How much a rock's size varies, as a fraction of the mean. */
 const SIZE_SPREAD = 0.45;

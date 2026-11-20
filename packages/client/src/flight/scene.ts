@@ -1,21 +1,40 @@
 /**
  * The flight scene.
  *
- * Owns the Pixi display list: the backdrop, the system star, its ports, and a
- * sprite per ship with its engine plume. Reads positions through one idiom —
+ * Owns the Pixi display list: the backdrop, the system star, its ports, a
+ * sprite per ship with its engine plume, and the beams held off their mounts.
+ * Reads positions through one idiom —
  * `predict.value(instance, field)` — which covers the local hull, which is
  * actively reconciled, and remote hulls, which are interpolated.
  */
 
 import { Container, Graphics, Sprite, type Renderer } from 'pixi.js';
-import { clamp, type ModuleDef, type SystemDef } from '@marque/shared';
+import {
+  clamp,
+  mountsOf,
+  placeAll,
+  type ModuleDef,
+  type Mount,
+  type SystemDef,
+} from '@marque/shared';
 
 import { createBackdrop, type Backdrop } from './backdrop.ts';
 import { Camera, PX_PER_UNIT } from './camera.ts';
+import {
+  approachLevel,
+  beamRipple,
+  beamSegment,
+  easeEmphasis,
+  easeExit,
+  motion,
+  type BeamFrame,
+} from './beams.ts';
 import { mix, palette, parseHex } from './palette.ts';
 import { planetTexture, starTexture } from './planet.ts';
 import type { HullBook } from './hulls.ts';
 import { renderShipArt, TEXTURE_PX_PER_UNIT, type ShipArt } from './shipTexture.ts';
+
+export type { BeamFrame } from './beams.ts';
 
 /** A round in flight, reckoned forward from its spawn. */
 export interface ProjectileFrame {
@@ -74,6 +93,62 @@ interface ShipNode {
   lastThrottle: number;
 }
 
+/**
+ * A beam's animation state, which the wire does not carry.
+ *
+ * The entry on the wire is only there while the trigger is down, so the rise
+ * and fall have to be kept here, along with the last geometry the wire gave:
+ * a beam that has just been let go has to have somewhere to fall from.
+ */
+interface BeamNode {
+  /** 0..1, advanced linearly and eased when it is drawn. */
+  level: number;
+  /** True when the entry was still on the wire this frame. */
+  holding: boolean;
+  readonly owner: string;
+  readonly mount: number;
+  angle: number;
+  length: number;
+  hitting: boolean;
+}
+
+/**
+ * The soft surround of a beam, as passes of width and alpha.
+ *
+ * An additive stroke has no falloff of its own, so the edge is three passes
+ * narrowing toward the core — the same trick the plume's throat uses, and the
+ * bloom the art direction allows a weapon. Drawn rather than filtered: a blur
+ * pass per beam would cost a render target in a scene budgeted for a screen
+ * full of hulls.
+ */
+const BEAM_SURROUND = [
+  { width: 8, alpha: 0.06 },
+  { width: 4.5, alpha: 0.11 },
+  { width: 2.6, alpha: 0.28 },
+] as const;
+
+/** Core width in pixels at full level, before heft and the ripple. */
+const BEAM_CORE_PX = 1.9;
+
+/**
+ * Damage a beam deals per second at the reference weight.
+ *
+ * A lance built as a weapon and a yard's plate cutter on a mount are both
+ * beams, and a captain should be able to see which one is on them. The number
+ * is only a divisor for the drawn width — what the beam actually does is the
+ * server's, out of the module data.
+ */
+const BEAM_REFERENCE_DAMAGE = 40;
+
+/**
+ * Segments the core is drawn in.
+ *
+ * Enough for the wander to read along a beam that crosses the screen, few
+ * enough that a hull holding two of them costs about what one missile's trail
+ * costs.
+ */
+const BEAM_SEGMENTS = 12;
+
 export class Scene {
   readonly root = new Container();
   readonly camera: Camera;
@@ -82,6 +157,8 @@ export class Scene {
   private readonly shipLayer = new Container();
   /** One Graphics for every round, canister and overlay: far fewer draw calls. */
   private readonly roundLayer = new Graphics();
+  /** Beams draw over hulls and rounds, under the brackets and readouts. */
+  private readonly beamLayer = new Graphics();
   private readonly overlayLayer = new Graphics();
   private readonly backdrop: Backdrop;
   /** Advances with real time, so plume turbulence runs at a fixed rate. */
@@ -89,6 +166,12 @@ export class Scene {
 
   private readonly ships = new Map<string, ShipNode>();
   private readonly art = new Map<string, ShipArt>();
+  /** Beams that are up or still fading, keyed by their wire key. */
+  private readonly beamNodes = new Map<string, BeamNode>();
+  /** Mounts per draught, resolved once: a flying hull's grid cannot change. */
+  private readonly mountBooks = new Map<string, readonly Mount[]>();
+  /** Reused index from hull id to this frame's pose, so beams cost no scan. */
+  private readonly poses = new Map<string, ShipFrame>();
 
   /**
    * World objects with their radius, for culling. A star or a port off the
@@ -105,7 +188,7 @@ export class Scene {
     private readonly system: SystemDef,
     private readonly blueprints: HullBook,
     private readonly modules: ReadonlyMap<string, ModuleDef>,
-    reducedMotion: boolean,
+    private readonly reducedMotion: boolean,
   ) {
     this.camera = new Camera(reducedMotion);
 
@@ -114,8 +197,14 @@ export class Scene {
     this.root.addChild(this.worldLayer);
 
     this.buildSystem();
-    this.worldLayer.addChild(this.shipLayer, this.roundLayer, this.overlayLayer);
+    this.worldLayer.addChild(
+      this.shipLayer,
+      this.roundLayer,
+      this.beamLayer,
+      this.overlayLayer,
+    );
     this.roundLayer.blendMode = 'add';
+    this.beamLayer.blendMode = 'add';
   }
 
   /** Put an effects layer into world space, above hulls and rounds. */
@@ -221,6 +310,7 @@ export class Scene {
     dtMs: number,
     rounds: readonly ProjectileFrame[] = [],
     canisters: readonly CanisterFrame[] = [],
+    beams: readonly BeamFrame[] = [],
   ): void {
     this.elapsedMs += dtMs;
     const seen = new Set<string>();
@@ -242,6 +332,7 @@ export class Scene {
     }
 
     this.drawRounds(rounds, canisters);
+    this.drawBeams(beams, frames, dtMs);
     this.drawOverlays(frames, self);
 
     if (self) {
@@ -311,6 +402,180 @@ export class Scene {
         alpha: canister.inReach ? 1 : 0.7,
       });
     }
+  }
+
+  /**
+   * Held beams, all into one Graphics.
+   *
+   * A beam is state rather than an event: its entry exists for as long as the
+   * trigger is down, so there is nothing to spawn and nothing to expire. The
+   * line is rebuilt from the owner's pose every frame — which is what keeps it
+   * welded to a mount while the hull turns — and the only thing carried
+   * between frames is how far through its rise or fall it is.
+   */
+  private drawBeams(
+    beams: readonly BeamFrame[],
+    frames: readonly ShipFrame[],
+    dtMs: number,
+  ): void {
+    const g = this.beamLayer;
+    g.clear();
+    if (beams.length === 0 && this.beamNodes.size === 0) return;
+
+    this.poses.clear();
+    for (const frame of frames) this.poses.set(frame.id, frame);
+
+    // Anything still on the wire is marked below; what is left unmarked was
+    // let go this tick and starts falling.
+    for (const node of this.beamNodes.values()) node.holding = false;
+
+    for (const beam of beams) {
+      let node = this.beamNodes.get(beam.id);
+      if (!node) {
+        node = {
+          level: 0,
+          holding: true,
+          owner: beam.owner,
+          mount: beam.mount,
+          angle: beam.angle,
+          length: beam.length,
+          hitting: beam.hitting,
+        };
+        this.beamNodes.set(beam.id, node);
+      }
+      node.holding = true;
+      node.angle = beam.angle;
+      node.length = beam.length;
+      node.hitting = beam.hitting;
+    }
+
+    // Up on the arriving step and down on the leaving one. A weapon comes on
+    // faster than it goes off, so the tail reads as the trigger coming up
+    // rather than as a dropped frame.
+    const { instant, quick } = motion();
+
+    for (const [id, node] of this.beamNodes) {
+      node.level = approachLevel(
+        node.level,
+        node.holding ? 1 : 0,
+        dtMs,
+        node.holding ? instant : quick,
+      );
+      if (!node.holding && node.level <= 0) {
+        this.beamNodes.delete(id);
+        continue;
+      }
+
+      // A hull with no pose this tick has nothing to hang a beam off, which
+      // is what a shooter leaving the system looks like from here.
+      const owner = this.poses.get(node.owner);
+      if (!owner) {
+        this.beamNodes.delete(id);
+        continue;
+      }
+
+      const mount = this.mountsFor(owner.blueprint)[node.mount];
+      if (mount) this.strokeBeam(g, mount, owner, node);
+    }
+  }
+
+  /**
+   * One beam: a soft surround, a living core, and a flare where it lands.
+   *
+   * Everything is drawn into the layer's single Graphics and scaled by the
+   * node's level, so appearing and disappearing cost no display objects and
+   * no allocation.
+   */
+  private strokeBeam(g: Graphics, mount: Mount, owner: ShipFrame, node: BeamNode): void {
+    // Rising on the emphasis curve and falling on the exit curve, which is
+    // what those tokens are for. The length is never animated: growing it
+    // would read as a round travelling, which is the one thing a beam must
+    // not look like.
+    const level = node.holding ? easeEmphasis(node.level) : easeExit(node.level);
+    if (level <= 0.01) return;
+
+    const p = palette();
+    const seg = beamSegment(mount, owner, node.angle, node.length);
+    const x0 = seg.muzzleX * PX_PER_UNIT;
+    const y0 = seg.muzzleY * PX_PER_UNIT;
+    const x1 = seg.tipX * PX_PER_UNIT;
+    const y1 = seg.tipY * PX_PER_UNIT;
+
+    // The captain's own beam is the bright amber all of their own fire is; a
+    // hostile's is red, as its bracket is. A round gets no such distinction
+    // because it is on screen for a tenth of a second, but a beam is held for
+    // as long as somebody keeps it there, and one held on you is the most
+    // important thing in the view.
+    const colour = owner.isSelf ? p.amberBright : owner.hostile ? p.danger : p.amber;
+    const core = mixToWhite(colour);
+
+    // Heavier weapons draw heavier, within a narrow band: enough to tell a
+    // lance from a cutter, not enough for either to stop looking like a beam.
+    const heft = clamp(
+      (mount.def.weapon?.damage ?? BEAM_REFERENCE_DAMAGE) / BEAM_REFERENCE_DAMAGE,
+      0.85,
+      1.3,
+    );
+
+    for (const pass of BEAM_SURROUND) {
+      g.moveTo(x0, y0)
+        .lineTo(x1, y1)
+        .stroke({ width: pass.width * heft * level, color: colour, alpha: pass.alpha * level });
+    }
+
+    // The core in segments, so its width can wander along the length. Frozen
+    // under reduced motion: the texture stays, the travel goes.
+    const elapsed = this.reducedMotion ? 0 : this.elapsedMs;
+    // Two mounts on one hull are offset in the wave, so a pair of beams does
+    // not pulse in lockstep.
+    const phase = mount.offsetY;
+    for (let i = 0; i < BEAM_SEGMENTS; i++) {
+      const t0 = i / BEAM_SEGMENTS;
+      const t1 = (i + 1) / BEAM_SEGMENTS;
+      const wave = beamRipple((t0 + t1) / 2, elapsed, phase);
+      // The width wanders a little and the brightness a good deal more. At a
+      // core this thin a tenth of a pixel cannot be seen, and a tenth of an
+      // alpha can: widening it enough to read would make a bar rather than a
+      // beam, so the variation is carried mostly by the light.
+      const width = BEAM_CORE_PX * heft * level * wave;
+      const alpha = clamp(0.95 * level * (1 + (wave - 1) * 3), 0, 1);
+      g.moveTo(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0)
+        .lineTo(x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1)
+        .stroke({ width, color: core, alpha });
+    }
+
+    // Bloom at the muzzle, where the power goes in.
+    for (let ring = 2; ring >= 1; ring--) {
+      g.circle(x0, y0, 2.4 * ring * heft * level).fill({ color: colour, alpha: 0.13 * level });
+    }
+
+    if (!node.hitting) return;
+
+    // Where it lands, while it is actually on a hull: brighter and wider than
+    // the line, so holding a beam on something looks different from sweeping
+    // it past. The flare breathes with the same wave as the core.
+    const flare = 6.5 * heft * level * beamRipple(1, elapsed, phase);
+    for (let ring = 3; ring >= 1; ring--) {
+      g.circle(x1, y1, flare * (ring / 3)).fill({ color: colour, alpha: 0.13 * level });
+    }
+    g.circle(x1, y1, BEAM_CORE_PX * 1.4 * heft * level).fill({ color: core, alpha: 0.9 * level });
+  }
+
+  /**
+   * The owner's mounts, in the order the simulation numbers them.
+   *
+   * `BeamState.mount` indexes `mountsOf`, which both sides derive from the
+   * same blueprint and the same catalogue, so resolving it here agrees with
+   * the server by construction rather than by a second convention.
+   */
+  private mountsFor(blueprintId: string): readonly Mount[] {
+    const cached = this.mountBooks.get(blueprintId);
+    if (cached) return cached;
+
+    const blueprint = this.blueprints.get(blueprintId);
+    const mounts = blueprint ? mountsOf(placeAll(blueprint.placements, this.modules)) : [];
+    this.mountBooks.set(blueprintId, mounts);
+    return mounts;
   }
 
   /**
@@ -471,6 +736,9 @@ export class Scene {
     this.ships.clear();
     for (const art of this.art.values()) art.texture.destroy(true);
     this.art.clear();
+    this.beamNodes.clear();
+    this.mountBooks.clear();
+    this.poses.clear();
     this.backdrop.destroy();
     this.root.destroy({ children: true });
   }

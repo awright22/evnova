@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   LANDING_RANGE,
   LANDING_SPEED,
+  PROJECTILE_KIND,
   content,
   deriveStats,
   leadPoint,
@@ -29,7 +30,13 @@ import { KeyboardInput } from './input.ts';
 import { palette } from './palette.ts';
 import { HullBook } from './hulls.ts';
 import { Effects } from './effects.ts';
-import { Scene, type CanisterFrame, type ProjectileFrame, type ShipFrame } from './scene.ts';
+import {
+  Scene,
+  type BeamFrame,
+  type CanisterFrame,
+  type ProjectileFrame,
+  type ShipFrame,
+} from './scene.ts';
 import './flight.css';
 
 export interface FlightViewProps {
@@ -243,7 +250,7 @@ export function FlightView({
       let lastNow = performance.now();
 
       // Effects live in world space, under the same camera transform as hulls.
-      const effects = new Effects(`fx:${session.sessionId}`);
+      const effects = new Effects(`fx:${session.sessionId}`, reducedMotion);
       scene.attachEffects(effects.view);
 
       // Shield capacity for the bubble, and muzzle speed for the lead mark,
@@ -295,8 +302,18 @@ export function FlightView({
           y: number;
           shielded: boolean;
           targetId: string;
+          kind: number;
           disabled: boolean;
         };
+
+        // Point defense reports the round it shot down, which has no hull, no
+        // target and no damage. Nothing else in this handler applies to it:
+        // sparks on a hull or a shake would say the captain took a hit.
+        if (event.kind === PROJECTILE_KIND.defense) {
+          effects.defenseIntercept(event.x, event.y);
+          return;
+        }
+
         const victim = session!.shipViews().find((v) => v.id === event.targetId);
         const normal = victim ? Math.atan2(event.y - victim.y, event.x - victim.x) : 0;
         const mine = event.targetId === session!.sessionId;
@@ -506,10 +523,25 @@ export function FlightView({
           if (canister.distance <= SCOOP_REACH) session.scoop(canister.id);
         }
 
+        // Beams are state rather than events: an entry is on the wire for as
+        // long as a trigger is down, so the scene is handed the live set and
+        // works out appearing, holding and disappearing from it.
+        const beams: BeamFrame[] = [];
+        room.state.beams.forEach((beam, key) => {
+          beams.push({
+            id: key,
+            owner: beam.owner,
+            mount: beam.mount,
+            angle: beam.angle,
+            length: beam.length,
+            hitting: beam.hitting,
+          });
+        });
+
         effects.update(dtMs);
 
         scene.resize(app.screen.width, app.screen.height);
-        scene.update(frames, self, session.shipProfile.topSpeed, dtMs, rounds, canisters);
+        scene.update(frames, self, session.shipProfile.topSpeed, dtMs, rounds, canisters, beams);
 
         engine?.setThrottle(session.currentThrottle);
 

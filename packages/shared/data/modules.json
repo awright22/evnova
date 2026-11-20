@@ -1243,7 +1243,7 @@
         "draw": 14
       },
       "weapon": {
-        "damage": 1.6,
+        "damage": 3.0,
         "roundsPerSecond": 1,
         "projectileSpeed": 1,
         "range": 420,
@@ -1273,7 +1273,7 @@
         "draw": 27
       },
       "weapon": {
-        "damage": 4.1,
+        "damage": 7.5,
         "roundsPerSecond": 1,
         "projectileSpeed": 1,
         "range": 560,

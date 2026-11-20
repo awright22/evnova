@@ -338,6 +338,155 @@
           "y": 2
         }
       ]
+    },
+    {
+      "id": "spoil-heap",
+      "name": "Spoil Heap",
+      "licence": "open-ticket",
+      "paint": [
+        "#7C8B3F",
+        "#4D5726"
+      ],
+      "description": "The Prudent Return with its gun and its shield taken off and a cutting rig put where they were. It carries rather more than it did and it cannot defend any of it, which is why nobody flies one in the Marque.",
+      "placements": [
+        {
+          "moduleId": "slp-engine-1",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "moduleId": "slp-thruster-1",
+          "x": 0,
+          "y": -1
+        },
+        {
+          "moduleId": "slp-thruster-1",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "moduleId": "hrc-hull-1",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "moduleId": "hrc-hull-1",
+          "x": 1,
+          "y": 1
+        },
+        {
+          "moduleId": "hrc-tank-1",
+          "x": 1,
+          "y": 2
+        },
+        {
+          "moduleId": "slp-reactor-1",
+          "x": 2,
+          "y": 0
+        },
+        {
+          "moduleId": "hrc-cargo-1",
+          "x": 2,
+          "y": 2
+        },
+        {
+          "moduleId": "hrc-bridge-1",
+          "x": 4,
+          "y": 0
+        },
+        {
+          "moduleId": "slp-rig-1",
+          "x": 6,
+          "y": 0
+        },
+        {
+          "moduleId": "hrc-cargo-1",
+          "x": 4,
+          "y": 2
+        }
+      ]
+    },
+    {
+      "id": "close-order",
+      "name": "Close Order",
+      "licence": "frigate-warrant",
+      "paint": [
+        "#6E7A86",
+        "#434D58"
+      ],
+      "description": "Two cutting beams and a pair of watches on a reactor big enough for all of it. It has to be close to do anything at all, and anything a rack sends at it on the way in tends not to arrive.",
+      "placements": [
+        {
+          "moduleId": "slp-engine-4",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "moduleId": "slp-thruster-2",
+          "x": 0,
+          "y": -1
+        },
+        {
+          "moduleId": "slp-thruster-2",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "moduleId": "hrc-hull-2",
+          "x": 2,
+          "y": 0
+        },
+        {
+          "moduleId": "hrc-hull-2",
+          "x": 2,
+          "y": 1
+        },
+        {
+          "moduleId": "slp-armour-2",
+          "x": 2,
+          "y": 2
+        },
+        {
+          "moduleId": "slp-reactor-6",
+          "x": 3,
+          "y": 0
+        },
+        {
+          "moduleId": "hrc-bridge-2",
+          "x": 6,
+          "y": 0
+        },
+        {
+          "moduleId": "rpo-shield-2",
+          "x": 6,
+          "y": 3
+        },
+        {
+          "moduleId": "slp-beam-1",
+          "x": 8,
+          "y": 0
+        },
+        {
+          "moduleId": "slp-beam-1",
+          "x": 8,
+          "y": 1
+        },
+        {
+          "moduleId": "rpo-defense-1",
+          "x": 8,
+          "y": 3
+        },
+        {
+          "moduleId": "rpo-defense-1",
+          "x": 8,
+          "y": 4
+        },
+        {
+          "moduleId": "hrc-cargo-2",
+          "x": 3,
+          "y": 3
+        }
+      ]
     }
   ]
 }

@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { spawnGroup } from './index.ts';
 
-import { CHARTERS, content, type Charter } from '@marque/shared';
+import { CHARTERS, content, placeAll, type Charter } from '@marque/shared';
 
 import { Accounts } from '@marque/server/src/accounts.ts';
 import { openStore, schema } from '@marque/server/src/db/index.ts';
@@ -54,6 +54,14 @@ export interface SeedSpec {
   readonly cargo?: Record<string, number>;
   /** Draughts on this captain's books, by name. */
   readonly designs?: readonly string[];
+  /**
+   * A hull built and taken out, by catalogue draught id.
+   *
+   * For a check whose subject is not building: a harness that has to earn
+   * its way into the right hull spends its run on the Yard and the Moorings
+   * and then has three minutes left for the thing it is named after.
+   */
+  readonly flying?: string;
   /**
    * Callsigns to open a convoy with, this captain leading.
    *
@@ -134,6 +142,33 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
     for (const name of spec.designs ?? []) {
       // A plain hull: the capture is of a list of names, not of a grid.
       yard.saveDesign(accountId, { name, placements: [] }, now);
+    }
+
+    if (spec.flying !== undefined) {
+      const draught = content().blueprints.get(spec.flying);
+      if (!draught) throw new Error(`no draught called "${spec.flying}"`);
+
+      // Written straight in rather than built: the Yard's bill, its stock
+      // and its materials are another check's subject, and paying them here
+      // would make this one depend on them.
+      store.db
+        .insert(schema.ships)
+        .values({
+          id: randomUUID(),
+          accountId,
+          name: draught.name,
+          placements: JSON.stringify(draught.placements),
+          // No berth: a hull with nowhere written on it is the one being flown.
+          portId: null,
+          systemId: pilots.load(accountId)?.systemId ?? '',
+          moduleHp: JSON.stringify(
+            placeAll(draught.placements, content().modules).map(
+              (module) => module.def.hitPoints,
+            ),
+          ),
+          builtAt: now,
+        })
+        .run();
     }
 
     const toAsk = [...(spec.convoyWith ?? []), ...(spec.convoyAsked ?? [])];
