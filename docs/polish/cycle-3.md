@@ -14,7 +14,7 @@ again — and the first one with a fair chance of being clean.
 | `pnpm play:new` | 14 of 14 |
 | `pnpm play:late` | 27 of 27 |
 | `pnpm audio` | passes — 6 voyage checks, 31 sound events, the lane check now reporting `parity -> fairlead` |
-| `pnpm sim` | *filled in below* |
+| `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.93 ms**, no spike over 33 ms, 0 of 12 diverging; worst drift EMA 0.0789, peak 0.1639 |
 | `pnpm perf` | *filled in below* |
 | **CI** | ran for the first time; see B1 |
 
@@ -141,7 +141,19 @@ interesting failures are: the screen is up, and something it was asked to do
 did not happen. `posted` failed that way in this sweep and left nothing to
 look at. It does both now.
 
-**N7. Two of the three required browsers have never been run.** Spec section
+**N7. The soak's drift is no longer zero.** Cycle 2 measured a worst drift
+EMA of 0.0000 across twelve clients; this run measured 0.0789, peak 0.1639.
+Nothing diverged — 0 of 12, which is the budget spec section 3 actually sets
+— and a client correcting by less than the tolerance is a client whose hull
+is where the server says it is. But it is not zero any more, and the honest
+thing is to write the number down rather than copy the one from last time.
+
+The likely cause is this machine rather than the game: this soak ran with a
+CI install, a capture sweep and four browsers having been through the box in
+the preceding hour. Cycle 4 runs it on a quieter machine and will say
+whether it comes back to zero.
+
+**N8. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So
