@@ -1286,7 +1286,12 @@ export const SCREENS: readonly Screen[] = [
       await page.waitForSelector('.board__columns', { timeout: 20_000 });
       // Take one, so the third column is a captain's day rather than empty.
       await page.click('.board__actions button:text("Take it on")');
-      await page.waitForTimeout(900);
+      // Long enough for the impression to settle. At 900ms the capture
+      // caught the seal mid-strike, struck across the control it was
+      // pressed on and across the commission's own terms — a photograph of
+      // an animation rather than of the board. The stamp has its own frame
+      // sequence; this screen is the board.
+      await page.waitForTimeout(2400);
     },
   },
   {
