@@ -557,6 +557,11 @@ export const SCREENS: readonly Screen[] = [
           at: 'the-bourse',
           flying: 'short-measure',
           crippled: true,
+          // Posted, so firing on it is lawful. Without this the capture's own
+          // captain was posted for the shot and the screen carried a refusal
+          // across the middle of it — "the Prize Court has posted you" —
+          // which is a true thing to say and not what this screen is about.
+          composition: 4000,
         },
         act: async (page) => {
           // Nothing to do but be there and be shot at.
@@ -607,6 +612,7 @@ export const SCREENS: readonly Screen[] = [
           at: 'respondentia',
           flying: 'short-measure',
           crippled: true,
+          composition: 4000,
         },
         act: async (page) => {
           await page.waitForSelector('.hud', { timeout: 120_000 });

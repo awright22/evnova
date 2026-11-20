@@ -1,9 +1,17 @@
 # Polish cycle 2 — 2026-11-20
 
 Cycle 1 closed with two threads unpulled and one capture unfixed. This cycle
-starts there, because both turned out to be the same kind of fault — a
+started there, because both turned out to be the same kind of fault — a
 harness that stops working and does not say so — and because the second of
 them was about to be filed as a combat-balance problem it was not.
+
+It did not stay there. Pulling the unfixed capture produced a screenshot
+nobody had ever seen, and that screenshot found a bug in what insurance
+pays. Running the first full sweep since M9 found five more screens that had
+quietly stopped being photographed, and behind them the first screen a
+player sees, the first screen a player types into, and the control that
+places an order on the Bourse — all three wrong, all three in ways only a
+picture shows.
 
 ## What was run
 
