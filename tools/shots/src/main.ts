@@ -497,9 +497,24 @@ async function capture(
 
     await page.goto(`${baseUrl}${screen.path ?? '/'}`, { waitUntil: 'networkidle' });
     if (screen.settle) {
-      await page.waitForSelector(screen.settle, {
-        timeout: screen.settleTimeoutMs ?? 20_000,
-      });
+      try {
+        await page.waitForSelector(screen.settle, {
+          timeout: screen.settleTimeoutMs ?? 20_000,
+        });
+      } catch (error) {
+        // A selector timeout names the selector and nothing else. What the
+        // page is actually showing is the only thing that explains it, and
+        // a screen that never settled is photographed anyway so there is
+        // something to look at.
+        const body = (await page.locator('body').innerText().catch(() => '')).slice(0, 400);
+        await page
+          .screenshot({ path: resolve(options.outDir, `${screen.name}-stuck.png`) })
+          .catch(() => undefined);
+        throw new Error(
+          `${screen.name} never settled on "${screen.settle}".\nOn screen:\n${body}`,
+          { cause: error },
+        );
+      }
     }
     // Settle first, then act: the ship has to exist before it can be flown.
     if (screen.settleMs) await sleep(screen.settleMs);

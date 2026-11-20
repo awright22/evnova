@@ -207,8 +207,7 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
   // --- 2. Alongside ----------------------------------------------------
   await bringHer(page);
   await page.waitForSelector('.hud__travel', { timeout: 30_000 });
-  await page.keyboard.press('KeyL');
-  await page.waitForSelector('.port', { timeout: 30_000 });
+  await comeAlongside(page);
   record('alongside', await endorsed('land'));
   await page.waitForTimeout(600);
 
@@ -266,8 +265,7 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
   await page.waitForSelector('.hud__travel', { timeout: 90_000 }).catch(() => undefined);
   const inReach = (await page.locator('.hud__travel').count()) > 0;
   if (inReach) {
-    await page.keyboard.press('KeyL');
-    await page.waitForSelector('.port', { timeout: 30_000 });
+    await comeAlongside(page);
     await openCounter(page, /open the floor/i, '.staple__table');
     await dismissHint(page);
     const sell = page.locator('.staple__order:not([disabled])').nth(1);
@@ -288,6 +286,36 @@ async function play(browser: Playwright.Browser, baseUrl: string): Promise<void>
     console.warn(`  page errors:\n    ${problems.slice(0, 5).join('\n    ')}`);
   }
   await context.close();
+}
+
+/**
+ * Make fast alongside.
+ *
+ * The berth refuses a fast approach, and a hull that has just come out of
+ * a lane is doing nearly top speed — which is how the first version of
+ * this pressed L on arrival, was declined, and waited thirty seconds for a
+ * berth screen that was never going to open. So: brake until the prompt
+ * stops saying the approach is too fast, then press it.
+ */
+async function comeAlongside(page: Playwright.Page): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.keyboard.down('ArrowDown');
+    for (let i = 0; i < 40; i += 1) {
+      await page.waitForTimeout(200);
+      if ((await speedOf(page)) < 60) break;
+    }
+    await page.keyboard.up('ArrowDown');
+    await page.waitForTimeout(400);
+
+    await page.keyboard.press('KeyL');
+    try {
+      await page.waitForSelector('.port', { timeout: 12_000 });
+      return;
+    } catch {
+      // Still moving, or drifted out of reach while braking. Round again.
+    }
+  }
+  await page.waitForSelector('.port', { timeout: 20_000 });
 }
 
 /**

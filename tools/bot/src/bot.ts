@@ -227,22 +227,22 @@ export interface BotOptions {
    */
   readonly onJumped?: (systemId: string, deviceToken: string | undefined) => void;
   /**
-   * Fraction of this bot's input frames to drop, 0 to 1.
+   * Fraction of this bot's input frames to stall, 0 to 1.
    *
    * The spec budgets "no visible rubber-banding" at 150 ms latency and 2%
    * packet loss. A WebSocket runs over TCP, so a lost packet is not a lost
-   * message: it is a retransmission, and every message still arrives, in
-   * order, late. What a client actually has to survive is therefore a frame
-   * of input that reaches the server behind the frames after it, or not at
-   * all before the server has stepped past it — and that is what this
-   * models, by not sending that frame.
+   * message: it is retransmitted, and everything queued behind it waits.
+   * Head-of-line blocking is what a client actually has to survive, and it
+   * is what this models — a stalled frame is held and goes out with the
+   * next one, two sends in a step.
    *
-   * It is the harsher of the two: a dropped input is a step the server
-   * fills in by repeating the last one, which is exactly the case the
-   * reconciler has to correct without the hull snapping. A real 2% loss on
-   * TCP would mostly be absorbed as jitter.
+   * The first version of this dropped the frame instead, which is harsher
+   * and also wrong: the sequence the reconciler replays against has a hole
+   * in it that the server never acknowledges, so the replay buffer fills
+   * and the SDK warns that reconciliation may drift. That is a broken
+   * harness, not a netcode finding.
    */
-  readonly inputLoss?: number;
+  readonly inputStall?: number;
 }
 
 /**
@@ -297,8 +297,8 @@ export interface BotTelemetry {
   readonly lastRefusal: string;
   readonly landedAt: string;
   readonly steps: number;
-  /** Input frames this bot deliberately threw away, for the loss report. */
-  readonly inputsDropped: number;
+  /** Input frames this bot deliberately held back a step. */
+  readonly inputsStalled: number;
   readonly shipsSeen: number;
 }
 
@@ -306,8 +306,11 @@ export class Bot {
   private frameTimer: NodeJS.Timeout | undefined;
   private steps = 0;
 
-  /** Input frames deliberately not sent, for the loss report. */
+  /** Input frames deliberately held back, for the network-feel report. */
   private dropped = 0;
+
+  /** Whether last frame's input is still waiting to go out. */
+  private stalled = false;
 
   /**
    * The loss generator.
@@ -318,9 +321,9 @@ export class Bot {
    */
   private lossRng = new Rng('loss');
 
-  /** Whether this frame's input is thrown away. */
-  private dropThisFrame(): boolean {
-    const rate = this.options.inputLoss ?? 0;
+  /** Whether this frame's input waits for the next one. */
+  private stallThisFrame(): boolean {
+    const rate = this.options.inputStall ?? 0;
     return rate > 0 && this.lossRng.next() < rate;
   }
   private closed = false;
@@ -701,11 +704,20 @@ export class Bot {
       this.input.data.brake = false;
 
       this.options.brain.decide(view, this.input.data);
-      // A dropped frame: the command is decided, and simply does not leave.
-      // The server fills the gap with the last input it has, and the
-      // reconciler gets to correct whatever that cost.
-      if (this.dropThisFrame()) this.dropped++;
-      else this.input.send();
+      // A stalled frame waits for the next one and they go out together:
+      // the sequence stays contiguous, and the step that was held carries
+      // the newer command, which is the misprediction the reconciler has
+      // to correct. That correction is the rubber-banding being measured.
+      if (this.stalled) {
+        this.input.send();
+        this.stalled = false;
+      }
+      if (this.stallThisFrame()) {
+        this.stalled = true;
+        this.dropped++;
+      } else {
+        this.input.send();
+      }
       this.steps++;
     }
   }
@@ -813,7 +825,7 @@ export class Bot {
       pendingInputs: this.input.pendingCount,
       inputsSent: this.input.sentCount,
       steps: this.steps,
-      inputsDropped: this.dropped,
+      inputsStalled: this.dropped,
       shipsSeen: this.room.state.ships.size,
     };
   }

@@ -812,3 +812,15 @@ and jump. The verify harnesses fly the bot client, which has no screens, and
 the capture harness lands for a photograph and never leaves — which is how a
 captain who could not launch again went unnoticed. It carries the screen
 assertions as well as the sound log.
+
+**2026-11-20 — Packet loss is modelled as head-of-line blocking.** The spec
+budgets no visible rubber-banding at 150 ms and 2% packet loss. The first
+attempt had each bot drop that fraction of its input frames, which is wrong
+twice over: a WebSocket runs over TCP, so a lost packet is retransmitted and
+everything behind it waits rather than vanishing; and a dropped frame leaves
+a hole in the sequence the reconciler replays against, which the server never
+acknowledges, so the replay buffer fills and the SDK warns about drift. That
+is a broken harness reporting on itself. A stalled frame is held and goes out
+with the next one — the sequence stays contiguous, the held step carries the
+newer command, and the correction that follows is the rubber-banding the
+budget is about.
