@@ -118,6 +118,60 @@ interface Check {
 
 const checks: Check[] = [];
 
+/**
+ * Fly out past the star until a lane will take.
+ *
+ * A jump is refused inside `JUMP_CLEARANCE` — 2,600 units from the star —
+ * and drifting back inside it cancels the spool. This harness used to press
+ * J wherever the captain happened to be after trading and launching, which
+ * works whenever the berth it left is far enough out and does not when it
+ * is not. That is what `parity -> parity` was: not a slow box, a jump the
+ * server was right to refuse.
+ */
+async function flyClear(
+  page: Playwright.Page,
+  want = 3400,
+  ms = 45_000,
+): Promise<number> {
+  const read = (): Promise<{ x: number; y: number; angle: number } | null> =>
+    page.evaluate<{ x: number; y: number; angle: number } | null>(`(function () {
+      var h = window.__marqueHarness;
+      if (!h) return null;
+      var s = h.room.state.ships.get(h.room.sessionId);
+      if (!s) return null;
+      return { x: s.x, y: s.y, angle: s.angle };
+    })()`);
+
+  const deadline = Date.now() + ms;
+  let reached = -1;
+  while (Date.now() < deadline) {
+    const me = await read();
+    if (!me) break;
+    reached = Math.hypot(me.x, me.y);
+    if (reached >= want) return reached;
+
+    // The star is at the origin, so the bearing straight out is the
+    // position's own angle, and the turn needed is the shortest arc from
+    // the nose to it.
+    const outward = Math.atan2(me.y, me.x);
+    let off = outward - me.angle;
+    while (off > Math.PI) off -= Math.PI * 2;
+    while (off < -Math.PI) off += Math.PI * 2;
+
+    if (Math.abs(off) > 0.35) {
+      const key = off > 0 ? 'ArrowRight' : 'ArrowLeft';
+      await page.keyboard.down(key);
+      await page.waitForTimeout(200);
+      await page.keyboard.up(key);
+    } else {
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(1200);
+      await page.keyboard.up('ArrowUp');
+    }
+  }
+  return reached;
+}
+
 function record(name: string, passed: boolean): void {
   checks.push({ name, passed });
   console.log(`  ${passed ? 'ok  ' : 'FAIL'} ${name}`);
@@ -417,6 +471,8 @@ async function listen(
     var h = window.__marqueHarness;
     return h ? h.room.state.systemId : '';
   })()`);
+  const outAt = await flyClear(page);
+  console.log(`  clear of the star at ${Math.round(outAt)}u (a lane needs 2600)`);
   await page.keyboard.press('KeyJ');
   // Waited for, not timed.
   //
@@ -436,6 +492,13 @@ async function listen(
       })()`),
     );
     if (after !== '' && after !== String(before)) break;
+    // Ask again every few seconds. A lane refused for being too close, or a
+    // spool cancelled by drifting back inside the clearance, leaves nothing
+    // on screen for this loop to notice — and one press that was refused
+    // looks exactly like a press that is still spooling.
+    if (Math.round((Date.now() - (laneBy - 45_000)) / 500) % 12 === 0) {
+      await page.keyboard.press('KeyJ');
+    }
   }
   record(
     `a plotted lane takes the captain somewhere else (${String(before)} -> ${String(after)})`,

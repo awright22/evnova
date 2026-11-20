@@ -465,7 +465,22 @@ async function engageNearest(
         Math.max(AIM_TOLERANCE, Math.atan2(HULL_HALF_WIDTH, Math.max(1, aim.range))),
       );
 
-      if (Math.abs(aim.delta) > tolerance) {
+      // Far out, close first and aim later.
+      //
+      // The turn below holds until the nose is inside `tolerance`, which at
+      // 1,151 units is 0.12 radians — and at the two-second round trip this
+      // box runs under, a hull that reads its bearing, turns, and reads
+      // again has already swung past it. Cycle 6's `posted` capture spent
+      // ninety seconds at a range frozen on 1,151 with its bearing swinging
+      // between +3.08 and -2.39: a gunner spinning on the spot, never
+      // satisfying the gate that lets it burn.
+      //
+      // Distance is the thing to fix first. Out of gun reach, roughly
+      // pointed is enough to be worth burning; the tight tolerance still
+      // applies once the mark is inside reach and the shot is the point.
+      const roughly = aim.range > GUN_REACH && Math.abs(aim.delta) < 0.8;
+
+      if (Math.abs(aim.delta) > tolerance && !roughly) {
         // Hold the turn until the nose comes round, releasing a little early
         // so the hull's remaining spin carries it the rest of the way.
         const key = aim.delta > 0 ? 'ArrowRight' : 'ArrowLeft';
