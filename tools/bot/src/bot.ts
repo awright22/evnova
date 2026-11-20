@@ -345,7 +345,7 @@ export class Bot {
     private readonly self: ShipState,
     private predict: Predict<SystemState>,
     private me: Reconciler<ShipState>,
-    private readonly input: InputHandle<ShipInput>,
+    private input: InputHandle<ShipInput>,
     private readonly options: BotOptions,
     private readonly profile: ShipProfile,
   ) {
@@ -596,6 +596,15 @@ export class Bot {
     // reconcilers fighting over one channel, which reports as divergence on
     // velocity. This is what the browser does by remounting the flight view.
     this.predict.dispose();
+    // A fresh input handle too, not the old one. Its pending queue holds
+    // every input the server has not acknowledged, and the server will
+    // never acknowledge the ones sent for a hull it no longer has — so a
+    // bot that is written off and set down again carries that queue
+    // forward until the SDK warns that its replay buffer has overflowed.
+    // The browser gets this for free by remounting the flight view, which
+    // takes a new handle; this is the same thing done deliberately.
+    this.input = this.room.input({ type: ShipInput });
+    this.stalled = false;
     this.predict = Predict.get(this.room, { mode: 'lerp', delay: INTERP_DELAY_MS });
     this.predict.attachAll('ships', { mode: 'lerp', fields: ['x', 'y', 'vx', 'vy'] });
     this.predict.attachAll('ships', { mode: 'lerp', fields: ['angle'], angle: true });
