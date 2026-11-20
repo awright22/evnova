@@ -36,7 +36,8 @@
     "verify:orders": "tsx tools/verify/src/orders.ts",
     "verify:range": "tsx tools/verify/src/range.ts",
     "verify:admin": "tsx tools/verify/src/admin.ts",
-    "audio": "tsx tools/audio/src/main.ts"
+    "audio": "tsx tools/audio/src/main.ts",
+    "onboarding": "tsx tools/audio/src/onboarding.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

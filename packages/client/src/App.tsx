@@ -240,9 +240,19 @@ function Game({
       // its way out by the time the hull is actually alongside.
       flightAudio()?.land();
     }
+    if (mode.kind === 'jumping') {
+      // The whump, and the spool released into it. Heard here for the same
+      // reason: the lane takes the hull by taking the room, so the flight
+      // view is gone before its own loop could see the spool end.
+      flightAudio()?.endSpool(true);
+    }
   }, [mode.kind, endorsed]);
 
-  const arrivedIn = snapshot.systemId;
+  // The system the captain is actually in. `snapshot.systemId` is empty
+  // until a room is attached, and the purse carries it in the meantime —
+  // which is why the arrival chime never sounded: the effect below read the
+  // empty one and returned every time.
+  const arrivedIn = snapshot.systemId || purse.system;
   const firstSystem = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (arrivedIn === '') return;
