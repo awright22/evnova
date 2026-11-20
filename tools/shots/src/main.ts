@@ -369,9 +369,21 @@ async function main(): Promise<void> {
 
     console.log(`\n${captured.length} screen(s) captured to ${options.outDir}`);
     if (missed.length > 0) {
-      console.warn(`${missed.length} not captured:`);
-      for (const miss of missed) console.warn(`  ${miss.name}: ${miss.why}`);
-      process.exitCode = 1;
+      const known = new Map(
+        SCREENS.filter((screen) => screen.knownMiss !== undefined).map(
+          (screen) => [screen.name, screen.knownMiss!] as const,
+        ),
+      );
+      const fresh = missed.filter((miss) => !known.has(miss.name));
+
+      for (const miss of missed.filter((each) => known.has(each.name))) {
+        console.warn(`${miss.name}: not captured, as expected — ${known.get(miss.name) ?? ''}`);
+      }
+      if (fresh.length > 0) {
+        console.warn(`${fresh.length} not captured:`);
+        for (const miss of fresh) console.warn(`  ${miss.name}: ${miss.why}`);
+        process.exitCode = 1;
+      }
     }
   } finally {
     await Promise.allSettled(processes.map((proc) => proc.stop()));

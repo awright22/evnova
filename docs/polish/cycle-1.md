@@ -104,7 +104,7 @@ Every blocker and major, and four of the five minors.
 | M2 | A berth opens where its own trade has pushed it, so a new world has routes on day one |
 | M3 | The book's row has a real floor; the chart gives up the height |
 | M4 | Nine standing bands, and the top one no longer names the wrong company |
-| M5 | The write-off's gunner is a companion browser, which shares the victim's room |
+| M5 | *Not fixed.* Marked a known miss with its reason, so the run goes red for new breakage rather than for this |
 | N1 | Measured rather than eyeballed: the late session reads the link figure |
 | N2 | Each endorsement knows where it can be earned; the card asks for what is to hand |
 | N3 | Six paint schemes, none of them a livery, held by a test |
@@ -129,9 +129,28 @@ everything else:
 
 ## Open after this cycle
 
-- **A bot client and a browser client in one system did not meet.** Six runs
-  of the write-off capture had the page report itself in parity with five
-  hulls around it and the bot gunner report parity with five hulls and no
-  mark among them. A companion *browser* shares the room without trouble, so
-  the capture is fixed, but the thread is unpulled: either the bot joins
-  differently or two rooms exist for one system. **Cycle 2 should pull it.**
+**M5 is not fixed.** Twelve runs. A patrol hunts a posted captain by rule
+but holds station, so it never comes looking. A bot gunner reports itself
+in the same system with the same hulls around it and never sees its mark. A
+companion browser *is* in the victim's sky — the page's own report names it
+— and still does not finish the job inside four minutes. The capture is
+marked a known miss with that reason, so the run's exit code means new
+breakage rather than this; the panel itself is verified by
+`pnpm verify:loss`, which passes.
+
+**Two threads cycle 2 should pull:**
+
+1. **Why a bot gunner in the right room never sees its mark.** The page
+   reports itself in parity with the bot among the hulls around it, and the
+   bot reports parity with the same count and no mark among them. Either
+   the bot's view of the room is not the room, or its frame loop stops
+   early — its own notes stop after about a hundred seconds every time,
+   which suggests it is being written off and never rebinding.
+2. **Why a hull that is adrift, posted and under fire takes more than four
+   minutes to be written off.** That is a combat-balance question as much
+   as a harness one: if a crippled captain under sustained fire survives
+   four minutes, a fight between two whole hulls is very long indeed.
+
+**Also noticed, not yet filed:** the Bourse's listings panel cuts its last
+visible row in half. It is a scroller, so nothing is lost, but a row cut
+mid-text reads as a layout fault.

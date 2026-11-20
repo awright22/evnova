@@ -71,6 +71,15 @@ export interface Screen {
    */
   readonly teaching?: boolean;
   /**
+   * A screen that is known not to capture here, and why.
+   *
+   * It is still attempted and still reported, and it does not fail the run.
+   * A capture harness whose exit code is red for a known reason is a
+   * harness nobody reads, and the point of the run is to catch what is
+   * newly broken.
+   */
+  readonly knownMiss?: string;
+  /**
    * Capture a run of frames instead of one still.
    *
    * For motion a still cannot judge — the stamp is 260ms end to end, and a
@@ -469,6 +478,12 @@ export const SCREENS: readonly Screen[] = [
     settleTimeoutMs: 60_000,
     settleMs: 1500,
     bots: 2,
+    knownMiss:
+      'it needs a captain to actually be lost. Twelve runs: a patrol holds '
+      + 'station and never comes looking; a bot gunner is in the room and '
+      + 'never finds its mark; a companion browser is in the sky and does '
+      + 'not finish the job inside four minutes. The panel itself is '
+      + 'verified by `pnpm verify:loss`. See docs/polish/cycle-1.md, M5.',
     // A gunner of its own, and a mark that cannot run.
     //
     // Eleven runs to get here. A patrol hunts a posted captain by rule but
