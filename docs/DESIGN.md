@@ -824,3 +824,34 @@ is a broken harness reporting on itself. A stalled frame is held and goes out
 with the next one — the sequence stays contiguous, the held step carries the
 newer command, and the correction that follows is the rubber-banding the
 budget is about.
+
+**2026-11-20 — A write-off waits for the captain, not for the clock.** The
+server settles a loss on its own schedule: six seconds after the hull comes
+apart it takes the wreck off the books and stands the captain on their last
+berth. That is right for the world and wrong for the person, who gets about
+five seconds with the one screen that says what the loss cost. Nothing is in
+doubt by then — settled, paid, persisted — so the client holds only the
+*view*: `landed` and `jump-complete` are parked while a loss is unread, and
+"Go ashore" releases them. The alternative, lengthening the wreck, would have
+changed the world to suit the interface.
+
+**2026-11-20 — A scroller says whether it is overflowing; CSS cannot.**
+`overflow-y: auto` looks identical on a panel with forty rows and one with
+three, so a fade on the bottom edge either cuts complete lists or never
+appears. A hook watches scroll position, the box and the content, and sets
+`data-more`; the stylesheet keys off that. Bottom edge only, because every
+table here keeps a sticky header that already covers the top.
+
+**2026-11-20 — Damage lives on the captain's row, so every hull change must
+clear it.** The structure a berth quotes comes from `pilot.moduleHp`, not from
+the hull. `switchTo` cleared it; `writeOff` did not, and insurance handed back
+replacements reading at a third structure. Clearing now happens inside
+`writeOff` rather than at its call site: the array is the Yard's to reset
+whenever it changes what a captain is flying.
+
+**2026-11-20 — Harness processes are reaped by their parent's signal
+handler.** Tools start servers in their own process group, which is what keeps
+a `pnpm exec` grandchild from being orphaned — and also what keeps the group
+alive when the tool itself is killed. A run stopped with SIGTERM left a server
+listening and the next run refused to start. The group registry is swept from
+SIGINT/SIGTERM/SIGHUP and from `exit`.
