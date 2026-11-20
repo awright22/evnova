@@ -11,6 +11,23 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Fetch git dependencies over HTTPS, not SSH.
+#
+# Colyseus pulls in `@colyseus/uwebsockets-transport` as an optional peer, and
+# that resolves `uWebSockets.js` straight from GitHub. The lockfile pins the
+# SSH form, `git@github.com:uNetworking/uWebSockets.js.git`, which a runner has
+# no key for — so `pnpm install` died with "Permission denied (publickey)"
+# before any of these jobs ran a single test. It had done so on every push
+# since this workflow was written. Git's own config-through-environment is the
+# smallest fix that covers every job and every tool that shells out to git.
+#
+# The server imports none of this: uWebSockets is an optional peer of a
+# transport we do not use. It is resolved because it is in the graph.
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+  GIT_CONFIG_VALUE_0: 'git@github.com:'
+
 jobs:
   check:
     name: Check and build
