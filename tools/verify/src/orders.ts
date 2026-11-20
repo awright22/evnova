@@ -19,6 +19,7 @@ import { ColyseusSDK, type Room } from '@colyseus/sdk';
 import {
   SERVER_MESSAGES,
   SystemState,
+  loadContent,
   type Listing,
   type MarginState,
   type OrderLine,
@@ -71,6 +72,17 @@ interface Captain {
   board: Board | undefined;
   /** Every `order` push, in order: fills and liquidations arrive here. */
   readonly told: { kind: string; ticker: string; shares: number; total: number }[];
+  /**
+   * Marks that arrived for reasons that have nothing to do with an order.
+   *
+   * The Bourse pays dividends on the world's clock, and this harness runs
+   * the world at six hundred times, so a captain who holds eight shares for
+   * a second of wall clock is paid several times over. Netting these out is
+   * the difference between checking that an order cost what it said and
+   * checking that nothing else happened to the captain meanwhile — and the
+   * second is not a thing a market is supposed to guarantee.
+   */
+  dividends: number;
 }
 
 async function connect(
@@ -83,13 +95,17 @@ async function connect(
     SystemState,
   );
 
-  const captain: Captain = { room, purse: undefined, board: undefined, told: [] };
+  const captain: Captain = { room, purse: undefined, board: undefined, told: [], dividends: 0 };
 
   for (const type of SERVER_MESSAGES) room.onMessage(type, () => undefined);
   room.onMessage('purse', (payload) => (captain.purse = payload as Purse));
   room.onMessage('bourse', (payload) => (captain.board = payload as Board));
   room.onMessage('order', (payload) =>
     captain.told.push(payload as { kind: string; ticker: string; shares: number; total: number }),
+  );
+  room.onMessage(
+    'dividend',
+    (payload) => (captain.dividends += (payload as { marks: number }).marks),
   );
 
   return captain;
@@ -142,7 +158,15 @@ async function main(): Promise<void> {
     STARTING_MARKS: '2000000',
     // A market tick every thirty milliseconds of real time, so an order that
     // waits for the next one waits for the next frame.
-    ECONOMY_TIME_SCALE: '600',
+    // Fast enough that an order fills while a harness is watching, slow
+    // enough that the harness can see it happen.
+    //
+    // At 600 a market tick lands every 33ms, and a short opened against a
+    // moving price was filled, carried, margin-called and bought back inside
+    // one 15-second window — so `until(held < 0)` looked, found nothing, and
+    // reported a position that had never been carried. A tick every third of
+    // a second still gives dozens of ticks per check.
+    ECONOMY_TIME_SCALE: '60',
   };
 
   const tokens = await runSeed(
@@ -271,10 +295,43 @@ async function main(): Promise<void> {
         `quote now ${quoteOf(trader)?.price.toFixed(2) ?? '?'} against a limit of ${high}`,
     );
 
+    // What the order paid, not where the market has got to since.
+    //
+    // This used to read the live quote, which at six hundred times the
+    // world's clock is a different market by the time it is read: KSC opens
+    // at 8.20, the limit is set at 8.36, eight shares fill, and the house
+    // trader then walks the quote to 19.95 on its own while the rest of the
+    // order sits unfilled because the limit is binding exactly as it should.
+    // The check was reporting the house trader's work as a limit violation.
+    //
+    // The limit is a promise about the price the captain pays, so that is
+    // what is measured: settled marks over shares filled, which carries the
+    // Bourse's fee on top and is rounded up per fill.
+    // Reckoned in whole marks, because that is the only kind there are.
+    //
+    // Eight shares at a limit of 8.36 is 66.88, and a pool that cannot
+    // charge fractions charges 67, then a mark of fee on top: 8.5 a share
+    // against a limit of 8.36. Comparing an average price to the limit calls
+    // that a violation. Comparing what was settled against what the limit
+    // permits once everything is rounded up does not, and is the same
+    // statement about the same promise.
+    const feeRate = loadContent().tuning.exchange.feeRate;
+    const filledShares = after?.filled ?? 0;
+    // Rounding is charged per fill, not per order: an order that fills over
+    // nine market ticks rounds its principal up nine times and its fee up
+    // nine times. Two marks of slack a fill covers both.
+    const ticksFilled = trader.told.filter(
+      (line) => line.kind === 'filled' && line.ticker === TICKER,
+    ).length;
+    const permitted =
+      Math.ceil(high * filledShares * (1 + feeRate)) + 2 * Math.max(1, ticksFilled);
     record(
-      'and the quote it left behind is no worse than the limit',
-      (quoteOf(trader)?.price ?? 0) <= high + 0.01,
-      `${quoteOf(trader)?.price.toFixed(2) ?? '?'} against ${high}`,
+      'and it paid no more than the limit, fee and rounding included',
+      filledShares > 0 && (after?.settled ?? 0) <= permitted,
+      `${after?.settled ?? 0} marks for ${filledShares} shares over ${ticksFilled} fill(s) ` +
+        `against ${permitted} permitted at a limit of ${high} plus a ` +
+        `${(feeRate * 100).toFixed(1)}% fee; quote now ` +
+        `${quoteOf(trader)?.price.toFixed(2) ?? '?'}`,
     );
 
     // Withdrawn before the purse is counted: the order goes on filling every
@@ -284,12 +341,26 @@ async function main(): Promise<void> {
     await sleep(1200);
     const settled = orderOf(trader, filling.id);
 
+    // Every figure that bears on this, not just the two that disagree. A
+    // mismatch here is either a ledger fault or a reading taken at the wrong
+    // instant, and "58 against 68" cannot tell you which.
+    const fillNotices = trader.told.filter(
+      (line) => line.kind === 'filled' && line.ticker === TICKER,
+    );
+    const noticed = fillNotices.reduce((sum, line) => sum + line.total, 0);
+    const gone = marksBefore - (trader.purse?.marks ?? 0);
+    // The shares bought start earning the moment they are held, and the
+    // world is running at six hundred times, so by the time the purse is
+    // read the Bourse has already paid on them. That is income, not a
+    // discount on the order: net it out and the two figures are the same.
+    const cost = gone + trader.dividends;
     record(
       'the marks it cost actually left the purse',
-      (trader.purse?.marks ?? 0) < marksBefore &&
-        marksBefore - (trader.purse?.marks ?? 0) === (settled?.settled ?? -1),
-      `${marksBefore - (trader.purse?.marks ?? 0)} marks gone against ` +
-        `${settled?.settled ?? 0} settled`,
+      (trader.purse?.marks ?? 0) < marksBefore && cost === (settled?.settled ?? -1),
+      `${gone} marks gone (${marksBefore} to ${trader.purse?.marks ?? 0}) plus ` +
+        `${trader.dividends} paid back as dividends is ${cost}, against ` +
+        `${settled?.settled ?? 0} settled over ${settled?.filled ?? 0} shares; ` +
+        `${fillNotices.length} fill notice(s) totalling ${noticed}`,
     );
 
     record(
@@ -351,7 +422,30 @@ async function main(): Promise<void> {
     );
 
     const purseBefore = bear.purse?.marks ?? 0;
-    const size = Math.max(1, Math.floor(cap * 0.3));
+
+    // A short this purse can carry, worked out from what the Bourse says it
+    // wants rather than from a fixed slice of the holding cap.
+    //
+    // The fixed slice was 30% of the cap, which is a number that only works
+    // at the price the fixture was written against. KSC opens at 8.20 and
+    // the house trader walks it to 19.95 before this runs, at which point
+    // 30% of a 1,000-share cap wants 2,992 marks of margin against a purse
+    // of 2,975 and the Bourse refuses — correctly, and for a reason that has
+    // nothing to do with what this check is about.
+    //
+    // Eight tenths of the largest short the equity covers: comfortably
+    // inside the initial margin, and still large enough that the cargo
+    // purchase further down takes the captain through the maintenance line,
+    // which is what the liquidation checks need.
+    const live = quoteOf(bear)?.price ?? 1;
+    const initial = bear.board?.margin.initial ?? 0.5;
+    const equity = bear.board?.margin.equity ?? purseBefore;
+    const covers = Math.floor(equity / Math.max(0.01, live * initial));
+    const size = Math.max(1, Math.min(cap, Math.floor(covers * 0.8)));
+    console.log(
+      `    [short] ${size} shares at ${live.toFixed(2)}: wants ` +
+        `${Math.ceil(size * live * initial)} of ${equity} equity at an initial of ${initial}`,
+    );
     const shortOrder = await bear.room.request<PlaceOrderIntent, OrderLine>('place-order', {
       side: 'sell',
       ticker: TICKER,

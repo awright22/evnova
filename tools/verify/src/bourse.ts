@@ -104,10 +104,16 @@ const GUNSHIP = [
 /**
  * A draught that is almost entirely Slipway's work.
  *
- * Every draught needs a bridge and the only bridges are the Chandlery's, so
- * the Chandlery takes four and a half thousand of a fifty-three thousand
- * mark hull. The rest is heavy yards, which is the point: this is the
- * purchase that is supposed to move SLP and nothing else.
+ * Every draught needs a bridge and a propellant tank, and the only ones of
+ * either are the Chandlery's, so the Chandlery takes 5,100 of a 48,200 mark
+ * hull. The rest is heavy yards, which is the point: this is the purchase
+ * that is supposed to move SLP and nothing else.
+ *
+ * The tank is here because it has to be. Without it this design is refused
+ * `no-tank` under every licence, which it was — so the four checks that
+ * depend on this build had been failing for as long as the fixture has
+ * existed, and the loop below swallowed the refusal and reported "0 marks"
+ * instead of the reason the Yard had already given it.
  */
 const SLIPWAY_HEAVY = [
   { moduleId: 'slp-engine-4', x: 0, y: 0, rotation: 0 },
@@ -117,6 +123,7 @@ const SLIPWAY_HEAVY = [
   { moduleId: 'slp-armour-2', x: 2, y: 1, rotation: 0 },
   { moduleId: 'slp-reactor-2', x: 3, y: 0, rotation: 0 },
   { moduleId: 'slp-reactor-3', x: 3, y: 2, rotation: 0 },
+  { moduleId: 'hrc-tank-1', x: 2, y: 2, rotation: 0 },
   { moduleId: 'hrc-bridge-1', x: 5, y: 0, rotation: 0 },
 ];
 
@@ -607,7 +614,17 @@ async function main(): Promise<void> {
     await builder.room.request('land', { port: yardBerth.id });
     await sleep(3500);
 
+    // The Yard sends the survey's problems alongside the refusal, on their
+    // own message, because the editor marks them on the grid. A harness that
+    // throws them away reports "0 marks" for a design the server has already
+    // explained in full.
+    let survey: readonly { code: string }[] = [];
+    builder.room.onMessage('survey', (message: { problems?: readonly { code: string }[] }) => {
+      survey = message.problems ?? [];
+    });
+
     let spent = 0;
+    let buildRefusal = '';
     for (let i = 0; i < 4; i++) {
       try {
         const receipt: unknown = await builder.room.request('build', {
@@ -615,7 +632,11 @@ async function main(): Promise<void> {
           placements: SLIPWAY_HEAVY,
         });
         spent += (receipt as { marks: number }).marks;
-      } catch {
+      } catch (error) {
+        buildRefusal = (error as { reason?: string }).reason ?? 'unknown';
+        if (survey.length > 0) {
+          buildRefusal += ` (${survey.map((problem) => problem.code).join(', ')})`;
+        }
         break;
       }
       await sleep(150);
@@ -624,7 +645,9 @@ async function main(): Promise<void> {
     record(
       'a captain can spend heavily on one maker in a session',
       spent > 0,
-      `${spent.toLocaleString()} marks of Slipway fittings`,
+      spent > 0
+        ? `${spent.toLocaleString()} marks of Slipway fittings`
+        : `the Yard refused the draught: ${buildRefusal}`,
     );
 
     await sleep(16_000);
