@@ -2150,6 +2150,7 @@ export class SystemRoom extends Room<{
     const now = this.clock.elapsedTime;
 
     this.maintainNpcs();
+    const afterNpcs = performance.now();
 
     for (const [id, ship] of this.state.ships) {
       const runtime = this.runtimes.get(id);
@@ -2172,8 +2173,10 @@ export class SystemRoom extends Room<{
       this.regenerateShield(ship, runtime, ctx.dt, now);
     }
 
+    const afterFlight = performance.now();
     this.combat.step(ctx.dt, ctx.tick);
     this.combat.stepCanisters(ctx.dt);
+    const afterCombat = performance.now();
 
     // Position and damage are fast-changing, so they are copied to the
     // captain's row on a cadence rather than every step; the world writes
@@ -2183,7 +2186,17 @@ export class SystemRoom extends Room<{
     }
 
     this.state.tick = ctx.tick;
-    this.tick.record(performance.now() - startedAt);
+    const total = performance.now() - startedAt;
+    if (process.env.MARQUE_TICK_TRACE === '1' && total > 3) {
+      console.log(
+        `[slow tick ${total.toFixed(2)}ms] npcs=${(afterNpcs - startedAt).toFixed(2)} ` +
+          `flight=${(afterFlight - afterNpcs).toFixed(2)} ` +
+          `combat=${(afterCombat - afterFlight).toFixed(2)} ` +
+          `persist=${(performance.now() - afterCombat).toFixed(2)} ` +
+          `ships=${this.state.ships.size}`,
+      );
+    }
+    this.tick.record(total);
   }
 
   /**

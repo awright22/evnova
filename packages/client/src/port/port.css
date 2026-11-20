@@ -112,6 +112,19 @@
 .port__service > div {
   display: grid;
   gap: 1px;
+  min-width: 0;
+}
+
+/*
+ * A berth's own action never wraps.
+ *
+ * "Open the Bourse" broke across two lines and read as a layout fault
+ * rather than as a control; the row has somewhere to take the width from,
+ * which is the sentence beside it.
+ */
+.port__service .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .port__service-name {

@@ -240,7 +240,7 @@ export function PortHub({
             {hasYard && (
               <ServiceRow
                 name="the Yard"
-                detail="Draw a draught, build it, or refit what you fly"
+                detail="Draw a draught, build it, or refit"
                 action="Open the Yard"
                 disabled={state.busy}
                 onAction={onOpenYard}
@@ -281,8 +281,8 @@ export function PortHub({
               name="Alongside"
               detail={
                 state.alongside > 0
-                  ? `${state.alongside} other ${state.alongside === 1 ? 'captain' : 'captains'} at this berth`
-                  : 'Hand marks, cargo or a draught to another captain'
+                  ? `${state.alongside} other ${state.alongside === 1 ? 'captain' : 'captains'} here`
+                  : 'Hand marks, cargo or a draught over'
               }
               action="Offers"
               disabled={state.busy}
@@ -291,10 +291,10 @@ export function PortHub({
 
             <ServiceRow
               name="Convoy"
+              // Short enough for one line: `.micro` shouts, and a sentence
+              // that wraps in it reads as two lines of shouting.
               detail={
-                state.convoy > 0
-                  ? `${state.convoy} sailing with you`
-                  : 'Sail with other captains, and share what a Factor gives you'
+                state.convoy > 0 ? `${state.convoy} sailing with you` : 'Sail with other captains'
               }
               action={state.convoyAsks > 0 ? `${state.convoyAsks} waiting` : 'Open it'}
               disabled={state.busy}
@@ -304,7 +304,7 @@ export function PortHub({
             {hasBourse && (
               <ServiceRow
                 name="the Bourse"
-                detail="Shares in the ten listed companies, and the Gazette"
+                detail="The ten listed companies, and the Gazette"
                 action="Open the Bourse"
                 disabled={state.busy}
                 onAction={onOpenBourse}
