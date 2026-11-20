@@ -282,10 +282,20 @@ down — `0 < 0 - 1` is never true, so the check could not fire against
 exactly the kind of mark the fix had just introduced. It answers for
 structure too now.
 
-What is still true: rounds are discrete, and whether any are in the gap at
-the instant of the shutter is luck at this latency. The screen's description
-says so rather than claiming otherwise. `beams` holds a continuous beam and
-does not have that problem.
+And a sixth, which the fix for the third created: a gunner told to stop at
+672 units arrived at 71, nose to nose, where the bearing swings faster than
+the hull can turn and the guns end up pointing at empty sky — because one
+2500ms burn carries a hull five hundred units before the loop can look
+again, and at this latency the look is already stale. It closes in short
+pulses now.
+
+Where it ended up: the capture shows the player's hull with its shield
+rippling under fire, a raider closing under engine plume, debris in the
+gap, a round in flight and a muzzle flash. That is a photograph of combat,
+which is what the screen is for. The description says plainly that whether a
+round is in the gap at the shutter is luck at this latency, rather than
+promising it. `beams` holds a continuous beam and does not have that
+problem.
 
 **N5. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
