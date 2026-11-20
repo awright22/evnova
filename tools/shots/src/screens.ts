@@ -528,7 +528,12 @@ export const SCREENS: readonly Screen[] = [
           marks: 50_000,
         },
         act: async (page) => {
-          await page.waitForSelector('.hud', { timeout: 60_000 });
+          // Two minutes. This is the first browser page of the run, opened
+          // straight after a client build, a server start, a preview and
+          // two bots — and a cold Chromium putting up a Pixi scene under
+          // software rasterisation on a loaded box has taken longer than a
+          // minute more than once.
+          await page.waitForSelector('.hud', { timeout: 120_000 });
           await page.waitForTimeout(2000);
           await page.focus('body');
           await page.keyboard.press('Tab');
