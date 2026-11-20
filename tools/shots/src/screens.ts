@@ -421,7 +421,15 @@ async function engageNearest(
 
       if (aim.range > GUN_REACH) {
         await page.keyboard.down('ArrowUp');
-        const closeUntil = Date.now() + 2500;
+        // Short pulses, not one long burn.
+        //
+        // A 2500ms burn carries a hull about five hundred units before the
+        // loop can look again, and at this latency the look is itself a
+        // couple of seconds stale — so a gunner told to stop at 672 arrived
+        // at 71, nose to nose with its mark, where the bearing swings faster
+        // than it can turn. Closing in short steps costs a few more round
+        // trips and stops where it is told.
+        const closeUntil = Date.now() + 900;
         while (Date.now() < closeUntil) {
           const now = await read();
           if (!now) break;
