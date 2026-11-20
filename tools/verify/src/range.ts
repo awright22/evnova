@@ -303,16 +303,21 @@ async function main(): Promise<void> {
       if (Date.now() - said > 20_000) {
         said = Date.now();
         const now = own();
-        const nearest = [...range.room.state.ships]
+        const me = range.room.state.ships.get(range.room.sessionId);
+        const spars = [...range.room.state.ships]
           .filter(([id]) => id !== range.room.sessionId)
           .map(([, ship]) => {
-            const me = range.room.state.ships.get(range.room.sessionId);
-            return Math.round(Math.hypot(ship.x - (me?.x ?? 0), ship.y - (me?.y ?? 0)));
+            let hp = 0;
+            for (const point of ship.moduleHp) hp += point;
+            const away = Math.round(Math.hypot(ship.x - (me?.x ?? 0), ship.y - (me?.y ?? 0)));
+            const gone = ship.destroyedAt > 0 ? ' WRECK' : '';
+            return `${away}u hp ${hp} shield ${Math.round(ship.shield)}${gone}`;
           });
         console.log(
           `    [range] shield ${Math.round(now.shield)}, structure ${now.hp} ` +
             `(opened at ${Math.round(opened.shield)}/${opened.hp}), ` +
-            `spars at ${nearest.join('u, ')}u`,
+            `rounds ${range.room.state.projectiles?.size ?? -1}; ` +
+            `spars: ${spars.join(' | ')}`,
         );
       }
       return (range.room.state.ships.get(range.room.sessionId)?.destroyedAt ?? 0) > 0;

@@ -343,6 +343,22 @@ async function main(): Promise<void> {
       `${rockBefore} down to ${rock.rock.left}`,
     );
 
+    // Watch for a write-off for the whole of the way home.
+    //
+    // Every belt in the Reach is in contested or lawless space, which is the
+    // spec's design — rock is on the frontier — so an unarmed rig with a
+    // full hold is exactly what a raider wants. The check above only covers
+    // the cutting. When the captain was killed on the run home instead, this
+    // harness reported "74770 units from Respondentia and the flight timed
+    // out", or a distance of -1 because the ship was not in the state at
+    // all, or a landing "refused: not-owned" — three descriptions of a
+    // symptom and none of the cause.
+    let lostGoingHome = false;
+    const watching = setInterval(() => {
+      const hull = room.state.ships.get(room.sessionId);
+      if (!hull || hull.destroyedAt > 0) lostGoingHome = true;
+    }, 250);
+
     // Back to the berth, which is where the hold is counted.
     // Well inside the berth's reach rather than at the edge of it: a hull
     // that stops at the tolerance and then coasts has to still be in reach
@@ -353,8 +369,18 @@ async function main(): Promise<void> {
     // arrives at a hundred a second.
     await brakeTo(room, flying, LANDING_SPEED / 2, 30_000);
 
+    clearInterval(watching);
+
     const me = room.state.ships.get(room.sessionId);
     const away2 = me ? Math.hypot(berth.x - me.x, berth.y - me.y) : -1;
+    if (lostGoingHome) {
+      record(
+        'the laden hull got home without being taken',
+        false,
+        'written off on the way back, with the ore aboard — every check below '
+          + 'this one is about that and not about mining',
+      );
+    }
     record(
       'and can fly the cargo back to the berth it came from',
       home && away2 >= 0 && away2 <= berth.radius + LANDING_RANGE,
