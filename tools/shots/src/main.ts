@@ -424,12 +424,19 @@ async function openCompanion(
     [callsign, deviceToken] as [string, string],
   );
 
-  // Straight in as them. A bare URL lands on the title screen, which is
-  // right for a person and wrong for a companion: it waited at a door it
-  // was never going to press and took the whole run down with it.
-  await page.goto(`${baseUrl}/?callsign=${encodeURIComponent(callsign)}`, {
-    waitUntil: 'networkidle',
-  });
+  // Straight in as them, with the harness seam on.
+  //
+  // A bare URL lands on the title screen, which is right for a person and
+  // wrong for a companion: it waited at a door it was never going to press
+  // and took the whole run down with it. And without `harness=1` the page
+  // publishes no room, so a companion asked to fly — to find a mark, turn
+  // onto it and shoot — read nothing, returned at once, and fired not one
+  // round. That is the whole of why the write-off capture failed fourteen
+  // times: its gunner's eyes were never switched on.
+  await page.goto(
+    `${baseUrl}/?harness=1&callsign=${encodeURIComponent(callsign)}`,
+    { waitUntil: 'networkidle' },
+  );
   await act(page);
   return context;
 }
