@@ -59,34 +59,74 @@ mechanism works end to end. It is a harness that could not say what had
 happened to it. It watches for a write-off across the whole run home now and
 says so plainly, ahead of every check that is really about the same event.
 
-**N2. The range's sparring hulls closed and did not fire.** `verify:range`
-failed its write-off check again — it also failed once in cycle 4 and passed
-three re-runs, so it is intermittent. The telemetry added in cycle 4 answers
-the first question and raises a better one:
+**N2. The range's sparring hulls sometimes stop fighting. Unresolved.**
+`verify:range` fails its write-off check about one run in three — once in
+cycle 4, once in cycle 5's suite, and once in four re-runs after that. The
+other runs write the hull off in under twenty seconds.
+
+Three rounds of telemetry, each answering the question before it:
 
 ```
-[range] shield 0, structure 562 (opened at 0/562), spars at 727u, 2754u
-[range] shield 0, structure 562 (opened at 0/562), spars at 507u, 519u
-[range] shield 0, structure 562 (opened at 0/562), spars at 889u, 666u
-[range] shield 0, structure 562 (opened at 0/562), spars at 589u, 770u
+cycle 4: spars at 727u, 2754u / 507u, 519u / 889u, 666u / 589u, 770u
+         structure 562 to 562 over 90s
+cycle 5: rounds 7; spars: 248u hp 740 | 697u hp 1045
+         rounds 6; spars: 248u hp 514 | 926u hp 1045
+cycle 5: rounds 0 (0 the captain's, 0 the spars'); spars: 248u hp 935 | 203u hp 1031
+         ... the same line again twenty seconds later, byte for byte
 ```
 
-Ninety seconds, not one point of damage, with two hostile hulls between 507
-and 889 units away. The NPC brain engages at `ENGAGE_RANGE` 1100 with a
-preferred range of 825–1265 and fires inside that, so they were in range for
-most of it.
+The last one is the whole of what is known: two hostile hulls at point-blank
+range, nobody firing, no hull losing a point, and two samples twenty seconds
+apart that are identical. Everything is stopped.
 
-What has been ruled out by reading the code rather than guessing: the spars
-do target the captain (`quarry` skips other sparring hulls and returns the
-player's ship); `integrityOf` is a real getter, so they are not all
-permanently in the brain's retreat branch; and `combat.fire` is called for
-every ship in the room, not only the captain's.
+What has been ruled out by reading the code:
 
-What has not been ruled out, and is the likeliest remaining explanation: the
-captain shoots a spar earlier in the same test — *98 points off a sparring
-hull* — and a hull with its engines shot off drifts rather than fights. The
-telemetry reported the spars' distance but not their condition, which is the
-same gap this project keeps finding in its own harnesses: it printed what I
-thought to ask for, and the useful question was the next one along. It now
-reports each spar's structure, shield, whether it is a wreck, and how many
-rounds are in flight.
+- The spars do target the captain. `quarry` skips other sparring hulls and
+  returns the player's ship, and `candidate` agrees.
+- They are not stuck in the brain's retreat branch. `integrityOf` is a real
+  getter over module hit points, not a stub returning zero.
+- `combat.fire` is called for every ship in the room, not only the
+  captain's.
+- Firing is not gated on ordnance. Nothing in `combat.ts` or `RangeRoom`
+  mentions ammunition for guns.
+- The command the brain returns at that range is right: inside
+  `BREAK_OFF_RANGE` it brakes, keeps `turnToward` on the mark, and fires as
+  soon as `isAimedAt` is satisfied. A stopped hull pointed at a stopped
+  target should fire within a second.
+
+So a spar that never fires over eighty seconds, at 248 units, against a
+stationary target, is a spar whose **angle is not changing** — which means
+those ships are not being stepped at all. `commandFor` falls back to
+`this.inputs.get(id).next()` when `this.pilots.get(id)` is undefined, and
+that queue is the player's; it returns nothing, and the ship gets no
+command. Why a spar's pilot entry would go missing is not established, and
+guessing at it is how the last four of these findings went wrong.
+
+**Why this is a minor and not a major.** The feature works in the majority
+of runs: the hull is written off on the range, which is what the range is
+for. What is wrong is that it sometimes is not, and the project cannot yet
+say why. It is written down here in full so that whoever picks it up starts
+from measurements rather than from the three wrong theories this one went
+through — the hull being too tough, the spars retreating, and the player
+still firing.
+
+## What this cycle was
+
+No blockers and no majors, which is the first time in five cycles.
+
+Both findings were harnesses that could not say what had happened to them,
+and that is now the fourth and fifth time running:
+
+| Cycle | The harness said | It was |
+|---|---|---|
+| 4 | the flight view never came up | a captain called Rate Card already existed |
+| 5 | written off: a mining draught carries no gun | killed on the run home, not at the rock |
+| 5 | rock lost 5, hold gained 0 | the hold is read off a berth the hull never reached |
+| 5 | survived, which this check needed it not to | two spars at point blank, not being stepped |
+
+The game was innocent in every one. That is worth saying because it is not a
+reassuring finding: it means the verifiers are the least trustworthy part of
+this project, and a failing verifier here has been more likely to be wrong
+about the cause than right. The fix each time was to make the harness report
+what it could see rather than what it assumed, and each time that turned a
+day of theorising into one line of output.

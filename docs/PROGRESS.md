@@ -272,8 +272,10 @@ Done when:
   fixed — 2 blockers, 3 majors, 4 minors. Both blockers were on the deploy
   path, which nothing had ever exercised; the majors were things a passing
   test, a plausible environment and a well-reasoned fix all said were fine.
-- [ ] Cycle 5
-- [ ] Cycle 6, if cycle 5 is not clean
+- [x] Cycle 5: `docs/polish/cycle-5.md` — 0 blockers, 0 majors, 2 minors.
+  The first clean cycle. Both minors were harnesses misreporting their own
+  failures; one of the two is fixed and one is characterised and open.
+- [ ] Cycle 6, which must also be clean to close the project
 - [ ] Two cycles in a row find no blockers or majors
 - [ ] Final report
 
