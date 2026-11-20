@@ -627,6 +627,24 @@ describe('a hull written off', () => {
     expect(outcome.hull).toBe('Act of God');
   });
 
+  it('leaves no damage behind on the captain for the next hull to carry', () => {
+    const pilot = captain('Battered');
+    flying(pilot);
+
+    // Shot to pieces, and the damage recorded on the captain's own row the
+    // way a fight records it.
+    pilot.moduleHp = [1, 1, 1, 1];
+    pilot.shield = 7;
+
+    yard.writeOff(pilot, BERTH.portId);
+
+    // The structure a berth quotes is derived from this array, not from the
+    // hull. Left as it was, insurance handed back a replacement that read as
+    // a third destroyed and offered to repair it.
+    expect(pilot.moduleHp).toEqual([]);
+    expect(pilot.shield).toBe(0);
+  });
+
   it('and the claim is less than the hull cost, so a loss is a loss', () => {
     const pilot = captain('Arsonist');
     const spent = pilot.marks;

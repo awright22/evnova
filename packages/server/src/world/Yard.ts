@@ -398,6 +398,16 @@ export class Yard {
         this.store.db.delete(schema.ships).where(eq(schema.ships.id, hull.id)).run();
       }
 
+      // The damage on the captain's row belonged to the hull that just came
+      // apart. Whatever they wake in — a draught still lying at the berth, or
+      // a fresh starter the Hall pays for — is not carrying it. `switchTo`
+      // clears the same array for the same reason, and this path did not: a
+      // captain written off in a hull at a third structure woke in a sound
+      // one that the berth still offered to repair, because the figure is
+      // derived from this array and not from the hull.
+      pilot.moduleHp = [];
+      pilot.shield = 0;
+
       // What was aboard: part of it drops where the hull came apart, and the
       // rest burns with it. Half, which is the share the letters-of-marque
       // rule in spec section 19 is tuned against.
