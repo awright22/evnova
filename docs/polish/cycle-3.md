@@ -69,6 +69,20 @@ lost five runs to harnesses that failed in silence. It is the first time it
 has been used on a failure I could not reproduce, and it turned a second
 blind cycle into a one-line answer.
 
+**And a third behind that.** With the preview reachable, three of four jobs
+passed and the last said `Failed to launch chromium because executable
+doesn't exist at /opt/pw-browsers/chromium`. That path is a fact about *this*
+container, asserted unconditionally in two places —
+`tools/verify/src/harness.ts` and `tools/perf/src/browser.ts` — while
+`tools/shots` had a `findChromium()` next door that checks the path exists
+and falls back to whatever Playwright installed. Both now do the same.
+
+Three faults, each hidden behind the one in front of it, and none of them
+findable from here: a dependency pinned to SSH, a preview on the wrong IP
+stack, and a browser path that only exists on this machine. Every one is the
+same shape — something true of this container written down as if it were
+true everywhere.
+
 ### Majors
 
 *None so far.*

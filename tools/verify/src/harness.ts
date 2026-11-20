@@ -11,7 +11,7 @@
 import type * as Playwright from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,8 +118,21 @@ export async function loadPlaywright(): Promise<typeof Playwright | undefined> {
   }
 }
 
-export const CHROMIUM =
-  process.env.MARQUE_CHROMIUM ?? '/opt/pw-browsers/chromium';
+/**
+ * Where Chromium is, if this machine ships one.
+ *
+ * `undefined` means "let Playwright use the browser it installed itself",
+ * which is what a CI runner has. Asserting `/opt/pw-browsers/chromium`
+ * unconditionally is a claim about *this* container: on a runner the path
+ * does not exist and the launch fails with `executable doesn't exist`,
+ * which is what the two browser jobs did the first time they got far
+ * enough to try. The path has to be checked, not assumed.
+ */
+export const CHROMIUM: string | undefined = [
+  process.env.MARQUE_CHROMIUM,
+  process.env.CHROME_PATH,
+  '/opt/pw-browsers/chromium',
+].find((candidate) => candidate !== undefined && candidate !== '' && existsSync(candidate));
 
 export const LAUNCH_ARGS = ['--no-sandbox', '--disable-dev-shm-usage'];
 

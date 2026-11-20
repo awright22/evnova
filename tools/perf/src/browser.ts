@@ -12,10 +12,18 @@
 import type * as Playwright from 'playwright';
 import { type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { signalGroup, spawnGroup } from '@marque/harness';
+
+/** Chromium, if this machine ships one; otherwise Playwright's own. */
+const CHROMIUM: string | undefined = [
+  process.env.MARQUE_CHROMIUM,
+  process.env.CHROME_PATH,
+  '/opt/pw-browsers/chromium',
+].find((c) => c !== undefined && c !== '' && existsSync(c));
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -149,7 +157,9 @@ export async function captureFrames(
     }
 
     const browser = await playwright.chromium.launch({
-      executablePath: process.env.MARQUE_CHROMIUM ?? '/opt/pw-browsers/chromium',
+      // Only if this machine has one; a runner installs its own. See
+      // `tools/verify/src/harness.ts`.
+      ...(CHROMIUM === undefined ? {} : { executablePath: CHROMIUM }),
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
     });
 
