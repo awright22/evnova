@@ -301,6 +301,8 @@ export function Offers({
   const [price, setPrice] = useState('');
 
   const { alongside, offers } = state;
+  /** Room left in the bays, for an inbound parcel that may not fit in them. */
+  const room = Math.max(0, state.holdCapacity - state.holdUsed);
 
   // The chosen captain and draught are clamped to what is still there: a
   // captain launches, and a draught can be sold out from under the picker.
@@ -524,6 +526,7 @@ export function Offers({
                               line={line}
                               age={ageOf(line)}
                               marks={marks}
+                              room={room}
                               busy={busy}
                               onAnswer={onAnswer}
                             />
@@ -542,6 +545,7 @@ export function Offers({
                               line={line}
                               age={ageOf(line)}
                               marks={marks}
+                              room={room}
                               busy={busy}
                               onAnswer={onAnswer}
                             />
@@ -918,6 +922,8 @@ interface DocketProps {
   readonly line: TradeOfferLine;
   readonly age: number;
   readonly marks: number;
+  /** Room left in the hull's bays, for an inbound parcel that may not fit. */
+  readonly room: number;
   readonly busy: boolean;
   onAnswer: (id: string, accept: boolean) => void;
 }
@@ -929,13 +935,16 @@ interface DocketProps {
  * are the same either way: what is in it, what it costs them, and what their
  * purse comes to. What differs is the answer at the foot.
  */
-function Docket({ line, age, marks, busy, onAnswer }: DocketProps): React.JSX.Element {
+function Docket({ line, age, marks, room, busy, onAnswer }: DocketProps): React.JSX.Element {
   const reading = readOffer(line);
   const side: Side = reading.inbound ? 'receiving' : 'offering';
   const after = purseAfter(marks, line.marks, side);
   // An offer asking more than the purse holds cannot be taken up, and the
   // server will say so. Saying it here saves the captain the refusal.
   const short = reading.inbound && line.marks > marks;
+  // And neither can one carrying more than the bays will take.
+  const arriving = line.cargo.reduce((sum, parcel) => sum + parcel.units, 0);
+  const overfull = reading.inbound && arriving > room;
 
   return (
     <li
@@ -987,13 +996,20 @@ function Docket({ line, age, marks, busy, onAnswer }: DocketProps): React.JSX.El
         </p>
       )}
 
+      {overfull && !short && (
+        <p className="offers__short">
+          {arriving.toLocaleString()} units will not go aboard: the bays have room for{' '}
+          {room.toLocaleString()}.
+        </p>
+      )}
+
       <div className="offers__docket-actions">
         {reading.inbound ? (
           <>
             <button
               type="button"
               className="button"
-              disabled={busy || short}
+              disabled={busy || short || overfull}
               onClick={() => onAnswer(line.id, true)}
             >
               Take it up

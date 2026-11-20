@@ -2781,6 +2781,7 @@ export class SystemRoom extends Room<{
       const port = system?.ports.find((candidate) => candidate.id === at?.portId);
       return {
         callsign: member.callsign,
+        joinedAt: member.joinedAt,
         state: member.state,
         isLeader: member.isLeader,
         isSelf: member.accountId === pilot.accountId,
@@ -2846,6 +2847,8 @@ export class SystemRoom extends Room<{
       designs: world()
         .yard.designsOf(pilot.accountId)
         .map((design) => ({ id: design.id, name: design.name })),
+      holdCapacity: this.holdCapacityOf(pilot),
+      holdUsed: world().market.cargoUnits(pilot.accountId),
     });
   }
 

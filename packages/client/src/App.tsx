@@ -250,7 +250,16 @@ export function App(): React.JSX.Element {
           )}
           {offersOpen && (
             <Offers
-              state={snapshot.offers ?? { offers: [], alongside: [], hold: [], designs: [] }}
+              state={
+                snapshot.offers ?? {
+                  offers: [],
+                  alongside: [],
+                  hold: [],
+                  designs: [],
+                  holdCapacity: 0,
+                  holdUsed: 0,
+                }
+              }
               hold={snapshot.offers?.hold ?? []}
               designs={snapshot.offers?.designs ?? []}
               marks={purse.marks}

@@ -127,6 +127,14 @@ export const PortServiceIntent = z.object({
 export type PortServiceIntent = z.infer<typeof PortServiceIntent>;
 
 /** The longest line the Register will print. */
+/**
+ * The longest a callsign can be.
+ *
+ * Written once: four intents name a captain, and a field that refuses at a
+ * different length from the server is a field that looks broken.
+ */
+export const CALLSIGN_MAX_LENGTH = 20;
+
 export const CHAT_MAX_LENGTH = 240;
 
 /** How many recent lines a captain is given on arrival. */
@@ -274,6 +282,8 @@ export interface HeldCommissionLine extends CommissionOffer {
  */
 export interface ConvoyMemberLine {
   readonly callsign: string;
+  /** When they joined, or were asked, so the screen can keep the server's order. */
+  readonly joinedAt: number;
   /** 'member', or 'invited' for somebody who has not answered yet. */
   readonly state: 'member' | 'invited';
   readonly isLeader: boolean;
@@ -343,6 +353,14 @@ export interface OffersState {
     readonly units: number;
   }[];
   readonly designs: readonly { readonly id: string; readonly name: string }[];
+  /**
+   * What the hull will carry, and what is in it.
+   *
+   * So the screen can say an inbound parcel will not fit, rather than
+   * leaving the captain to find out when the server refuses it.
+   */
+  readonly holdCapacity: number;
+  readonly holdUsed: number;
 }
 
 /** A line on the leaderboard. */
@@ -399,7 +417,7 @@ export type LetterIntent = z.infer<typeof LetterIntent>;
  * convoy, then invite somebody" is one intent in two steps.
  */
 export const ConvoyInviteIntent = z.object({
-  callsign: z.string().min(1).max(20),
+  callsign: z.string().min(1).max(CALLSIGN_MAX_LENGTH),
 });
 export type ConvoyInviteIntent = z.infer<typeof ConvoyInviteIntent>;
 
@@ -417,7 +435,7 @@ export type ConvoyAnswerIntent = z.infer<typeof ConvoyAnswerIntent>;
  * The leader leaving dissolves it rather than handing it on.
  */
 export const ConvoyLeaveIntent = z.object({
-  callsign: z.string().max(20),
+  callsign: z.string().max(CALLSIGN_MAX_LENGTH),
 });
 export type ConvoyLeaveIntent = z.infer<typeof ConvoyLeaveIntent>;
 
@@ -435,7 +453,7 @@ export type ShareCommissionIntent = z.infer<typeof ShareCommissionIntent>;
  * negative figure is the offering captain paying them. A swap is two offers.
  */
 export const TradeOfferIntent = z.object({
-  callsign: z.string().min(1).max(20),
+  callsign: z.string().min(1).max(CALLSIGN_MAX_LENGTH),
   marks: z.number().int().min(-1_000_000_000).max(1_000_000_000),
   cargo: z
     .array(
@@ -485,7 +503,7 @@ export type ImportDesignIntent = z.infer<typeof ImportDesignIntent>;
 /** Hand one of your draughts to another captain, by callsign. */
 export const GiveDesignIntent = z.object({
   id: z.string().min(1).max(64),
-  callsign: z.string().min(1).max(20),
+  callsign: z.string().min(1).max(CALLSIGN_MAX_LENGTH),
 });
 export type GiveDesignIntent = z.infer<typeof GiveDesignIntent>;
 

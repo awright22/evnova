@@ -25,6 +25,7 @@ import {
 function member(overrides: Partial<ConvoyMemberLine> = {}): ConvoyMemberLine {
   return {
     callsign: 'Leung',
+    joinedAt: 0,
     state: 'member',
     isLeader: false,
     isSelf: false,

@@ -132,8 +132,13 @@ export function orderMembers(
 ): readonly ConvoyMemberLine[] {
   const rank = (member: ConvoyMemberLine): number =>
     member.isLeader ? 0 : member.state === 'member' ? 1 : 2;
+  // Within a group, the order they joined in — the same order the server
+  // keeps, so the list does not rearrange itself when a push arrives.
   return [...members].sort(
-    (a, b) => rank(a) - rank(b) || a.callsign.localeCompare(b.callsign),
+    (a, b) =>
+      rank(a) - rank(b) ||
+      a.joinedAt - b.joinedAt ||
+      a.callsign.localeCompare(b.callsign),
   );
 }
 
