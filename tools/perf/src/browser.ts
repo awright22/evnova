@@ -34,6 +34,27 @@ export interface FrameCapture {
   readonly softwareRendered: boolean;
   readonly ships: number;
   readonly viewport: { width: number; height: number };
+  /** Rounds in the air and particles alive, at the end of the measurement. */
+  readonly rounds: number;
+  readonly particles: number;
+  /** What the title screen cost to reach, in bytes over the wire. */
+  readonly load: LoadMeasure | undefined;
+}
+
+/**
+ * What it takes to get to the title screen.
+ *
+ * Spec section 3 budgets under 5 MB transferred before the title screen is
+ * interactive, with everything else streaming in behind it. Measured from a
+ * cold context so nothing is served from a cache the first visitor will not
+ * have.
+ */
+export interface LoadMeasure {
+  readonly bytes: number;
+  readonly requests: number;
+  readonly msToInteractive: number;
+  /** The largest few, so a regression says what grew. */
+  readonly biggest: readonly { url: string; bytes: number }[];
 }
 
 export interface BrowserPerfOptions {
@@ -100,8 +121,11 @@ export async function captureFrames(
           [
             'exec', 'tsx', 'tools/bot/src/main.ts',
             '--bots', String(options.bots),
-            '--seconds', String(options.seconds + 60),
-            '--brain', 'wander',
+            '--seconds', String(options.seconds + 120),
+            // Fighters, not wanderers: the spec's reference scene is 30
+            // ships, 300 projectiles and 3,000 particles, and a sky full of
+            // hulls politely not shooting is not that scene.
+            '--brain', 'fighter',
             '--endpoint', `ws://127.0.0.1:${options.serverPort}`,
             '--quiet',
           ],
@@ -117,13 +141,21 @@ export async function captureFrames(
     });
 
     try {
+      // The load budget first, in a context of its own: it is about what a
+      // first visitor downloads, and a context that has already been to the
+      // title screen is not one.
+      const load = await measureLoad(browser, baseUrl, options);
+
       // Device scale factor 1: the budget is 1080p, not a retina multiple of it.
       const page = await browser.newPage({
         viewport: { width: options.width, height: options.height },
         deviceScaleFactor: 1,
       });
 
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
+      // `harness=1` goes straight into the game: a bare URL now lands on the
+      // title screen, which has no flight view to measure and no `.hud` to
+      // wait for. `debug` publishes the counts this reads back.
+      await page.goto(`${baseUrl}/?harness=1&debug=1`, { waitUntil: 'networkidle' });
       await page.waitForSelector('.hud', { timeout: 30_000 });
       // Let textures generate and the link settle before measuring.
       await sleep(3000);
@@ -141,11 +173,14 @@ export async function captureFrames(
         })()`),
       );
 
-      // Fly for the whole measurement, so the capture covers the scene moving
-      // rather than a static one.
+      // Fly for the whole measurement, and fire the whole time: the scene
+      // the spec budgets has rounds and particles in it, and a capture of
+      // an empty sky measures the backdrop.
       await page.focus('body');
+      await page.keyboard.press('Tab');
       await page.keyboard.down('ArrowUp');
       await page.keyboard.down('ArrowRight');
+      await page.keyboard.down('Space');
 
       const result: { intervals: number[] } = await page.evaluate(`(function () {
         var ms = ${options.seconds * 1000};
@@ -164,8 +199,18 @@ export async function captureFrames(
         });
       })()`);
 
+      // Read the scene before letting go: the counts are of what was on
+      // screen while the frames above were being drawn.
+      const scene = await page.evaluate<{ rounds: number; fx: number }>(`(function () {
+        var d = window.marqueDebug;
+        if (!d) return { rounds: 0, fx: 0 };
+        var c = d.combat();
+        return { rounds: c.rounds, fx: c.fx };
+      })()`);
+
       await page.keyboard.up('ArrowUp');
       await page.keyboard.up('ArrowRight');
+      await page.keyboard.up('Space');
 
       const ships = Number(
         await page.evaluate(`(function () {
@@ -195,12 +240,65 @@ export async function captureFrames(
         softwareRendered: /swiftshader|llvmpipe|software/i.test(renderer),
         ships: ships + 1,
         viewport: { width: options.width, height: options.height },
+        rounds: scene.rounds,
+        particles: scene.fx,
+        load,
       };
     } finally {
       await browser.close();
     }
   } finally {
     await kill();
+  }
+}
+
+/**
+ * What reaching the title screen costs, over the wire.
+ *
+ * Counted from the response bodies rather than from the build output: a
+ * build lists everything it produced, and what matters is what a browser
+ * actually asks for before the title screen is there to press.
+ */
+async function measureLoad(
+  browser: Playwright.Browser,
+  baseUrl: string,
+  options: BrowserPerfOptions,
+): Promise<LoadMeasure | undefined> {
+  const context = await browser.newContext({
+    viewport: { width: options.width, height: options.height },
+    deviceScaleFactor: 1,
+  });
+  try {
+    const page = await context.newPage();
+    const sizes = new Map<string, number>();
+    page.on('response', (response) => {
+      void response
+        .body()
+        .then((body) => sizes.set(response.url(), body.length))
+        .catch(() => undefined);
+    });
+
+    const startedAt = Date.now();
+    await page.goto(baseUrl, { waitUntil: 'load' });
+    // Interactive means the doors are on screen and can be pressed.
+    await page.waitForSelector('.title__doors button', { timeout: 30_000 });
+    const msToInteractive = Date.now() - startedAt;
+    // Responses resolve their bodies a tick behind the event.
+    await sleep(500);
+
+    const entries = [...sizes.entries()].map(([url, bytes]) => ({ url, bytes }));
+    return {
+      bytes: entries.reduce((sum, entry) => sum + entry.bytes, 0),
+      requests: entries.length,
+      msToInteractive,
+      biggest: entries.sort((a, b) => b.bytes - a.bytes).slice(0, 8),
+    };
+  } catch {
+    // A load that cannot be measured is reported as unmeasured rather than
+    // failing the whole capture, which is mostly about frame times.
+    return undefined;
+  } finally {
+    await context.close();
   }
 }
 

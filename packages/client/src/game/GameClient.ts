@@ -834,13 +834,28 @@ export class GameClient {
     void this.request('land', { port: portId });
   }
 
-  launch(): void {
+  /**
+   * Leave the berth.
+   *
+   * The mode is moved here rather than on a push from the server, because
+   * there is no push: the server launches the hull and says so in the
+   * response, and nothing else tells the client it is flying again. Only on
+   * the server's `launched`, so a refusal leaves the captain alongside with
+   * the reason on the notice line rather than in a sky they are not in.
+   */
+  async launch(): Promise<void> {
+    const took = await this.requestOk('launch', {});
+    if (!took) return;
     // The berth's prices belong to the berth: a captain in flight is not
     // looking at a market, and a stale one would be worse than none.
     this.staple = undefined;
     this.yard = undefined;
     this.surveyProblems = [];
-    void this.request('launch', {});
+    this.mode = { kind: 'flight' };
+    // A new hull in the sky is a new flight view, so it gets a new key and
+    // builds its renderer from the ship the server just spawned.
+    this.epoch++;
+    this.emit();
   }
 
   /**

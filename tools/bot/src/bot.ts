@@ -19,6 +19,7 @@ import {
 import { classifyDrift, type DriftStatus } from "@colyseus/sdk/predict/drift";
 import {
   PATCH_RATE,
+  Rng,
   SERVER_MESSAGES,
   ShipInput,
   SystemState,
@@ -225,6 +226,23 @@ export interface BotOptions {
    * like — a client diverging on velocity. The runner replaces the bot.
    */
   readonly onJumped?: (systemId: string, deviceToken: string | undefined) => void;
+  /**
+   * Fraction of this bot's input frames to drop, 0 to 1.
+   *
+   * The spec budgets "no visible rubber-banding" at 150 ms latency and 2%
+   * packet loss. A WebSocket runs over TCP, so a lost packet is not a lost
+   * message: it is a retransmission, and every message still arrives, in
+   * order, late. What a client actually has to survive is therefore a frame
+   * of input that reaches the server behind the frames after it, or not at
+   * all before the server has stepped past it — and that is what this
+   * models, by not sending that frame.
+   *
+   * It is the harsher of the two: a dropped input is a step the server
+   * fills in by repeating the last one, which is exactly the case the
+   * reconciler has to correct without the hull snapping. A real 2% loss on
+   * TCP would mostly be absorbed as jitter.
+   */
+  readonly inputLoss?: number;
 }
 
 /**
@@ -279,12 +297,32 @@ export interface BotTelemetry {
   readonly lastRefusal: string;
   readonly landedAt: string;
   readonly steps: number;
+  /** Input frames this bot deliberately threw away, for the loss report. */
+  readonly inputsDropped: number;
   readonly shipsSeen: number;
 }
 
 export class Bot {
   private frameTimer: NodeJS.Timeout | undefined;
   private steps = 0;
+
+  /** Input frames deliberately not sent, for the loss report. */
+  private dropped = 0;
+
+  /**
+   * The loss generator.
+   *
+   * Seeded per callsign in the constructor, so a soak that reports
+   * rubber-banding can be run again and drop the same frames.
+   * `Math.random` would make a bad run impossible to look at twice.
+   */
+  private lossRng = new Rng('loss');
+
+  /** Whether this frame's input is thrown away. */
+  private dropThisFrame(): boolean {
+    const rate = this.options.inputLoss ?? 0;
+    return rate > 0 && this.lossRng.next() < rate;
+  }
   private closed = false;
 
   private constructor(
@@ -295,7 +333,9 @@ export class Bot {
     private readonly input: InputHandle<ShipInput>,
     private readonly options: BotOptions,
     private readonly profile: ShipProfile,
-  ) {}
+  ) {
+    this.lossRng = new Rng(`loss:${options.callsign}`);
+  }
 
   static async connect(options: BotOptions): Promise<Bot> {
     const sdk = new ColyseusSDK(options.endpoint);
@@ -661,7 +701,11 @@ export class Bot {
       this.input.data.brake = false;
 
       this.options.brain.decide(view, this.input.data);
-      this.input.send();
+      // A dropped frame: the command is decided, and simply does not leave.
+      // The server fills the gap with the last input it has, and the
+      // reconciler gets to correct whatever that cost.
+      if (this.dropThisFrame()) this.dropped++;
+      else this.input.send();
       this.steps++;
     }
   }
@@ -769,6 +813,7 @@ export class Bot {
       pendingInputs: this.input.pendingCount,
       inputsSent: this.input.sentCount,
       steps: this.steps,
+      inputsDropped: this.dropped,
       shipsSeen: this.room.state.ships.size,
     };
   }

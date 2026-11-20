@@ -19,7 +19,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { captureFrames, type FrameCapture } from './browser.ts';
+import { captureFrames, type FrameCapture, type LoadMeasure } from './browser.ts';
 import {
   Rng,
   SPIKE_PROFILE,
@@ -179,11 +179,31 @@ One fixed step advancing every ship, including the steering each NPC pilot runs.
 | p99 as a share of a 60 fps frame | ${headroom.toFixed(2)}% |
 
 ${frames ? renderFrameSection(frames) : '## Client frame times\n\nNot captured: Playwright was unavailable.\n'}
+## Every budget in section 3
+
+| Budget | Where it is measured | This run |
+|---|---|---|
+| 60 fps at 1080p, 30 ships / 300 rounds / 3,000 particles | here | ${
+    frames
+      ? frames.softwareRendered
+        ? 'software rasterisation; see above'
+        : `${frames.fps.toFixed(1)} fps`
+      : 'not captured'
+  } |
+| No frame over 33 ms | here | ${frames ? `${frames.over33Ms} over` : 'not captured'} |
+| Local ship responds on the next frame | \`pnpm verify:control\` | run separately |
+| No rubber-banding at 150 ms and 2% loss | \`pnpm sim\` | run separately |
+| Server tick under 4 ms, 12 players and 40 NPCs | \`pnpm sim\` | run separately |
+| Under 5 MB before the title screen | here | ${
+    frames?.load ? `${(frames.load.bytes / 1_000_000).toFixed(2)} MB` : 'not captured'
+  } |
+| Every feedback row has a sound | \`pnpm test\` | run separately |
+| What a scripted session sounds | \`pnpm audio\` | run separately |
+
 ## Not yet measured
 
 | Measure | Arrives with |
 |---|---|
-| Projectile and particle budgets | M2 |
 | Verification on real integrated graphics | needs a machine with a GPU |
 `;
 
@@ -234,8 +254,13 @@ The real flight view, flying, with bot traffic in the system.
 |---|---|
 | Viewport | ${f.viewport.width} x ${f.viewport.height} |
 | Ships on screen | ${f.ships} |
+| Rounds in the air | ${f.rounds} |
+| Particles alive | ${f.particles} |
 | Frames measured | ${f.frames} |
 | Renderer | \`${f.renderer}\` |
+
+The spec's reference scene is 30 ships, 300 projectiles and 3,000 particles.
+${sceneVerdict(f)}
 
 | Measure | Value |
 |---|---|
@@ -248,6 +273,55 @@ The real flight view, flying, with bot traffic in the system.
 | frames over 33 ms | ${f.over33Ms} |
 
 ${verdict}
+
+${f.load ? renderLoadSection(f.load) : ''}`;
+}
+
+/** How close the measured scene came to the one the spec budgets. */
+function sceneVerdict(f: FrameCapture): string {
+  const short: string[] = [];
+  if (f.ships < 30) short.push(`${f.ships} ships of 30`);
+  if (f.rounds < 300) short.push(`${f.rounds} rounds of 300`);
+  if (f.particles < 3000) short.push(`${f.particles} particles of 3,000`);
+  if (short.length === 0) return 'This capture reached it.';
+  return (
+    `This capture reached ${short.join(', ')}: the sky holds what the bots and `
+    + 'the room actually put in it. Raise `--bots` to fill it out.'
+  );
+}
+
+/** What the title screen cost, against the spec's 5 MB. */
+function renderLoadSection(load: LoadMeasure): string {
+  const mb = load.bytes / 1_000_000;
+  const verdict =
+    mb <= 5
+      ? `**${mb.toFixed(2)} MB**, inside the 5 MB budget.`
+      : `**${mb.toFixed(2)} MB — over the 5 MB budget.**`;
+
+  const rows = load.biggest
+    .map((entry) => {
+      const name = entry.url.split('/').pop() ?? entry.url;
+      return `| \`${name}\` | ${(entry.bytes / 1000).toFixed(1)} kB |`;
+    })
+    .join('\n');
+
+  return `## Load
+
+Spec section 3 budgets under 5 MB transferred before the title screen is
+interactive. Measured from a cold browser context, counting every response
+body the page asked for before its doors could be pressed.
+
+| Measure | Value |
+|---|---|
+| Transferred | ${(load.bytes / 1000).toFixed(0)} kB |
+| Requests | ${load.requests} |
+| To interactive | ${load.msToInteractive} ms |
+
+${verdict}
+
+| Largest | Size |
+|---|---:|
+${rows}
 
 `;
 }

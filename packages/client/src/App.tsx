@@ -380,7 +380,7 @@ function Game({
             onBuy={(service) => client.buy(service)}
             onLaunch={() => {
               flightAudio()?.launch();
-              client.launch();
+              void client.launch();
             }}
             onOpenChart={() => setChartOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}

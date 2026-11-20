@@ -65,6 +65,37 @@ const EXPECTED = [
   'chat',
 ] as const;
 
+/**
+ * Sounds a session like this one cannot be relied on to cause.
+ *
+ * Listed so the report says why each is absent rather than leaving a
+ * reader to wonder. A dividend falls on the world's own clock; a write-off
+ * needs somebody willing to do it; a boarding needs a hull adrift. These
+ * are covered by the verify harnesses and by the feedback-table test, not
+ * by five minutes of flying.
+ */
+const OUT_OF_REACH: Record<string, string> = {
+  dividend: "the Bourse pays on the world's clock, not on a captain's action",
+  commission: 'a Factor pays on delivery, which is a voyage of its own',
+  claim: 'needs the captain to be written off',
+  boarded: 'needs a hull adrift alongside',
+  posted: 'needs the Prize Court to post the captain',
+  explosionLarge: 'needs a freighter to go up',
+  explosionSmall: 'needs a hull to go up',
+  moduleDisabled: 'needs a module shot off something',
+  missile: 'the seeded draught carries no rack',
+  turret: 'the seeded draught carries no turret',
+  beam: 'the seeded draught carries no beam',
+  intercept: 'needs point defense and something to intercept',
+  filled: 'needs a standing order to fill on the market tick',
+  called: 'needs a short position to be closed out',
+  confirm: 'needs a convoy to dissolve',
+  refused: 'needs a counter to decline something',
+  contact: 'needs another captain to arrive while this one is watching',
+  shieldHit: 'needs a round to land',
+  hullHit: 'needs a round to land through shields',
+};
+
 interface Heard {
   readonly name: string;
   readonly at: number;
@@ -218,39 +249,74 @@ async function listen(
   await page.goto(`${baseUrl}/?harness=1&callsign=${encodeURIComponent(CALLSIGN)}`, {
     waitUntil: 'networkidle',
   });
-  try {
-    await page.waitForSelector('.hud', { timeout: 30_000 });
-  } catch (error) {
-    // What the page is actually showing says more than the selector does.
-    const body = (await page.locator('body').innerText()).slice(0, 400);
-    throw new Error(
-      `the session never reached the sky.\nOn screen:\n${body}\n`
-        + (problems.length > 0 ? `Errors:\n  ${problems.slice(0, 5).join('\n  ')}` : ''),
-      { cause: error },
-    );
-  }
+  await sky(page, problems, 'at the start');
   await page.waitForTimeout(1200);
 
-  // 1. The gesture that starts the audio, and the engine with it.
-  console.log('  flying');
+  // The order matters. A captain who jumps first arrives in the middle of
+  // a system with no berth in reach, and the landing half of the session
+  // never happens — which is how the first version of this failed.
+
+  // 1. The gesture that starts the audio. The seeded captain is alongside
+  //    a berth already, so this is also the approach.
+  console.log('  waking the audio');
   await page.focus('body');
   await page.keyboard.press('KeyW');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
 
+  // 2. Alongside: the clamps, and the hull settling against them.
+  console.log('  landing');
+  await page.keyboard.press('KeyL');
+  await page.waitForSelector('.port', { timeout: 30_000 });
+  await page.waitForTimeout(800);
+
+  // 3. The floor: hovering, pressing, and the stamp twice — bought and
+  //    sold, which are the two rows the table gives the stamp.
+  console.log('  trading');
+  const floor = page
+    .locator('.port__service-list')
+    .getByRole('button', { name: /open the floor/i });
+  if (await floor.count() > 0) {
+    await floor.first().hover();
+    await page.waitForTimeout(250);
+    await floor.first().click();
+    await page.waitForSelector('.staple__table', { timeout: 20_000 });
+    await page.waitForTimeout(500);
+
+    const orders = page.locator('.staple__order:not([disabled])');
+    const howMany = Math.min(3, await orders.count());
+    for (let i = 0; i < howMany; i += 1) {
+      await orders.nth(i).click({ noWaitAfter: true });
+      await page.waitForTimeout(700);
+    }
+    await page.getByRole('button', { name: /back to the berth/i }).first().click();
+    await page.waitForTimeout(600);
+  }
+
+  // 4. The clamps letting go.
+  console.log('  launching');
+  // By role and name, not by `:text()`. The control reads "Launch L" — the
+  // key hint is a span inside it — and `:text("Launch")` found nothing, so
+  // the first version of this quietly stayed at the berth and failed
+  // thirty seconds later waiting for a sky it had never asked for.
+  const launch = page.getByRole('button', { name: /launch/i }).first();
+  await launch.click({ timeout: 10_000 });
+  await page.waitForTimeout(3000);
+  await sky(page, problems, 'after launching');
+  await page.focus('body');
+
+  // 5. Under way, and turning: the engine loop and the manoeuvring jets.
+  console.log('  flying');
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(1800);
   await page.keyboard.up('ArrowUp');
-
-  // 2. Turning, which is the manoeuvring jets.
   for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowLeft']) {
     await page.keyboard.down(key);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(450);
     await page.keyboard.up(key);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(450);
   }
 
-  // 3. Marking a contact and firing on it. The mark is the lock; the
-  //    trigger is the gun, and whatever it hits is a hit.
+  // 6. Marking a contact and firing on it.
   console.log('  marking and firing');
   await page.keyboard.press('Tab');
   await page.waitForTimeout(400);
@@ -258,70 +324,38 @@ async function listen(
   await page.waitForTimeout(2500);
   await page.keyboard.up('Space');
 
-  // 4. Saying something, which another captain's client would tick at.
-  //    Here the tick is this captain's own: the chat path is the same, and
-  //    the alternative is a second browser for one sound.
+  // 7. Saying something. The tick is this captain's own line coming back
+  //    down the same path another captain's would: the alternative is a
+  //    second browser for one sound.
   console.log('  chat');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
   await page.keyboard.type('Testing the hull.');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(900);
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
 
-  // 5. Hovering and pressing, which every control in the game answers.
-  console.log('  controls');
+  // 8. The chart: a lane hovered and plotted, then spooled and taken.
+  console.log('  plotting');
   await page.keyboard.press('KeyM');
   await page.waitForSelector('.chart', { timeout: 20_000 });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500);
   const lane = page.locator('.chart__lane-link').first();
   if (await lane.count() > 0) {
     await lane.hover();
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(300);
     await lane.click();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(800);
+  } else {
+    await page.keyboard.press('Escape');
   }
-  await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
 
-  // 6. The lane: spool, release, arrive.
   console.log('  jumping');
   await page.keyboard.press('KeyJ');
-  await page.waitForTimeout(9000);
-
-  // 7. Alongside, and the floor: a stamp that takes and one that is
-  //    refused.
-  console.log('  landing and trading');
-  await page.waitForSelector('.hud__travel', { timeout: 30_000 });
-  await page.keyboard.press('KeyL');
-  await page.waitForSelector('.port', { timeout: 30_000 });
-  await page.waitForTimeout(600);
-
-  const floor = page.locator('.port__service-list button:text("Open the floor")');
-  if (await floor.count() > 0) {
-    await floor.first().click();
-    await page.waitForSelector('.staple__table', { timeout: 20_000 });
-    await page.waitForTimeout(400);
-    await page.locator('.staple__row:first-child .staple__order').first().click();
-    await page.waitForTimeout(900);
-    // A sell, so the other half of the stamp path runs too.
-    const sell = page.locator('.staple__row .staple__order:not([disabled])').nth(1);
-    if (await sell.count() > 0) {
-      await sell.click();
-      await page.waitForTimeout(700);
-    }
-    await page.locator('button:text("Back to the berth")').first().click();
-    await page.waitForTimeout(500);
-  }
-
-  // 8. Launching again, which is the clamps letting go.
-  console.log('  launching');
-  const launch = page.locator('button:text("Launch")').first();
-  if (await launch.count() > 0) {
-    await launch.click();
-    await page.waitForTimeout(2500);
-  }
+  // Four seconds of spool, the lane itself, and the arrival on the far side.
+  await page.waitForTimeout(14_000);
 
   const log = await page.evaluate(() => {
     const audio = (globalThis as { __marqueAudio?: { heard: Heard[] } }).__marqueAudio;
@@ -333,6 +367,30 @@ async function listen(
   }
   await context.close();
   return log;
+}
+
+/**
+ * Wait for the sky, and say what is on the screen if it never comes.
+ *
+ * A selector timeout names the selector and nothing else, which in a
+ * session this long is the least useful sentence available. The berth's own
+ * notice line usually says exactly why the captain is still standing on it.
+ */
+async function sky(
+  page: Playwright.Page,
+  problems: readonly string[],
+  when: string,
+): Promise<void> {
+  try {
+    await page.waitForSelector('.hud', { timeout: 30_000 });
+  } catch (error) {
+    const body = (await page.locator('body').innerText()).slice(0, 600);
+    throw new Error(
+      `never reached the sky ${when}.\nOn screen:\n${body}\n`
+        + (problems.length > 0 ? `Errors:\n  ${problems.slice(0, 5).join('\n  ')}` : ''),
+      { cause: error },
+    );
+  }
 }
 
 /** Print the log, write it, and decide the exit code. */
@@ -351,6 +409,12 @@ async function report(heard: readonly Heard[]): Promise<void> {
     console.error(`\nExpected but never heard: ${missing.join(', ')}`);
   }
 
+  const absent = Object.entries(OUT_OF_REACH).filter(([name]) => !counts.has(name));
+  if (absent.length > 0) {
+    console.log('\nNot reached by this session, and why:');
+    for (const [name, why] of absent) console.log(`  ${name.padEnd(16)} ${why}`);
+  }
+
   await mkdir(resolve(REPO_ROOT, 'artifacts'), { recursive: true });
   await writeFile(
     resolve(REPO_ROOT, 'artifacts/audio.json'),
@@ -361,6 +425,9 @@ async function report(heard: readonly Heard[]): Promise<void> {
         counts: Object.fromEntries([...counts.entries()].sort()),
         expected: EXPECTED,
         missing,
+        notReached: Object.fromEntries(
+          Object.entries(OUT_OF_REACH).filter(([name]) => !counts.has(name)),
+        ),
       },
       null,
       2,
