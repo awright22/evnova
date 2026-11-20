@@ -259,6 +259,19 @@ async function engageNearest(
 ): Promise<boolean> {
   const deadline = Date.now() + seconds * 1000;
 
+  /**
+   * The one hull this engagement is about.
+   *
+   * Given by the caller, or else the first thing found and then kept. Not
+   * re-picked: a gunner that takes whatever is nearest *this instant* re-aims
+   * every pass as traffic drifts, and puts rounds across five hulls instead
+   * of through one. That was diagnosed for the write-off capture and fixed
+   * there with an explicit mark — and left in place for every other caller,
+   * which is why the `combat` capture spent forty-five seconds at a range of
+   * 1414 with nothing in flight and its mark off the edge of the screen.
+   */
+  let held = options.mark ?? '';
+
   /** Where the nearest hull is, relative to the nose, and how it is holding up. */
   const read = (): Promise<{
     delta: number;
@@ -267,6 +280,7 @@ async function engageNearest(
     markHp: number;
     ownHp: number;
     focus: string;
+    name: string;
   } | null> =>
     page.evaluate(([patrolsOnly, wanted]: [boolean, string]) => {
       // This runs in the page, not in Node, so the browser globals are named
@@ -278,7 +292,7 @@ async function engageNearest(
       if (!self) return null;
 
       let nearest:
-        | { range: number; bearing: number; shield: number; hp: number }
+        | { range: number; bearing: number; shield: number; hp: number; name: string }
         | undefined;
       for (const [id, ship] of room.state.ships) {
         if (id === room.sessionId || ship.destroyedAt > 0) continue;
@@ -295,6 +309,7 @@ async function engageNearest(
             bearing: Math.atan2(ship.y - self.y, ship.x - self.x),
             shield: ship.shield,
             hp,
+            name: (ship as { callsign?: string }).callsign ?? '',
           };
         }
       }
@@ -317,8 +332,9 @@ async function engageNearest(
         markHp: nearest.hp,
         ownHp,
         focus: active?.tagName ?? '?',
+        name: nearest.name,
       };
-    }, [options.patrolsOnly === true, options.mark ?? ''] as [boolean, string]);
+    }, [options.patrolsOnly === true, held] as [boolean, string]);
 
   // A named mark may not be in the sky yet, and asking once is not asking.
   //
@@ -341,6 +357,8 @@ async function engageNearest(
     console.log(`    gunner waited ${seconds}s and never saw ${which}`);
     return false;
   }
+  // Latched. Every read from here is about this hull and no other.
+  if (held === '' && first.name !== '') held = first.name;
   const shieldAtStart = first.markShield;
 
   // The trigger stays down for the whole engagement, so every pass through
@@ -359,10 +377,10 @@ async function engageNearest(
       // capture have been theorised about from the victim's side alone; this
       // is the gunner's own account of whether it has a mark, whether it is
       // on it, whether it is in reach, and what has the keyboard.
-      if (options.mark !== undefined && options.mark !== '' && Date.now() - said > 8000) {
+      if (Date.now() - said > 8000) {
         said = Date.now();
         console.log(
-          `    gunner: range ${Math.round(aim.range)}, off ${aim.delta.toFixed(2)}rad, `
+          `    gunner on ${held}: range ${Math.round(aim.range)}, off ${aim.delta.toFixed(2)}rad, `
           + `mark ${aim.markHp} (shield ${Math.round(aim.markShield)}), `
           + `self ${aim.ownHp}, focus ${aim.focus}`,
         );

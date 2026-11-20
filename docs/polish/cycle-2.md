@@ -215,13 +215,20 @@ impression to settle now.
 
 **N4. The screen called `combat` was a photograph of no combat.** Two hulls
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
-zero, and a landing prompt across the bottom. The fight had happened: the
-mark's shield was down. But `untilHit` returned the instant a round told,
-which can be at the very edge of reach, and with the link at about a second
-under software rasterisation the screenshot arrives after the rounds have
-gone and the hulls have parted. It now closes to well inside reach before
-returning, and waits 120ms rather than 350 before the shutter. `beams` takes
-the same path and the same fix.
+zero, and a landing prompt across the bottom.
+
+Two causes, and the first fix found the second. `untilHit` returned the
+instant a round told, which can be at the very edge of reach; with the link
+at about a second under software rasterisation, the shutter lands after the
+rounds have gone. Requiring the gunner to close inside 520 units first made
+it *worse* — range 1414, the mark off the edge of the screen — which is how
+the real cause surfaced: `engageNearest` takes whatever is nearest *this
+instant* unless the caller names a mark. The write-off capture was given an
+explicit mark in this same cycle and the fix was left there, so every other
+caller went on re-aiming at whichever hull had drifted closest, closing with
+none of them. It latches onto its first mark now and keeps it, which is what
+the write-off gunner's fix should have been in the first place. `beams`
+takes the same path and the same fix.
 
 **N5. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
