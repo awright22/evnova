@@ -113,6 +113,7 @@ interface HarnessWindow {
             destroyedAt: number;
             callsign: string;
             patrol: boolean;
+            moduleHp: readonly number[];
           }
         >;
         asteroids: Map<string, { x: number; y: number; radius: number; left: number }>;
@@ -595,7 +596,31 @@ export const SCREENS: readonly Screen[] = [
       // one and it answers, and so does every other one in the sky. Four
       // minutes of waiting for a patrol to wander past taught this.
       await engageNearest(page, 120, { patrolsOnly: true });
+
+      // Watch this hull's own structure while it is being shot at. Fourteen
+      // runs have ended with "the write-off never happened" and no way to
+      // tell whether the gunner was missing, out of range, or the hull was
+      // simply taking a very long time to die. This says which.
+      const watch = (async () => {
+        for (let i = 0; i < 24; i += 1) {
+          await page.waitForTimeout(10_000);
+          const mine = await page
+            .evaluate(() => {
+              const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
+              const room = harness?.room;
+              const self = room?.state.ships.get(room.sessionId);
+              if (!self) return 'no hull in the sky';
+              let hp = 0;
+              for (const point of self.moduleHp) hp += point;
+              return `structure ${hp}, shield ${Math.round(self.shield)}`;
+            })
+            .catch(() => 'unreadable');
+          console.log(`    t+${(i + 1) * 10}s: ${String(mine)}`);
+        }
+      })();
+
       await page.waitForSelector('.flight__written-off', { timeout: 240_000 });
+      void watch;
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
       // read rather than photographing the sentence that says it is being.
