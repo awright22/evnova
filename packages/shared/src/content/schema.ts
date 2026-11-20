@@ -334,6 +334,8 @@ export const Tuning = z.object({
     baselineTarget: z.int().positive(),
     /** How much more than its target a berth can physically hold. */
     capacityMultiple: z.number().min(1),
+    /** How far off target a berth opens, toward capacity or toward empty. */
+    openingLean: z.number().min(0).max(0.8),
   }),
   freight: z.object({
     /** Units the Reach's freighters move an hour, across every commodity. */

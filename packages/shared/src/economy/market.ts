@@ -163,14 +163,46 @@ export function capacityFor(port: PortDef, commodity: CommodityDef, tuning: Tuni
   return Math.round(targetStock(port, commodity, tuning) * tuning.market.capacityMultiple);
 }
 
-/** A berth's opening holding of one commodity: exactly what it wants. */
+/**
+ * A berth's opening holding of one commodity.
+ *
+ * Not exactly what it wants. A berth that opened at target quoted the base
+ * price, and every berth opening at target meant every berth in the galaxy
+ * quoting the same numbers for everything on the first day of a server:
+ * nothing to carry anywhere until the economy had run long enough to push
+ * somebody off target. A new captain's first voyage is the one that has to
+ * pay.
+ *
+ * So a berth opens where its own trade has already pushed it. A net
+ * producer has been producing and sits on a surplus; a net consumer has
+ * been eating and is short. A berth that neither makes nor eats something
+ * opens at target, because nothing has been moving it.
+ */
 export function openingPile(
   port: PortDef,
   commodity: CommodityDef,
   tuning: Tuning,
 ): Stockpile {
   const target = targetStock(port, commodity, tuning);
-  return { stock: target, target, capacity: capacityFor(port, commodity, tuning) };
+  const capacity = capacityFor(port, commodity, tuning);
+
+  const trade = port.trade;
+  const made = trade?.produces[commodity.id] ?? 0;
+  const eaten = trade?.consumes[commodity.id] ?? 0;
+  const net = made - eaten;
+  if (net === 0) return { stock: target, target, capacity };
+
+  // How far along, as a fraction of the room between target and the end it
+  // is heading for. A third: enough that the quote has visibly moved and
+  // far enough from the ends that the first captain through does not meet
+  // a berth at its ceiling or with nothing on the shelf.
+  const lean = tuning.market.openingLean;
+  const stock =
+    net > 0
+      ? target + (capacity - target) * lean
+      : target * (1 - lean);
+
+  return { stock: Math.max(0, Math.round(stock)), target, capacity };
 }
 
 /**

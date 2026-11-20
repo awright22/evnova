@@ -98,7 +98,9 @@
     "$comment2": "A berth wants targetHours of whatever it makes or eats on hand, never fewer than baselineTarget, and can hold capacityMultiple times that. Five days of throughput: a berth holding only hours of it empties between freight runs and spends its life at the price ceiling, which is not a market, and the time constant has to be long enough that a captain's hold is a nudge rather than a shock. A commodity a berth neither makes nor eats still trades, at the baseline: the berth is a market in it, just not a source or a sink.",
     "targetHours": 120,
     "baselineTarget": 600,
-    "capacityMultiple": 3.5
+    "capacityMultiple": 3.5,
+    "$openingLeanComment": "A berth does not open at the stock it wants: it opens where its own trade has already pushed it, a producer on a surplus and a consumer short, this fraction of the way from target toward capacity or toward empty. Every berth opening at target meant every berth quoting the same numbers on the first day of a server, so the first voyage anybody made had nothing to carry.",
+    "openingLean": 0.34
   },
   "freight": {
     "$comment": "What the Reach's own freighters move, from surplus to shortage. Deliberately slower than a captain: an overused lane has to decay faster than the freighters repair it, and a rested one has to recover while nobody is looking. threshold is how far from target a berth must be before freight bothers with it, as a fraction: set wide on purpose, because freight that holds every berth within a few per cent of target leaves a captain nothing to carry. It is the floor under the economy, not its market maker, and the band it leaves open is the trade. and maxHops is how far a load will travel: the Reach is six lanes across, so freight can in principle reach anywhere, which it must, because Leaf is grown only in the Marque and chewed only in the Home Roads.",

@@ -75,9 +75,24 @@ describe('freight', () => {
     expect(moved.some((load) => homeRoads.some((port) => port.id === load.toPortId))).toBe(true);
   });
 
-  it('leaves a galaxy already at target alone', () => {
-    // Every berth opens at exactly what it wants, so there is nothing to do.
-    expect(freight.run(6, 1)).toHaveLength(0);
+  it('has work to do the moment a world opens', () => {
+    // A berth opens where its own trade has already pushed it — a maker on
+    // a surplus, an eater short — so there is freight to run from the first
+    // hour. A galaxy that opened at target had nothing to carry anywhere,
+    // which is also what a captain's first voyage found.
+    const moved = freight.run(6, 1);
+    expect(moved.length).toBeGreaterThan(0);
+    expect(moved.every((load) => load.units > 0)).toBe(true);
+  });
+
+  it('and stops when it has nothing left to even out', () => {
+    // Driven to target by its own work: over a long enough run with nobody
+    // trading, freight and drift settle against each other rather than
+    // shifting cargo for ever.
+    runHours(24 * 10);
+    const settled = freight.run(6, 24 * 10 + 1);
+    const opening = 60;
+    expect(settled.length).toBeLessThan(opening);
   });
 
   /**

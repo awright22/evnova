@@ -81,19 +81,57 @@ describe('berth markets', () => {
     }
   });
 
-  it('opens every berth at exactly what it wants, quoting the base price', () => {
+  it('opens a berth where its own trade has already pushed it', () => {
     for (const port of trading) {
       for (const commodity of commodities.values()) {
         const pile = openingPile(port, commodity, tuning);
-        expect(pile.stock).toBe(pile.target);
         expect(pile.capacity).toBeGreaterThan(pile.target);
-        expect(pressure(pile)).toBe(0);
-        expect(unitPrice(pile.stock, pile, commodity, tuning)).toBeCloseTo(
-          commodity.basePrice,
-          6,
-        );
+        // Never at an end: the first captain through should meet a market,
+        // not a berth at its ceiling or one with nothing on the shelf.
+        expect(pile.stock).toBeGreaterThan(0);
+        expect(pile.stock).toBeLessThan(pile.capacity);
+
+        const made = port.trade?.produces[commodity.id] ?? 0;
+        const eaten = port.trade?.consumes[commodity.id] ?? 0;
+        const where = `${port.id} and ${commodity.id}`;
+        if (made > eaten) {
+          expect(pile.stock, `${where}: a maker should open on a surplus`)
+            .toBeGreaterThan(pile.target);
+        } else if (eaten > made) {
+          expect(pile.stock, `${where}: an eater should open short`)
+            .toBeLessThan(pile.target);
+        } else {
+          // Nothing has been moving it, so it sits at what it wants and
+          // quotes the base price.
+          expect(pile.stock, where).toBe(pile.target);
+          expect(pressure(pile)).toBe(0);
+          expect(unitPrice(pile.stock, pile, commodity, tuning)).toBeCloseTo(
+            commodity.basePrice,
+            6,
+          );
+        }
       }
     }
+  });
+
+  it('so a new world has something to carry on its first day', () => {
+    // Spec section 2: "the economy is real and readable". A galaxy where
+    // every berth opened at target quoted the same numbers for everything
+    // everywhere, and the first voyage anybody made had nothing to carry.
+    let bestSpread = 0;
+    for (const commodity of commodities.values()) {
+      let cheapest = Infinity;
+      let dearest = 0;
+      for (const port of trading) {
+        const pile = openingPile(port, commodity, tuning);
+        const price = unitPrice(pile.stock, pile, commodity, tuning);
+        cheapest = Math.min(cheapest, price);
+        dearest = Math.max(dearest, price);
+      }
+      bestSpread = Math.max(bestSpread, (dearest - cheapest) / commodity.basePrice);
+    }
+    // Comfortably past the Staple's own spread, so a haul pays.
+    expect(bestSpread).toBeGreaterThan(tuning.market.spread * 2);
   });
 
   it('wants more of what it moves more of', () => {
