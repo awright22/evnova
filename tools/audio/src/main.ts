@@ -397,12 +397,25 @@ async function listen(
     return h ? h.room.state.systemId : '';
   })()`);
   await page.keyboard.press('KeyJ');
-  // Four seconds of spool, the lane itself, and the arrival on the far side.
-  await page.waitForTimeout(14_000);
-  const after = await page.evaluate(`(function () {
-    var h = window.__marqueHarness;
-    return h ? h.room.state.systemId : '';
-  })()`);
+  // Waited for, not timed.
+  //
+  // This was a flat fourteen seconds — four of spool, the lane, and the
+  // arrival on the far side — which is about right on an idle machine and
+  // not enough on one that has been building clients and driving browsers
+  // all evening. It failed once that way, reporting `parity -> parity`, and
+  // a check that fails because the box was busy says nothing about the game.
+  let after = String(before);
+  const laneBy = Date.now() + 45_000;
+  while (Date.now() < laneBy) {
+    await page.waitForTimeout(500);
+    after = String(
+      await page.evaluate(`(function () {
+        var h = window.__marqueHarness;
+        return h ? h.room.state.systemId : '';
+      })()`),
+    );
+    if (after !== '' && after !== String(before)) break;
+  }
   record(
     `a plotted lane takes the captain somewhere else (${String(before)} -> ${String(after)})`,
     after !== '' && after !== before,
