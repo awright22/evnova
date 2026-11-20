@@ -14,7 +14,8 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress
 - [x] Monorepo, commands, and CI that runs check and build on every push — the
   workflow was written in M0 and ran on every push, but `pnpm install` failed
   on a git dependency pinned to SSH, so no job reached a test until cycle 3
-  found it. See `docs/polish/cycle-3.md`, B1.
+  found it, thirty-eight red runs later. Green from run 39. See
+  `docs/polish/cycle-3.md`, B1.
 - [x] `docs/DESIGN.md` with architecture, data model, message protocol and a risk list
 - [x] `docs/ART_DIRECTION.md`
 - [x] `docs/LORE.md`
@@ -264,8 +265,9 @@ Done when:
 
 - [x] Cycle 1: `docs/polish/cycle-1.md`, every blocker and major fixed — 1 blocker, 5 majors
 - [x] Cycle 2: `docs/polish/cycle-2.md`, every blocker and major fixed — 0 blockers, 5 majors
-- [~] Cycle 3: `docs/polish/cycle-3.md` — 1 blocker, 0 majors, 9 minors. The
-  blocker is CI, which had never passed; it closes when CI is green.
+- [x] Cycle 3: `docs/polish/cycle-3.md`, every blocker and minor fixed — 1
+  blocker, 0 majors, 10 minors. The blocker was CI, red on every one of 38
+  runs since M0; run 39 is green on all four jobs.
 - [ ] Cycle 4
 - [ ] Cycle 5, if cycle 4 is not clean
 - [ ] Two cycles in a row find no blockers or majors

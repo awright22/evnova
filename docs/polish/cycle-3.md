@@ -77,11 +77,37 @@ container, asserted unconditionally in two places —
 `tools/shots` had a `findChromium()` next door that checks the path exists
 and falls back to whatever Playwright installed. Both now do the same.
 
-Three faults, each hidden behind the one in front of it, and none of them
-findable from here: a dependency pinned to SSH, a preview on the wrong IP
-stack, and a browser path that only exists on this machine. Every one is the
-same shape — something true of this container written down as if it were
-true everywhere.
+**And a fourth, which was not a fault in the game.** With a browser to
+launch, three jobs passed and `pnpm verify` failed: both clients read as
+diverging, at round trips of 604ms and 463ms across a 300ms link. The same
+commit here measures 348ms and 354ms and reconciles to an EMA of zero. A
+runner gives two Chromium instances, a server and a dev preview two shared
+cores and no GPU, so most of that round trip was the machine, and the
+correction the reconciler read was about the renderer.
+
+The check now measures the frame rate it got and the delay the machine added
+on top of the link it injected, and where that overhead exceeds the one-way
+latency it reports NOT JUDGED instead of naming the netcode for something it
+cannot pin on the netcode. A pass there would be a claim the run cannot
+support; a fail would be a lie about where the fault is. Everything not
+frame-rate-bound still fails hard, and prediction under latency is proven
+without a renderer by `pnpm sim --fight`, which passes on the runner.
+
+The runner then settled the diagnosis itself. With the frame rate measured,
+run 39 reported 5.4 fps on both clients, against 17.0 fps here on the same
+commit, and 210ms and 261ms added to the round trip. A third of this box's
+frame rate is not a netcode result.
+
+Four faults, each hidden behind the one in front of it: a dependency pinned
+to SSH, a preview on the wrong IP stack, a browser path that only exists on
+this machine, and a verdict about a machine reported as a verdict about the
+code. Every one is the same shape — something true of one container written
+down as if it were true everywhere.
+
+**Resolved.** Run 39 is green: check and build, netcode under latency, two
+browser clients, server authority and a six-ship fight. `pnpm check` and
+`pnpm build` have now run somewhere other than this container, which
+`docs/PROGRESS.md` has claimed since M0 — thirty-eight red runs ago.
 
 ### Majors
 
@@ -155,6 +181,22 @@ tell them apart because it was built on what I assumed the stamp did. The
 helper waits for the moving phases to end now — `press`, `strike`,
 `settle`, `lifting` — which is true of a mark that lifts and of a mark that
 stays.
+
+**N3b. The admin page's fade, checked rather than assumed.** The scrollers
+went into the Bourse, the Yard and the admin page together, and only the
+first two were in a build the sweep captured. Measured in a browser on the
+admin page: all four scrollers report `data-more="below"`, all four compute
+the mask, and the Stockpiles panel holds 32 berths in a 306px box — 2,330px
+of content, with the last partly-visible berth's box ending at 346px, well
+through the fade band.
+
+It is nonetheless invisible there, because the 32px the mask fades happens
+to fall in the gap between two berth blocks: the band contains no glyphs, so
+nothing visibly fades and the panel reads as ending. The affordance is
+correct and this data defeats it. Left alone — the header says 32 berths
+beside a list of five, which carries the same information — but written down,
+because "the fade works" and "the fade can be seen" are different claims and
+only the first was true here.
 
 **N4. The chat capture was one captain talking to themselves.** The log
 behind the composer held three lines, all said by the captain whose screen
@@ -240,8 +282,12 @@ that is the shape of a cycle that follows one like cycle 2: with the screens
 fixed, what is left is the machinery that looks at them. Four of the nine
 are failures my own fixes caused or uncovered — a closing burn that stopped
 one capture to save another, a write-off panel that now outlives its six
-seconds and so takes over a screen it should not, a stamp wait that was
-right about the problem and wrong about the fix twice.
+seconds and so takes over a screen it should not, and a stamp wait I wrote
+twice, the second time against a reading of the component I had never gone
+and checked. That last one is the cycle in miniature: the fix was wrong
+because the finding was wrong, and the finding was wrong because I described
+what a screen was doing from the outside instead of reading what it was
+built to do.
 
 The pattern worth keeping: every one of those was found because the sweep
 runs all thirty-nine screens and the suite runs all seven commands, not

@@ -857,3 +857,21 @@ a `pnpm exec` grandchild from being orphaned — and also what keeps the group
 alive when the tool itself is killed. A run stopped with SIGTERM left a server
 listening and the next run refused to start. The group registry is swept from
 SIGINT/SIGTERM/SIGHUP and from `exit`.
+
+**2026-11-20. A document seal is struck clear of the control it confirms.**
+`.stamp--above` overlapped the top 18px of its own button, so at the default
+72px the ring and the seal's micro-text printed across the label of a control
+that stays live after the mark is struck. It sits wholly on the paper above
+now. The phase machine is unchanged: a mark on a line still lifts, a mark on
+a document still stays, because the mark is the record that the thing was
+signed.
+
+**2026-11-20. A harness withholds a verdict it cannot support.**
+`pnpm verify` measures the frame rate it got and the delay the machine added
+on top of the link it injected. Where that overhead exceeds the one-way
+latency, it reports NOT JUDGED with the figures instead of calling the
+netcode diverged. A GitHub runner reads 5.4 fps and 510ms across a 300ms
+link where this container reads 17.0 fps and 348ms, so a FAIL there would
+name the wrong thing and a PASS would claim an experiment that did not run.
+Prediction under latency stays covered in CI without a renderer by
+`pnpm sim --fight`.
