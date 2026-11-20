@@ -293,8 +293,13 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
     }
 
     for (const name of spec.designs ?? []) {
-      // A plain hull: the capture is of a list of names, not of a grid.
-      yard.saveDesign(accountId, { name, placements: [] }, now);
+      // A real draught, not an empty one. It used to be saved with no
+      // placements, because the only thing that read the list was a
+      // column of names — and then the Yard grew a shelf that shows what
+      // each one holds, and every seeded draught read "0 fittings".
+      const drawn = content().blueprints.get(spec.flying ?? 'prudent-return')
+        ?? [...content().blueprints.values()][0];
+      yard.saveDesign(accountId, { name, placements: drawn?.placements ?? [] }, now);
     }
 
     if (spec.flying !== undefined) {
