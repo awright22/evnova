@@ -214,7 +214,7 @@ end it several hundred thousand marks down.
   handful of headlines in it.
 
 
-## M7. Living world
+## M7. Living world — complete
 
 - [x] Company standing
 - [x] Letters of marque and monopoly goods
@@ -742,3 +742,125 @@ its message handlers after an await and threw away the purse it was sent, a
 bot that swallowed every refusal, a bot that kept predicting in a room it had
 left, and a soak that reused its database so its ledger totals were the sum
 of every run ever made on the machine.
+
+## M7. Living world — 2026-11-20
+
+### What is now playable
+
+The Reach has people in it and they want things.
+
+**The Factor.** Every berth with a Factor posts work — carriage, passage, a
+bounty on a named Unlettered captain, an escort, a run of monopoly goods
+inward — drawn from nineteen templates, seeded from the berth and the hour,
+and shaped by what the chartering company thinks of you. Take one and it is
+in your hand with the clock against it; answer it by arriving with the right
+thing aboard and the Factor pays and remembers.
+
+**Three chains, one per company, and both ways out of each.** Run the six or
+seven beats of The Daughters' Audit, Subscriber Thirty-One or Prize Money and
+the house is waiting on one more thing: what you are going to say. The choice
+is made at the company's own seat — the berth that issues its letters — and
+the Gazette carries it the same hour, so the other two houses read it too.
+Both endings pay; the difference is who is owed afterwards. A chain ends once.
+
+**Standing you can feel.** Kessler's berths charge a captain they trust less
+for the same good and pay them more for it, within half the spread, so
+invariant 1 survives being liked. A captain they have barred is refused
+alongside, in those words. Standing is zero-sum across the three charters —
+pleasing one costs with the other two at exactly half, so working all three
+in rotation nets nothing.
+
+**Convoys.** Ask another captain by callsign and they answer whenever they are
+next on the link. Sailing in convoy, you see where everybody is: on the radar
+as a hollow mark beside the solid ones, on the chart as a dashed ring around
+the system they are in, and on the convoy's own screen as the berth they are
+alongside. Work can go on the convoy's books, and then any of you can finish
+it — it is still one commission, it pays once, and it pays whoever flies it.
+
+**Offers.** Two captains at the same berth can hand each other marks, cargo
+and draughts. An offer is one-sided with a price, and the counter shows what
+leaves your hold, what arrives, what you pay and what your purse comes to
+before anything is sent. The other captain takes it up, turns it down, or you
+take it back.
+
+### How to run it
+
+```bash
+pnpm dev
+```
+
+Land at Countinghouse in Hallam: it keeps a Factor, a Staple, a Yard and the
+Moorings, and it is Kessler's seat.
+
+```bash
+pnpm verify:convoy
+```
+
+Twenty-five checks with three real clients on one server: a convoy opened,
+asked, answered, refused and dissolved; a commission shared and found in
+another captain's hand; marks and cargo moved between two accounts in one
+transaction, and every way that can be refused.
+
+```bash
+pnpm verify:standing
+```
+
+Eleven checks with three captains written into the world before it starts —
+one Kessler trusts, one it does not know, one it has barred — all landing at
+the same Kessler berth.
+
+```bash
+pnpm sim -- --bots 8 --minutes 15 --factor
+```
+
+Bots that work the board: take what is posted, buy what has to be carried,
+fly it where it is wanted, land. The report says which templates were
+answered through the protocol in that run.
+
+### Known issues
+
+**A run cannot cover every template, and the report now says so.** Fourteen of
+the nineteen are a charter's own work needing standing a bot earns over hours,
+or bounties, which the board-working brain does not hunt. All nineteen are
+proved end to end — taken, answered, paid, reconciled against the ledger — by
+`packages/server/src/world/Commissions.test.ts`, which is the exhaustive half
+of that pair. The soak proves the protocol path for the five a bot can reach.
+
+**The chains cannot be played by two captains at once.** A chain belongs to
+the captain who runs it; sharing puts a single beat on the convoy's books like
+any other commission, but the chain's progress and its ending are one
+captain's. Spec section 11 asks for chains, not for shared ones.
+
+**No seal, and no stamp.** Spec section 4 calls the stamp the game's signature
+interaction and wants a procedurally drawn seal on every document. The chain
+ending is drawn as an in-world document — dark panel, serif body, a rule under
+the heading — but there is no seal in the corner and confirming it is a
+button, not an impression. That is the largest piece of section 4 still
+unbuilt, and it belongs to M8's polish rather than to the mechanics here.
+
+### What the captures and the harnesses found
+
+Six faults, none of which a typecheck or a unit test would have caught.
+
+The rows in hand were pushed with their terms nested, so every figure in the
+Factor's third column was `undefined` and taking a commission blanked the
+screen. The client's type was a hand-written copy of the server's, which is
+what let the two drift; it is the shared type itself now.
+
+`fillText` substituted raw ids into player-facing prose — "14 units of Alloy,
+no questions, to tare" — across every title and brief the Factor posts.
+
+The chosen ending was a twelve per cent wash on a raised panel, which in a
+capture was not a state at all: the two cards read as the same card.
+
+A captain flying a hull they built had the cargo capacity of whatever they
+flew last, or none: `holdCapacityOf` read the blueprint table directly and
+knew nothing about the Yard.
+
+Standing shaded the price a captain was *charged* and not the price they were
+*shown*, so the one consequence of standing a player can see was invisible at
+the place it is felt.
+
+And buying at the Staple did not refresh the offers counter, so a captain who
+bought a hold and turned to hand it over was looking at a list from before the
+purchase.
