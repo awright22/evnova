@@ -413,8 +413,8 @@ cell is unfinished work. Minimum two channels per row.
 | Player enters system | Radar contact appears, Register line added | Distant beacon ping | Contact scales in over 120ms |
 | Posted by the Prize Court | Status chip turns `--danger`; composition shown | Low two-tone alert; music ducks | Chip wipes in from the HUD edge, 160ms |
 | Cutting rock | Held beam on the rock, dust at the cut, rock wears | Low grinding hum, held | Rock shrinks and dulls as it is worked |
-| Hold filled while cutting | Cut stops, the bays read full | Hum drops out | Readout flashes once, 160ms |
-| Boarding a prize | Prompt names the hull; lots listed as they come across | Hatch, boots, a crate landing | Prompt wipes out, 160ms; cargo bar grows |
+| Hold filled while cutting | The line says the bays are full; the beam runs on | The rig's hum, unchanged | Notice fades up 120ms |
+| Boarding a prize | Prompt names the hull; lots listed as they come across | Hatch, boots, a crate landing, interface bus | Prompt wipes out, 160ms; cargo bar grows |
 | Standing order left | Order enters the book below, marked waiting | **The stamp**: paper, mechanism, thud | Stamp sequence; row slides into the book |
 | Standing order filled | Row shows what filled and what is still wanted | Crisp fill click | Figures roll; the row settles from the wash |
 | Short sold | Position carried against the captain; margin line appears | **The stamp** | Stamp sequence; margin line fades up 120ms |

@@ -39,6 +39,7 @@ import {
   type RejectionReason,
 } from '@marque/shared';
 
+import { playNotice } from '../audio/notices.ts';
 import { loadChart, type Chart } from '../map/galaxy.ts';
 import { explainFailure, type FailureReason } from '../net/connection.ts';
 import {
@@ -587,6 +588,14 @@ export class GameClient {
         margin: board.margin,
       };
       this.emit();
+    });
+
+    room.onMessage('order', (payload) => {
+      // The Bourse carried something out on the captain's behalf, which may
+      // have been while they were somewhere else entirely. A sound, because
+      // a notice nobody is looking at has only one channel.
+      const line = payload as { kind?: string };
+      playNotice(line.kind === 'liquidated' ? 'called' : 'filled');
     });
 
     room.onMessage('range', (payload) => {

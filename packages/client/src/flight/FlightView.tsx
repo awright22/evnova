@@ -24,6 +24,7 @@ import {
 } from '@marque/shared';
 
 import { AudioMix } from '../audio/mix.ts';
+import { playNotice } from '../audio/notices.ts';
 import { CombatAudio } from '../audio/combat.ts';
 import { EngineSound } from '../audio/engine.ts';
 import { Hud, type HudReadout } from '../hud/Hud.tsx';
@@ -350,6 +351,14 @@ export function FlightView({
       session.on('claim', (payload) => {
         const settled = payload as ClaimState;
         setWrittenOff((was) => (was ? { ...was, settled } : was));
+        playNotice('claim');
+      });
+
+      // A party coming aboard, either way round. The line itself is drawn by
+      // the prompt; this is the other channel the feedback table asks for.
+      session.on('scanned', (payload) => {
+        const line = payload as { kind?: string };
+        if (line.kind === 'boarded' || line.kind === 'boarded-by') playNotice('boarded');
       });
 
       session.on('written-off', (payload) => {
