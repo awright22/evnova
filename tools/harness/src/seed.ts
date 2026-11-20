@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { spawnGroup } from './index.ts';
 
-import { CHARTERS, content, placeAll, type Charter } from '@marque/shared';
+import { CHARTERS, beltOf, content, placeAll, type Charter } from '@marque/shared';
 
 import { Accounts } from '@marque/server/src/accounts.ts';
 import { openStore, schema } from '@marque/server/src/db/index.ts';
@@ -48,6 +48,14 @@ export interface SeedSpec {
   readonly standing?: Partial<Record<Charter, number>>;
   /** Park them at this berth's coordinates, so landing lands here. */
   readonly at?: string;
+  /**
+   * Park them beside a rock in this system's belt instead.
+   *
+   * A belt is thousands of units off the berths, which is the point of it
+   * and also four minutes of a screenshot run. A capture of a belt is of
+   * the belt, not of the journey.
+   */
+  readonly atBelt?: string;
   /** Mark every beat of this chain answered, so its ending is waiting. */
   readonly chainDone?: string;
   /** Goods in the hold, by commodity id. */
@@ -131,6 +139,26 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
       // it and the landing prompt reads the way it does in play.
       pilot.x = where.x + 90;
       pilot.y = where.y + 60;
+      pilots.touch(accountId);
+      pilots.flush();
+    }
+
+    if (spec.atBelt !== undefined) {
+      const system = content().systems.get(spec.atBelt);
+      if (!system) throw new Error(`no system called "${spec.atBelt}"`);
+      const rocks = beltOf(system);
+      const rock = rocks[0];
+      if (!rock) throw new Error(`${spec.atBelt} has no belt`);
+
+      const pilot = pilots.load(accountId);
+      if (!pilot) throw new Error(`${spec.callsign} has no captain`);
+      pilot.systemId = system.id;
+      // Just outside the rock, pointed at it: within a rig's reach and
+      // clear of the rock itself.
+      const bearing = Math.atan2(rock.y, rock.x);
+      pilot.x = rock.x + Math.cos(bearing) * (rock.radius + 150);
+      pilot.y = rock.y + Math.sin(bearing) * (rock.radius + 150);
+      pilot.angle = bearing + Math.PI;
       pilots.touch(accountId);
       pilots.flush();
     }

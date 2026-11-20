@@ -69,7 +69,12 @@ export function beltOf(system: SystemDef): Rock[] {
       y: Math.sin(bearing) * distance,
       // Bigger rocks hold more, which is the whole of a captain's choice
       // about which one to sit on.
-      radius: Math.round(90 * size),
+      //
+      // Small, in a game whose berths have a radius of about a hundred: a
+      // rock at ninety came out the size of a landable world and filled a
+      // quarter of the sky from inside a rig's reach, which read as flying
+      // into a wall rather than as sitting on a boulder.
+      radius: Math.round(26 * size),
       commodity: belt.commodity,
       whole: Math.max(1, Math.round(belt.unitsEach * size)),
       seed: rng.int(0, 65_535),

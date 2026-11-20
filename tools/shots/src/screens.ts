@@ -59,6 +59,7 @@ interface HarnessWindow {
           string,
           { x: number; y: number; angle: number; shield: number; destroyedAt: number }
         >;
+        asteroids: Map<string, { x: number; y: number; radius: number; left: number }>;
       };
     };
   };
@@ -82,6 +83,87 @@ async function hold(page: Page, key: string, ms: number): Promise<void> {
  *
  * Returns false when there is nothing to shoot at.
  */
+/**
+ * Fly out to the nearest rock and cut into it.
+ *
+ * A belt is thousands of units off the berths — that is the point of it — so
+ * a capture of one is a flight rather than a pose. Burns toward the rock,
+ * brakes into the last stretch, then holds the trigger: a rig has no mark
+ * and no cooldown, it just has to be pointed at rock.
+ */
+async function flyToRock(page: Page, seconds: number): Promise<boolean> {
+  const deadline = Date.now() + seconds * 1000;
+
+  /** Where the nearest rock is, relative to the nose, and how far. */
+  const read = (): Promise<{ delta: number; range: number; radius: number } | null> =>
+    page.evaluate(() => {
+      const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
+      const room = harness?.room;
+      if (!room) return null;
+      const self = room.state.ships.get(room.sessionId);
+      if (!self) return null;
+
+      let nearest: { range: number; bearing: number; radius: number } | undefined;
+      for (const [, rock] of room.state.asteroids) {
+        if (rock.left <= 0) continue;
+        const range = Math.hypot(rock.x - self.x, rock.y - self.y);
+        if (!nearest || range < nearest.range) {
+          nearest = {
+            range,
+            bearing: Math.atan2(rock.y - self.y, rock.x - self.x),
+            radius: rock.radius,
+          };
+        }
+      }
+      if (!nearest) return null;
+
+      let delta = nearest.bearing - self.angle;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      return { delta, range: nearest.range, radius: nearest.radius };
+    });
+
+  // The belt arrives with the rest of the room's state, which is a moment
+  // after the hull does. Giving up on the first empty read is how this
+  // photographed a captain sitting at the berth they started at.
+  for (let tries = 0; tries < 40; tries += 1) {
+    if (await read()) break;
+    await page.waitForTimeout(250);
+  }
+  if (!(await read())) return false;
+
+  while (Date.now() < deadline) {
+    const aim = await read();
+    if (!aim) break;
+
+    // Come round onto it first, then burn, then brake into the last stretch.
+    if (Math.abs(aim.delta) > 0.12) {
+      const key = aim.delta > 0 ? 'ArrowRight' : 'ArrowLeft';
+      await page.keyboard.down(key);
+      await page.waitForTimeout(Math.min(240, Math.abs(aim.delta) * 400));
+      await page.keyboard.up(key);
+      continue;
+    }
+
+    const close = aim.range < aim.radius + 160;
+    if (close) {
+      // Alongside it: stop, point at it, and cut.
+      await page.keyboard.down('ArrowDown');
+      await page.waitForTimeout(900);
+      await page.keyboard.up('ArrowDown');
+      await page.keyboard.down('Space');
+      await page.waitForTimeout(1800);
+      return true;
+    }
+
+    await page.keyboard.down('ArrowUp');
+    await page.waitForTimeout(aim.range > aim.radius + 2500 ? 1400 : 400);
+    await page.keyboard.up('ArrowUp');
+  }
+
+  return false;
+}
+
 async function engageNearest(
   page: Page,
   seconds: number,
@@ -290,6 +372,51 @@ export const SCREENS: readonly Screen[] = [
       // Leaves the trigger down on the mark, so the capture is mid-fight.
       await engageNearest(page, 45, { untilHit: true });
       await page.waitForTimeout(350);
+    },
+  },
+  {
+    name: 'beams',
+    description:
+      'The Close Order holding two cutting beams on a mark: the core, the soft '
+      + 'surround, and the brighter termination where they land.',
+    path: '/?draught=close-order&callsign=Close%20Order&harness=1',
+    settle: '.hud',
+    settleMs: 2500,
+    bots: 2,
+    act: async (page) => {
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(300);
+      // A beam is held rather than fired, so the capture has to be taken
+      // while the trigger is still down — which is what `untilHit` leaves.
+      await engageNearest(page, 45, { untilHit: true });
+      await page.waitForTimeout(250);
+    },
+  },
+  {
+    name: 'belt',
+    description:
+      "A belt in Lindqvist: rocks lit from the star, the worked ones smaller and "
+      + 'duller than the whole ones, with a rig cutting into the nearest.',
+    path: '/?callsign=Spoil%20Heap&harness=1',
+    settle: '.hud',
+    settleMs: 1200,
+    seed: {
+      callsign: 'Spoil Heap',
+      atBelt: 'lindqvist',
+      flying: 'spoil-heap',
+    },
+    act: async (page) => {
+      // Set down beside a rock rather than flown out to one: the belt is
+      // thousands of units off the berths, which is the point of it and
+      // also four minutes of a capture run. The subject is the belt.
+      //
+      // Waiting on `.hud` rather than `.hud__travel`: the travel panel is
+      // there when a berth is in reach or a course is plotted, and out in a
+      // belt neither is true — which is how this came to wait twenty
+      // seconds for a thing that was never going to appear.
+      await page.waitForSelector('.hud', { timeout: 20_000 });
+      await flyToRock(page, 40);
+      await page.waitForTimeout(500);
     },
   },
   {

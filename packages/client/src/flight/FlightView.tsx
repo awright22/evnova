@@ -33,6 +33,7 @@ import { Effects } from './effects.ts';
 import {
   Scene,
   type BeamFrame,
+  type RockFrame,
   type CanisterFrame,
   type ProjectileFrame,
   type ShipFrame,
@@ -538,10 +539,34 @@ export function FlightView({
           });
         });
 
+        // The belt. Rocks never move, but what is left in one does, and the
+        // scene works out which of them a beam is landing on for itself.
+        const rocks: RockFrame[] = [];
+        room.state.asteroids.forEach((rock, id) => {
+          rocks.push({
+            id,
+            x: rock.x,
+            y: rock.y,
+            radius: rock.radius,
+            left: rock.left,
+            whole: rock.whole,
+            seed: rock.seed,
+          });
+        });
+
         effects.update(dtMs);
 
         scene.resize(app.screen.width, app.screen.height);
-        scene.update(frames, self, session.shipProfile.topSpeed, dtMs, rounds, canisters, beams);
+        scene.update(
+          frames,
+          self,
+          session.shipProfile.topSpeed,
+          dtMs,
+          rounds,
+          canisters,
+          beams,
+          rocks,
+        );
 
         engine?.setThrottle(session.currentThrottle);
 

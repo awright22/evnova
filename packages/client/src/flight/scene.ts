@@ -13,6 +13,7 @@ import {
   clamp,
   mountsOf,
   placeAll,
+  wrapAngle,
   type ModuleDef,
   type Mount,
   type SystemDef,
@@ -31,6 +32,7 @@ import {
 } from './beams.ts';
 import { mix, palette, parseHex } from './palette.ts';
 import { planetTexture, starTexture } from './planet.ts';
+import { rockShape, rockWear, type RockShape } from './rock.ts';
 import type { HullBook } from './hulls.ts';
 import { renderShipArt, TEXTURE_PX_PER_UNIT, type ShipArt } from './shipTexture.ts';
 
@@ -52,6 +54,17 @@ export interface CanisterFrame {
   readonly x: number;
   readonly y: number;
   readonly inReach: boolean;
+}
+
+/** A rock in a belt, as the wire gives it. */
+export interface RockFrame {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  readonly left: number;
+  readonly whole: number;
+  readonly seed: number;
 }
 
 /** What the scene needs to know about one ship this frame. */
@@ -156,6 +169,10 @@ export class Scene {
   private readonly worldLayer = new Container();
   private readonly shipLayer = new Container();
   /** One Graphics for every round, canister and overlay: far fewer draw calls. */
+  private readonly rockLayer = new Graphics();
+  private readonly rockShapes = new Map<string, RockShape>();
+  /** Where this frame's beams land, in world units, for the rocks under them. */
+  private readonly beamHits: { x: number; y: number }[] = [];
   private readonly roundLayer = new Graphics();
   /** Beams draw over hulls and rounds, under the brackets and readouts. */
   private readonly beamLayer = new Graphics();
@@ -197,7 +214,10 @@ export class Scene {
     this.root.addChild(this.worldLayer);
 
     this.buildSystem();
+    // Rocks are furniture: under the hulls, over the backdrop, and not
+    // additive — a rock is a thing in the way, not a thing giving off light.
     this.worldLayer.addChild(
+      this.rockLayer,
       this.shipLayer,
       this.roundLayer,
       this.beamLayer,
@@ -311,6 +331,7 @@ export class Scene {
     rounds: readonly ProjectileFrame[] = [],
     canisters: readonly CanisterFrame[] = [],
     beams: readonly BeamFrame[] = [],
+    rocks: readonly RockFrame[] = [],
   ): void {
     this.elapsedMs += dtMs;
     const seen = new Set<string>();
@@ -331,8 +352,12 @@ export class Scene {
       this.ships.delete(id);
     }
 
-    this.drawRounds(rounds, canisters);
+    // Beams before rocks, though rocks are under them: a rock being cut is
+    // drawn differently, and only the beams know where they land. The layers
+    // are separate objects, so what is drawn first is not what is on top.
     this.drawBeams(beams, frames, dtMs);
+    this.drawRocks(rocks);
+    this.drawRounds(rounds, canisters);
     this.drawOverlays(frames, self);
 
     if (self) {
@@ -359,6 +384,95 @@ export class Scene {
   }
 
   /** Rounds and canisters, all into one Graphics. */
+  /**
+   * The belt.
+   *
+   * Rocks never move and never appear, so this would be a build-once layer
+   * if they did not wear: one is redrawn when a rig has been at it, and the
+   * cheapest way to keep that honest is to rebuild the lot each frame. A
+   * dozen lumpy polygons is less work than one ship.
+   *
+   * Each is lit from the star at the origin, like the berths are, and the
+   * bare ones read smaller and duller so a captain can see from across the
+   * belt which somebody has already worked.
+   */
+  private drawRocks(rocks: readonly RockFrame[]): void {
+    /** A grey at a given brightness, which is all a rock is. */
+    const shade = (colour: number, level: number): number =>
+      mix(0x000000, colour, clamp(level, 0, 1));
+
+    const g = this.rockLayer;
+    g.clear();
+    if (rocks.length === 0) return;
+
+    const p = palette();
+
+    for (const rock of rocks) {
+      const shape = this.rockShapeFor(rock);
+      const wear = rockWear(rock.left, rock.whole);
+      const x = rock.x * PX_PER_UNIT;
+      const y = rock.y * PX_PER_UNIT;
+      const step = (Math.PI * 2) / shape.radii.length;
+
+      // The body, as the lumpy outline the seed gives it.
+      shape.radii.forEach((radius, index) => {
+        const bearing = index * step;
+        const px = x + Math.cos(bearing) * radius * wear.scale * PX_PER_UNIT;
+        const py = y + Math.sin(bearing) * radius * wear.scale * PX_PER_UNIT;
+        if (index === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      });
+      g.closePath().fill({ color: shade(p.hull, 0.27 * wear.tint), alpha: 1 });
+
+      // The lit edge: an arc on the side facing the star, which is what
+      // makes a flat polygon read as a thing with a far side.
+      const lit = shape.radii.length;
+      for (let index = 0; index < lit; index += 1) {
+        const bearing = index * step;
+        const toStar = Math.abs(wrapAngle(bearing - shape.lightAngle));
+        if (toStar > Math.PI / 2) continue;
+
+        const next = (index + 1) % lit;
+        const r0 = shape.radii[index]! * wear.scale * PX_PER_UNIT;
+        const r1 = shape.radii[next]! * wear.scale * PX_PER_UNIT;
+        g.moveTo(x + Math.cos(bearing) * r0, y + Math.sin(bearing) * r0)
+          .lineTo(x + Math.cos(bearing + step) * r1, y + Math.sin(bearing + step) * r1)
+          .stroke({
+            width: 2,
+            color: shade(p.hull, 0.8 * wear.tint),
+            // Brightest where it faces the star, falling off to the terminator.
+            alpha: 0.85 * Math.cos(toStar),
+          });
+      }
+
+      // A rig at work throws the cut face into relief.
+      if (this.cutting(rock)) {
+        g.circle(x, y, rock.radius * wear.scale * PX_PER_UNIT * 1.12).stroke({
+          width: 1,
+          color: p.amberDim,
+          alpha: 0.5,
+        });
+      }
+    }
+  }
+
+  /** Whether one of this frame's beams is landing on this rock. */
+  private cutting(rock: RockFrame): boolean {
+    for (const hit of this.beamHits) {
+      if (Math.hypot(hit.x - rock.x, hit.y - rock.y) <= rock.radius * 1.4) return true;
+    }
+    return false;
+  }
+
+  /** A rock's outline, worked out once and kept: rocks do not change shape. */
+  private rockShapeFor(rock: RockFrame): RockShape {
+    const cached = this.rockShapes.get(rock.id);
+    if (cached) return cached;
+    const shape = rockShape(rock.seed, rock.radius, rock.x, rock.y);
+    this.rockShapes.set(rock.id, shape);
+    return shape;
+  }
+
   private drawRounds(
     rounds: readonly ProjectileFrame[],
     canisters: readonly CanisterFrame[],
@@ -420,6 +534,7 @@ export class Scene {
   ): void {
     const g = this.beamLayer;
     g.clear();
+    this.beamHits.length = 0;
     if (beams.length === 0 && this.beamNodes.size === 0) return;
 
     this.poses.clear();
@@ -496,6 +611,11 @@ export class Scene {
 
     const p = palette();
     const seg = beamSegment(mount, owner, node.angle, node.length);
+
+    // Where it lands, for the rocks drawn under it: a rig's line stopping
+    // on a rock is the only way the scene knows which one is being worked.
+    if (node.hitting) this.beamHits.push({ x: seg.tipX, y: seg.tipY });
+
     const x0 = seg.muzzleX * PX_PER_UNIT;
     const y0 = seg.muzzleY * PX_PER_UNIT;
     const x1 = seg.tipX * PX_PER_UNIT;
