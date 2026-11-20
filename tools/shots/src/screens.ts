@@ -452,7 +452,7 @@ export const SCREENS: readonly Screen[] = [
     // and the sky it crosses is wide. The gunner is a bot flying the same
     // protocol a browser does, firing on a captain the Prize Court has
     // already posted.
-    gunner: { hunt: 'Act of God', system: 'parity', draught: 'fair-wear-and-tear' },
+    gunner: { hunt: 'Act of God', system: 'parity', draught: 'short-measure' },
     // A fragile gunboat with a hold worth dropping, in the Home Roads, with
     // a berth at the far side of the system behind it — so the panel's last
     // line is about somewhere the captain is not.

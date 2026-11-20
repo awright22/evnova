@@ -341,6 +341,9 @@ async function main(): Promise<void> {
             why: error instanceof Error ? error.message.split('\n')[0]! : String(error),
           });
           console.warn(`  ! ${screen.name} was not captured: ${missed.at(-1)?.why ?? ''}`);
+          // A screen with a gunner of its own failed for a reason that is in
+          // the gunner's log and nowhere else.
+          if (gunner) console.warn(gunner.output().split('\n').slice(-12).join('\n'));
         } finally {
           for (const context of held) await context.close();
           if (gunner) await gunner.stop();

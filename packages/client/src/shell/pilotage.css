@@ -7,11 +7,19 @@
  */
 
 .pilotage {
-  /* Fixed, not absolute: a berth's screen scrolls, and the note is about the
-     screen rather than a place in it. */
+  /*
+   * Fixed, not absolute: a berth's screen scrolls, and the note is about the
+   * screen rather than a place in it.
+   *
+   * Top right, below the HUD's corner plate. The first try was bottom left,
+   * which put it straight through the instruments — speed, shield and hull,
+   * the three things a captain is actually reading. This corner is empty in
+   * flight below the link plate, and empty at a berth, where everything is
+   * in the left column and the rest is the vista.
+   */
   position: fixed;
-  bottom: var(--space-2);
-  left: var(--space-2);
+  top: 96px;
+  right: var(--space-2);
   z-index: 40;
   width: 268px;
   padding: var(--space-1-5);
@@ -89,8 +97,16 @@
 /* --- A hint ----------------------------------------------------------- */
 
 .hint {
+  /*
+   * Over the upper middle of the screen rather than pinned to its top edge.
+   * Pinned, it landed on the panel header of the very counter it was
+   * describing — the Staple's note covering the word "the Staple" — which
+   * is on the avoid list now. Here it covers rows and vista, which come
+   * back the instant it is dismissed, and nothing that is a title or a
+   * control.
+   */
   position: fixed;
-  top: var(--space-2);
+  top: 22vh;
   left: 50%;
   z-index: 60;
   display: flex;

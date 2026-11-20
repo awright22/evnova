@@ -650,6 +650,7 @@ export const SERVER_MESSAGES = [
   'convoy',
   'offers',
   'offer',
+  'dividend',
 ] as const;
 
 /** One of the pushes above, for code that routes them. */

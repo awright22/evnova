@@ -35,7 +35,8 @@
     "verify:loss": "tsx tools/verify/src/loss.ts",
     "verify:orders": "tsx tools/verify/src/orders.ts",
     "verify:range": "tsx tools/verify/src/range.ts",
-    "verify:admin": "tsx tools/verify/src/admin.ts"
+    "verify:admin": "tsx tools/verify/src/admin.ts",
+    "audio": "tsx tools/audio/src/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

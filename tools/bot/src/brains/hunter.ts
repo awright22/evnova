@@ -25,12 +25,24 @@ const BREAK_OFF = 260;
 
 export function hunterBrain(callsign: string): BotBrain {
   let markId = '';
+  /** Step of the last line said, so this is a note and not a stream. */
+  let saidAt = -Infinity;
 
   return {
     name: 'hunter',
 
     decide(view: BotView, cmd: ShipInput): void {
       const { self, profile } = view;
+
+      // A gunner that cannot find its mark is the reason a capture of a
+      // write-off fails, and it is invisible from the page's side. Say so
+      // every few seconds: the harness keeps this log and prints it when
+      // the screen does not come out.
+      if (view.step - saidAt > 180) {
+        saidAt = view.step;
+        const names = [...view.ships.values()].map((ship) => ship.callsign).join(', ');
+        console.log(`hunter: after "${callsign}"; in the sky: ${names || 'nobody'}`);
+      }
 
       // Find the mark by name each time it is lost: a captain who was
       // written off and set down again comes back under a new session id,

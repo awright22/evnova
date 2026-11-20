@@ -12,6 +12,7 @@
  * silent.
  */
 
+import { sounded } from './log.ts';
 import { sharedMix } from './shared.ts';
 
 /** Noise, made once and reused: a buffer per stamp would allocate per click. */
@@ -48,6 +49,7 @@ export function playStamp(): void {
   void mix.unlock();
   const bus = mix.busFor('interface');
   const now = context.currentTime;
+  sounded('stamp');
 
   // 1. Paper and mechanism: twelve milliseconds of bright noise ahead of the
   //    strike, so the thud lands on something rather than out of nothing.

@@ -22,8 +22,8 @@ import { RangeRoom } from './rooms/RangeRoom.ts';
 // The Bourse moves on the world's own clock, not on a captain's action, so
 // the rooms are told when it has. Registered here because the World does not
 // know about rooms and the rooms do not know about each other.
-world().onBourseTick = (_dividends, book) => {
-  refreshEveryBourse(book);
+world().onBourseTick = (_dividends, book, paid) => {
+  refreshEveryBourse(book, paid);
 };
 
 // Patrols look at the traffic, and worked rock comes back, on the same

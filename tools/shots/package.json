@@ -13,5 +13,9 @@
   },
   "devDependencies": {
     "playwright": "1.63.0"
+  },
+  "exports": {
+    "./browser": "./src/browser.ts",
+    "./processes": "./src/processes.ts"
   }
 }

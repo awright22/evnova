@@ -17,9 +17,16 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.tsx';
+import { listenToControls } from './audio/controls.ts';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('missing #root');
+
+// Hover and select, for every control in the game, wired once at the
+// document rather than screen by screen: a sound added per screen is a
+// sound missing from the next screen somebody writes. Silent until a
+// captain has touched something and the mix exists.
+listenToControls();
 
 createRoot(container).render(
   <StrictMode>

@@ -119,6 +119,22 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  tools/audio:
+    dependencies:
+      '@marque/harness':
+        specifier: workspace:*
+        version: link:../harness
+      '@marque/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@marque/shots':
+        specifier: workspace:*
+        version: link:../shots
+    devDependencies:
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
+
   tools/bot:
     dependencies:
       '@colyseus/sdk':

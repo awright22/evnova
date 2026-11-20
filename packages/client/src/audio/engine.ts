@@ -10,6 +10,7 @@
  * the same path as the local one once M2 gives them sounds of their own.
  */
 
+import { sounded } from './log.ts';
 import { createNoiseBuffer, type AudioMix } from './mix.ts';
 
 /** Smoothing time constant, in seconds. */
@@ -29,6 +30,8 @@ export class EngineSound {
   private readonly output: GainNode;
   private readonly context: AudioContext;
   private stopped = false;
+  /** Whether the audit has been told the engine is running. */
+  private reported = false;
 
   constructor(mix: AudioMix) {
     const context = mix.context;
@@ -82,6 +85,14 @@ export class EngineSound {
     if (this.stopped) return;
     const t = Math.max(0, Math.min(1, throttle));
     const now = this.context.currentTime;
+
+    // Reported on the first open throttle only. The loop is continuous, so
+    // reporting it every frame would be sixty entries a second in the audit
+    // and would say nothing the first one did not.
+    if (t > 0.05 && !this.reported) {
+      this.reported = true;
+      sounded('engine');
+    }
 
     const rate = MIN_RATE + (MAX_RATE - MIN_RATE) * t;
     const gain = MIN_GAIN + (MAX_GAIN - MIN_GAIN) * t;

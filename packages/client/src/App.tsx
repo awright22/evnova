@@ -30,6 +30,8 @@ import { Offers } from './offers/Offers.tsx';
 import { Admin } from './admin/Admin.tsx';
 import { httpBaseFrom, loadAccount } from './game/account.ts';
 import { Title } from './shell/Title.tsx';
+import { flightAudio } from './audio/flight.ts';
+import { playNotice } from './audio/notices.ts';
 import { Hint, useHint } from './shell/Hint.tsx';
 import { Pilotage } from './shell/Pilotage.tsx';
 import {
@@ -180,6 +182,16 @@ function Game({
 
   const { mode, purse, chart } = snapshot;
 
+  // A refusal is a sound of its own, flat and short, so a captain who is
+  // not reading the notice line still knows the Staple declined. One per
+  // refusal: the snapshot carries the text until something clears it.
+  const refusal = snapshot.notice;
+  const lastRefusal = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (refusal !== undefined && refusal !== lastRefusal.current) playNotice('refused');
+    lastRefusal.current = refusal;
+  }, [refusal]);
+
   // What the captain is carrying, which the Yard's bill is settled against.
   const hold = useMemo(
     () =>
@@ -222,15 +234,28 @@ function Game({
   // fourth. Both are read off the mode rather than off the intent, because
   // an intent the server refused is not a thing the captain did.
   useEffect(() => {
-    if (mode.kind === 'port') endorsed('land');
+    if (mode.kind === 'port') {
+      endorsed('land');
+      // The clamps. Heard here rather than in the flight view, which is on
+      // its way out by the time the hull is actually alongside.
+      flightAudio()?.land();
+    }
   }, [mode.kind, endorsed]);
 
   const arrivedIn = snapshot.systemId;
   const firstSystem = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (arrivedIn === '') return;
-    firstSystem.current ??= arrivedIn;
-    if (arrivedIn !== firstSystem.current) endorsed('jump');
+    if (firstSystem.current === undefined) {
+      firstSystem.current = arrivedIn;
+      return;
+    }
+    if (arrivedIn === firstSystem.current) return;
+    firstSystem.current = arrivedIn;
+    endorsed('jump');
+    // Somewhere else. The whump belonged to the lane; this is the chime on
+    // the other side of it.
+    flightAudio()?.arrival();
   }, [arrivedIn, endorsed]);
 
   // Leaving the berth closes its floor: a market is a thing you stand in, and
@@ -353,7 +378,10 @@ function Game({
               notice: snapshot.notice,
             }}
             onBuy={(service) => client.buy(service)}
-            onLaunch={() => client.launch()}
+            onLaunch={() => {
+              flightAudio()?.launch();
+              client.launch();
+            }}
             onOpenChart={() => setChartOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenStaple={() => setStapleOpen(true)}

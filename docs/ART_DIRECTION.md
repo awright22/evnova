@@ -370,9 +370,43 @@ piano. One bed per region, plus a combat layer crossfading in over 1.5s when a
 hostile is within 2500 units and out over 4s once clear. No orchestral bombast
 and no sea shanties.
 
+A bed is four layers, generated rather than looped so it never arrives at the
+same bar twice:
+
+- **Drone.** Four detuned sawtooths on the root, the fifth and the octave,
+  through a lowpass breathing on a 23-second LFO. Continuous, and most of what
+  a captain hears.
+- **Bowed strings.** A sawtooth pair six to seven cents apart through a
+  bandpass, two seconds of attack, five to nine seconds long, one note at a
+  time from the region's scale, two or three octaves above the drone. They do
+  not resolve.
+- **Low piano.** A sine fundamental with two quiet partials and a filtered
+  noise hammer, struck an octave above the drone, rarely, and never in a
+  rhythm.
+- **Combat layer.** A minor second held against the root, a low pulse at 76
+  beats a minute, and the drone's own filter opened to 2.2× its cutoff. No
+  drum kit: a fight reads as pressure, not as percussion arriving.
+
+| Region | Root | Scale | Cutoff | A bow every | A strike every |
+|---|---|---|---|---|---|
+| The Home Roads | A1, 55 Hz | minor with a major sixth | 460 Hz | 9–17s | 11–26s |
+| The Concessions | G1, 49 Hz | Dorian | 380 Hz | 10–20s | 14–32s |
+| The Marque | F1, 44 Hz | Phrygian | 300 Hz | 13–26s | 18–44s |
+
+The Home Roads are settled and solvent and get the warmest of the three; the
+Concessions are contested and arithmetical, with open fifths and nothing warm
+in them; the Marque is darker, and its strings are further apart because there
+is less out there. Arriving somewhere glides the drone and the filter over
+four seconds rather than cutting: a region is a change of character, not a
+change of track.
+
 Audio sources are not reachable from the build environment (see
 `docs/HUMAN_TODO.md`), so sounds are synthesised in Web Audio, which the spec
-permits.
+permits. That leaves nothing to loudness-normalise, so the measurement the
+spec asks for is the other two: `packages/client/src/audio/log.test.ts` reads
+the feedback table out of this document and fails if a row has no sound
+mapped, and `pnpm audio` drives a scripted session in a real browser and logs
+what the client actually played to `artifacts/audio.json`.
 
 ---
 
@@ -422,6 +456,7 @@ cell is unfinished work. Minimum two channels per row.
 | Taken out on the range | Banner across the top; nothing is real | Nothing: the range makes no ceremony | Banner fades up 160ms |
 | A claim settled | Panel with what the Hall paid and what went with her | Paper, a single low tone | Panel rises 160ms; figures roll |
 | Hover any control | Surface lifts to `--hover`, 1px edge brightens | Very quiet hover tick | 80ms fade |
+| Press any control | Surface holds `--hover`; focus ring stays | A tick with a note under it, quieter than the stamp | 80ms hold |
 | Confirm a destructive action | Dialog stating the consequence plainly | Lower, heavier confirm | 160ms modal rise |
 
 ---
@@ -481,6 +516,14 @@ whenever an unintended look appears, then fix it.
   action of a screen; one per row is a column of amber, which is the same
   dilution as using it decoratively. Row actions are plain buttons, and the
   fill is kept for the single thing the screen is for.
+- A note pinned to a corner that lands on the instruments. The ticket's card
+  sat bottom left and went straight through speed, shield and hull — the
+  three figures a captain is actually reading. A note goes where the screen
+  is empty, and in flight that is below the link plate on the right.
+- A note pinned to the top edge that covers the panel header of the thing it
+  is explaining. The Staple's hint covered the word "the Staple". A note may
+  cover rows, vista or empty sky, which come back when it is dismissed, and
+  never a title or a control.
 - A fixed-width panel holding a one-line empty state, which reads as a box
   with a sentence adrift in it. A panel sizes to what it holds.
 - A board that draws the hull as a small patch in an empty field. The margin

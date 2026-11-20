@@ -380,6 +380,17 @@ export class GameClient {
     const seen = new Set(this.chatLines.map((line) => line.id));
     const added = incoming.filter((line) => !seen.has(line.id));
     if (added.length === 0) return;
+    // One tick for a batch, and none for the backlog that arrives on
+    // joining: a captain walking into a busy channel should not hear forty
+    // of them. None for this captain's own line either — they typed it.
+    const mine = this.account?.callsign;
+    if (
+      this.chatLines.length > 0
+      && added.length < 4
+      && added.some((line) => line.callsign !== mine)
+    ) {
+      playNotice('chat');
+    }
     this.chatLines = [...this.chatLines, ...added].slice(-CHAT_BACKLOG);
     this.emitChat();
   }
@@ -562,6 +573,9 @@ export class GameClient {
       // A Factor's verdict. Held until the captain has seen it rather than
       // replaced by the next push, because being paid is worth reading.
       this.commissionNews = payload as CommissionNews;
+      // Two notes resolving when it was done and paid; nothing when it was
+      // not, because a chime for a failure is a chime that means nothing.
+      if (this.commissionNews.outcome === 'done') playNotice('commission');
       this.emit();
     });
 
@@ -632,12 +646,25 @@ export class GameClient {
       this.pushChat([payload as ChatLine]);
     });
 
+    room.onMessage('dividend', (payload) => {
+      const paid = payload as { ticker: string; marks: number };
+      // Money that arrived while the captain was doing something else, so
+      // the notice line says which company and the chime says that
+      // something happened at all.
+      this.notice = `${paid.ticker} paid a dividend of ${paid.marks.toLocaleString()} marks.`;
+      playNotice('dividend');
+      this.emit();
+    });
+
     room.onMessage('chat-backlog', (payload) => {
       this.pushChat((payload as { lines: ChatLine[] }).lines);
     });
 
     room.onMessage('posted', (payload) => {
       const event = payload as { composition: number };
+      // The one alert in the game. The music ducks for it, which is what
+      // the feedback table asks for by name.
+      playNotice('posted');
       // The Court's own words, from spec section 19.
       this.notice =
         `The Prize Court has posted you. Composition is set at ` +
@@ -661,6 +688,7 @@ export class GameClient {
       'market',
       'yard',
       'survey',
+      'dividend',
     ]);
     for (const type of SERVER_MESSAGES) {
       if (!handled.has(type)) room.onMessage(type, () => undefined);

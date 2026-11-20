@@ -206,8 +206,11 @@ const GLOBAL_CHAT_TOPIC = 'chat:global';
 const liveRooms = new Set<SystemRoom>();
 
 /** Tell every room the Bourse has moved. */
-export function refreshEveryBourse(book?: TickReport): void {
-  for (const room of liveRooms) room.refreshBourse(book);
+export function refreshEveryBourse(
+  book?: TickReport,
+  paid?: readonly { accountId: string; ticker: string; marks: number }[],
+): void {
+  for (const room of liveRooms) room.refreshBourse(book, paid);
 }
 
 /**
@@ -2249,10 +2252,26 @@ export class SystemRoom extends Room<{
     return true;
   }
 
-  refreshBourse(book?: TickReport): void {
+  refreshBourse(
+    book?: TickReport,
+    paid?: readonly { accountId: string; ticker: string; marks: number }[],
+  ): void {
     for (const [sessionId, pilot] of this.pilotsBySession) {
       if (pilot.landedPortId === undefined) continue;
       this.sendBourse(sessionId);
+    }
+
+    // A dividend is money arriving while the captain was doing something
+    // else entirely, which is exactly the case the feedback table has a
+    // sound for. One message per company that paid them.
+    for (const payment of paid ?? []) {
+      const sessionId = this.sessionOf(payment.accountId);
+      if (sessionId === undefined) continue;
+      this.clients.get(sessionId)?.send('dividend', {
+        ticker: payment.ticker,
+        marks: payment.marks,
+      });
+      this.sendPurseSoon(sessionId);
     }
 
     if (!book) return;

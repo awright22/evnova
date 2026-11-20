@@ -251,7 +251,12 @@ export class Exchange {
   tick(
     now: number,
     options: { of?: number } = {},
-  ): { events: EarningsEvent[]; dividends: { ticker: string; marks: number }[] } {
+  ): {
+    events: EarningsEvent[];
+    dividends: { ticker: string; marks: number }[];
+    /** Who was paid what, so their room can tell them. */
+    paid: { accountId: string; ticker: string; marks: number }[];
+  } {
     const { companies, tuning } = content();
     const { exchange } = tuning;
 
@@ -279,6 +284,7 @@ export class Exchange {
     }
 
     const dividends: { ticker: string; marks: number }[] = [];
+    const paidOut: { accountId: string; ticker: string; marks: number }[] = [];
 
     this.store.transaction(() => {
       for (const company of companies.values()) {
@@ -331,7 +337,13 @@ export class Exchange {
           .run();
 
         if (ticks % exchange.dividendEvery === 0 && undistributed > 0) {
-          const paid = this.payDividend(company, undistributed, exchange.dividendFraction, now);
+          const paid = this.payDividend(
+            company,
+            undistributed,
+            exchange.dividendFraction,
+            now,
+            paidOut,
+          );
           if (paid > 0) dividends.push({ ticker: company.ticker, marks: paid });
           undistributed -= paid;
           this.store.db
@@ -343,7 +355,7 @@ export class Exchange {
       }
     });
 
-    return { events, dividends };
+    return { events, dividends, paid: paidOut };
   }
 
   /**
@@ -359,6 +371,8 @@ export class Exchange {
     undistributed: number,
     fraction: number,
     now: number,
+    /** Filled in with who received what, for the rooms to pass on. */
+    paidOut: { accountId: string; ticker: string; marks: number }[],
   ): number {
     const pot = Math.floor(undistributed * fraction);
     if (pot <= 0) return 0;
@@ -403,6 +417,7 @@ export class Exchange {
         .run();
 
       paid += share;
+      paidOut.push({ accountId: holding.accountId, ticker: company.ticker, marks: share });
     }
 
     void now;

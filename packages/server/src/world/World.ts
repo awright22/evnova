@@ -95,7 +95,12 @@ export class World {
    * class's business.
    */
   onBourseTick:
-    | ((dividends: { ticker: string; marks: number }[], book: TickReport) => void)
+    | ((
+        dividends: { ticker: string; marks: number }[],
+        book: TickReport,
+        /** Who was paid what, so the rooms can tell those captains. */
+        paid: readonly { accountId: string; ticker: string; marks: number }[],
+      ) => void)
     | undefined;
 
   /** Called after the economy moves, for work the rooms own. */
@@ -202,6 +207,8 @@ export class World {
 
     this.lastBourseAt = now;
     const paid: { ticker: string; marks: number }[] = [];
+    /** Who received a dividend, so their room can tell them. */
+    const holders: { accountId: string; ticker: string; marks: number }[] = [];
     const fills: TickReport['fills'] = [];
     const liquidations: TickReport['liquidations'] = [];
     // Capped: a server that was stopped for a week should not run a thousand
@@ -214,6 +221,7 @@ export class World {
       const result = this.exchange.tick(now, { of: runs - i });
       this.gazette.report(result.events, result.dividends, now);
       paid.push(...result.dividends);
+      holders.push(...result.paid);
 
       // Standing orders are carried out against the price the house trader
       // has just left behind, and shorts are measured against it, so a
@@ -223,7 +231,7 @@ export class World {
       fills.push(...book.fills);
       liquidations.push(...book.liquidations);
     }
-    this.onBourseTick?.(paid, { fills, liquidations });
+    this.onBourseTick?.(paid, { fills, liquidations }, holders);
   }
 
   /**

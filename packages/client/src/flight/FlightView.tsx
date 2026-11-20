@@ -34,6 +34,8 @@ import {
 } from '../shell/settings.ts';
 import { CombatAudio } from '../audio/combat.ts';
 import { EngineSound } from '../audio/engine.ts';
+import { flightAudio, type FlightAudio } from '../audio/flight.ts';
+import { isRegion, startMusic, type Music } from '../audio/music.ts';
 import { Hud, type HudReadout } from '../hud/Hud.tsx';
 import { drawRadar, type RadarContact } from '../hud/radar.ts';
 import { Session } from '../net/session.ts';
@@ -219,9 +221,16 @@ export function FlightView({
     let mix: AudioMix | undefined;
     let engine: EngineSound | undefined;
     let combat: CombatAudio | undefined;
+    let music: Music | undefined;
+    let hull: FlightAudio | undefined;
     /** Beams that were sounding last frame, so the ones that stopped are let go. */
     const heldBeams = new Set<string>();
     let frame = 0;
+    /** The lane being spooled for on the last frame, for the spool's edges. */
+    let lastSpoolTo = '';
+    let lastSpoolProgress = 0;
+    /** The turn being held on the last frame, for the manoeuvring jets. */
+    let lastTurn: -1 | 0 | 1 = 0;
 
     const start = async (): Promise<void> => {
       const { systems, blueprints: catalogue, modules, tuning } = content();
@@ -295,6 +304,17 @@ export function FlightView({
           if (disposed || !mix) return;
           engine = new EngineSound(mix);
           combat = new CombatAudio(mix);
+          hull = flightAudio();
+          // The hull is already alongside when a captain lands and launches
+          // again, so the clamps letting go belong to the view starting,
+          // not to a key. Nothing is heard if the view started in flight.
+          if (room.state.ships.get(session!.sessionId)?.landingProgress ?? 0) {
+            hull?.launch();
+          }
+          // The region's bed. Started here rather than at the title, because
+          // this is the first gesture: a browser will not sound a note before
+          // one, and a drone that fails to start is worse than a late one.
+          if (isRegion(system.region)) music = startMusic(mix, system.region);
         });
       };
       window.addEventListener('keydown', startAudio, { once: true });
@@ -307,6 +327,14 @@ export function FlightView({
       const contacts: RadarContact[] = [];
       const stepLog: number[] = [];
       const knownRounds = new Set<string>();
+      /**
+       * Hulls already in the sky, so a new one can be heard arriving.
+       *
+       * Seeded on the first frame rather than empty: joining a system with
+       * six hulls in it should not sound six beacons at once.
+       */
+      const knownShips = new Set<string>();
+      let skyKnown = false;
       let lastMark = '';
       let lastNow = performance.now();
 
@@ -450,12 +478,30 @@ export function FlightView({
         // 1. Advance the predictor and send exactly the inputs it asks for.
         // Both hands at once: whichever is asking for something wins.
         const padIntent = pad.sample();
-        const due = session.tick(now, mergeIntents(keyboard!.sample(), padIntent));
+        const intent = mergeIntents(keyboard!.sample(), padIntent);
+        // A jet puffs when the turn starts, not while it is held: the table
+        // asks for a puff on the outboard side, and the sound itself limits
+        // how often it will make one.
+        if (intent.turn !== 0 && intent.turn !== lastTurn) hull?.thruster(intent.turn);
+        lastTurn = intent.turn;
+        const due = session.tick(now, intent);
         if (stepLog.length < 600) stepLog.push(due);
 
         // 2. Only then read positions: a read before the sends is a step stale.
         const views = session.shipViews();
         const selfId = session.sessionId;
+
+        // Another captain arriving: a beacon at distance, once each. Only
+        // for hulls carrying a callsign, which is what makes one a captain
+        // rather than a patrol or a raider the room spawned.
+        for (const view of views) {
+          if (view.id === selfId || knownShips.has(view.id)) continue;
+          knownShips.add(view.id);
+          if (skyKnown && view.callsign !== '' && !view.hostile && !view.patrol) {
+            playNotice('contact');
+          }
+        }
+        skyKnown = true;
 
         frames.length = 0;
         contacts.length = 0;
@@ -725,7 +771,17 @@ export function FlightView({
           // the prediction gave NaN.
           const own = room.state.ships.get(selfId);
           readout.shield = own?.shield ?? 0;
-          readout.spoolingTo = own?.jumpTo ?? '';
+          const spoolingTo = own?.jumpTo ?? '';
+          if (spoolingTo !== '' && lastSpoolTo === '') hull?.startSpool();
+          else if (spoolingTo === '' && lastSpoolTo !== '') {
+            // Released if the hull is on its way, cancelled if it is still
+            // here: the server clears `jumpTo` either way, and only one of
+            // the two is a whump.
+            hull?.endSpool((own?.jumpProgress ?? 0) <= 0 && lastSpoolProgress > 0.9);
+          }
+          lastSpoolTo = spoolingTo;
+          lastSpoolProgress = own?.jumpProgress ?? 0;
+          readout.spoolingTo = spoolingTo;
           readout.course = liveRef.current.courseName ?? '';
           readout.spoolProgress = own?.jumpProgress ?? 0;
           readout.landingProgress = own?.landingProgress ?? 0;
@@ -753,6 +809,23 @@ export function FlightView({
                 tooFast: nearestPrize.closing > BOARDING_SPEED,
               }
             : undefined;
+
+          // The combat layer. A state rather than an event: it crossfades
+          // over two seconds, so saying so every frame is what it is for.
+          // A hostile in the same sky is the whole test — a fight is being
+          // in one, not having been shot yet.
+          if (music) {
+            let threat = false;
+            for (const frame of frames) {
+              if (frame.isSelf || !frame.hostile) continue;
+              // The art direction's figure, not a guess.
+              if (Math.hypot(frame.x - self.x, frame.y - self.y) < COMBAT_MUSIC_RANGE) {
+                threat = true;
+                break;
+              }
+            }
+            music.setFighting(threat);
+          }
 
           // The mark's own state, which the spec asks the interface to show.
           const marked = frames.find((f) => f.isTarget);
@@ -834,6 +907,14 @@ export function FlightView({
       // A held voice outlives the frame loop that was feeding it, so a view
       // that goes away while a beam is down would leave a hum behind.
       combat?.releaseAll();
+      // The hull's sounds are the session's; only a running spool is this
+      // view's, and it is let go rather than left rising.
+      hull?.endSpool(false);
+      // The music is the session's too, and the bed belongs to the region
+      // rather than to the sky: it plays on while the captain is alongside,
+      // and the next flight view hands it whatever region it arrived in.
+      // Only the fight goes away with the view.
+      music?.setFighting(false);
       // The mix is the session's, not this view's: closing it here would
       // silence every screen a captain walks to next.
       scene?.destroy();
@@ -861,6 +942,13 @@ export function FlightView({
 
 /** How close the hull must be to scoop, matching the server's own check. */
 const SCOOP_REACH = 85;
+
+/**
+ * How near a hostile has to be for the combat layer to come in.
+ *
+ * `docs/ART_DIRECTION.md`, section 6: within 2500 units.
+ */
+const COMBAT_MUSIC_RANGE = 2500;
 
 /**
  * A remote hull's throttle is not synchronised, so it is inferred from motion.

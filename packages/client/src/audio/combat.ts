@@ -10,6 +10,7 @@
  * fight across the system reads as further away than one alongside.
  */
 
+import { sounded } from './log.ts';
 import { createNoiseBuffer, type AudioMix } from './mix.ts';
 
 /** Distance at which a sound is at full level, in world units. */
@@ -91,6 +92,7 @@ export class CombatAudio {
     let voice = this.held.get(key);
 
     if (!voice) {
+      sounded('beam');
       const panner = this.context.createStereoPanner();
       const output = this.context.createGain();
       output.gain.setValueAtTime(0, now);
@@ -208,6 +210,11 @@ export class CombatAudio {
     if (gain < 0.01) return;
 
     const pan = Math.max(-MAX_PAN, Math.min(MAX_PAN, (x - this.listenerX) / MAX_DISTANCE * 4));
+
+    // Reported here rather than at the top of the method: everything above
+    // is a reason not to make a noise, and a sound nobody can hear is not
+    // one the audit should count.
+    sounded(sound);
 
     const panner = this.context.createStereoPanner();
     panner.pan.value = pan;

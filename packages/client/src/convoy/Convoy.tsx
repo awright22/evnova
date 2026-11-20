@@ -480,6 +480,9 @@ export function Convoy({
                   <button
                     type="button"
                     className="button convoy__dissolve"
+                    // Lower and heavier than an ordinary press, per the
+                    // feedback table's last row.
+                    data-weight="destructive"
                     disabled={busy}
                     onClick={() => {
                       setLeaving(false);

@@ -12,9 +12,24 @@
  * land in the middle of a fight.
  */
 
+import { sounded } from './log.ts';
+import { currentMusic } from './music.ts';
 import { sharedMix } from './shared.ts';
 
-export type Notice = 'boarded' | 'claim' | 'filled' | 'called';
+export type Notice =
+  | 'boarded'
+  | 'claim'
+  | 'filled'
+  | 'called'
+  | 'dividend'
+  | 'commission'
+  | 'chat'
+  | 'contact'
+  | 'posted'
+  | 'refused'
+  | 'hover'
+  | 'select'
+  | 'confirm';
 
 /** Noise for the textures, made once. */
 let grain: AudioBuffer | undefined;
@@ -45,6 +60,13 @@ export function playNotice(notice: Notice): void {
   void mix.unlock();
   const bus = mix.busFor('interface');
   const now = context.currentTime;
+
+  // Spec section 4: music ducks under alerts. These are the alerts — things
+  // that happen to a captain rather than things they pressed — so the bed
+  // gets out of the way of all four of them. A stamp is not an alert and
+  // does not duck anything.
+  currentMusic()?.duck();
+  sounded(notice);
 
   /** A short tone at `hz`, starting at `at`, over `length`. */
   const tone = (hz: number, at: number, length: number, level: number, type: OscillatorType = 'sine'): void => {
@@ -107,6 +129,71 @@ export function playNotice(notice: Notice): void {
       // the captain gave, and it should not sound like one.
       tone(392, now, 0.12, 0.22, 'triangle');
       tone(294, now + 0.1, 0.22, 0.2, 'triangle');
+      return;
+
+    case 'dividend':
+      // Three notes up, soft. A company paying out is the one unambiguously
+      // pleasant thing that happens in this game, and it still does not
+      // last a quarter of a second a note.
+      tone(392, now, 0.16, 0.14, 'triangle');
+      tone(494, now + 0.11, 0.16, 0.13, 'triangle');
+      tone(587, now + 0.22, 0.34, 0.12, 'triangle');
+      return;
+
+    case 'commission':
+      // Two notes, resolving: a fourth down onto the tonic. Work finished
+      // and paid for, with the fee already out of it.
+      tone(523, now, 0.14, 0.17, 'triangle');
+      tone(392, now + 0.12, 0.38, 0.16, 'triangle');
+      return;
+
+    case 'chat':
+      // A tick, and quiet. Somebody said something; nobody is being paged.
+      texture(now, 0.015, 3200, 0.07, 2.2);
+      tone(1180, now, 0.035, 0.05);
+      return;
+
+    case 'contact':
+      // A beacon, heard at distance: one note with a long tail and nothing
+      // under it. Another captain arriving is information, not an event.
+      tone(880, now, 0.5, 0.055);
+      tone(1320, now + 0.02, 0.3, 0.025);
+      return;
+
+    case 'posted':
+      // Two low tones, the second flat against the first. The table asks
+      // for an alert; this is the only sound in the game that is one.
+      tone(196, now, 0.3, 0.26, 'square');
+      tone(185, now + 0.22, 0.42, 0.24, 'square');
+      texture(now, 0.1, 320, 0.08, 0.6);
+      return;
+
+    case 'refused':
+      // The Staple declining. Flat, short, no thud: the table is explicit
+      // that a refusal must not sound like a purchase that went through.
+      tone(155, now, 0.13, 0.2, 'square');
+      texture(now, 0.1, 240, 0.1, 0.9);
+      return;
+
+    case 'hover':
+      // The quietest thing in the game. A captain moving across a list of
+      // twelve rows should hear texture, not twelve notes.
+      texture(now, 0.01, 4200, 0.022, 2.4);
+      return;
+
+    case 'select':
+      // Pressing something. A tick with a note under it, still quiet: the
+      // stamp is what a confirmation sounds like, and this is not one.
+      texture(now, 0.014, 2800, 0.07, 1.8);
+      tone(740, now, 0.03, 0.06);
+      return;
+
+    case 'confirm':
+      // Lower and heavier, for a dialog that states a consequence. It is
+      // the same shape as `select` an octave and a half down, so the two
+      // read as the same gesture at different weights.
+      texture(now, 0.03, 900, 0.12, 1.1);
+      tone(196, now, 0.1, 0.15, 'triangle');
       return;
   }
 }
