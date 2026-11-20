@@ -1,9 +1,24 @@
 /** The Register: the only screen before a captain is flying. */
 
+/*
+ * Centred on the viewport, whatever the boxes above it are doing.
+ *
+ * The capture showed this panel at the top of the screen with sixty per cent
+ * of the viewport empty under it. The old rule was `place-items: center` on
+ * `height: 100%`, which centres only if the container really is the
+ * viewport's height — and here it was not, so the grid was its content's
+ * height and "centred" meant nothing.
+ *
+ * `min-height: 100vh` makes the box the viewport's without depending on the
+ * chain of `height: 100%` above it, and `place-content` distributes the free
+ * space in the track as well as placing the item in it. Nobody had seen this
+ * because this screen had not been captured since M9.
+ */
 .register {
   display: grid;
   place-items: center;
-  height: 100%;
+  place-content: center;
+  min-height: 100vh;
   padding: var(--space-3);
   background:
     radial-gradient(

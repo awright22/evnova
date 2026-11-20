@@ -217,18 +217,21 @@ impression to settle now.
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
 zero, and a landing prompt across the bottom.
 
-Two causes, and the first fix found the second. `untilHit` returned the
-instant a round told, which can be at the very edge of reach; with the link
-at about a second under software rasterisation, the shutter lands after the
-rounds have gone. Requiring the gunner to close inside 520 units first made
-it *worse* — range 1414, the mark off the edge of the screen — which is how
-the real cause surfaced: `engageNearest` takes whatever is nearest *this
-instant* unless the caller names a mark. The write-off capture was given an
-explicit mark in this same cycle and the fix was left there, so every other
-caller went on re-aiming at whichever hull had drifted closest, closing with
+The first diagnosis was wrong and finding that out found the real one. I
+read it as `untilHit` returning at the very edge of reach and added a
+"close in to 520 units first" gate. That made it *worse* — range 1414, the
+mark off the edge of the screen — because the `untilHit` check is only
+reached from inside the already-on-the-mark-and-in-range branch, so it had
+never returned out of range at all; the new gate simply stopped it returning,
+and the capture ran its full forty-five seconds and photographed the sky.
+
+The actual cause: `engageNearest` takes whatever is nearest *this instant*
+unless the caller names a mark. The write-off capture was given an explicit
+mark in this same cycle and the fix was left there, so every other caller
+went on re-aiming at whichever hull had drifted closest and closing with
 none of them. It latches onto its first mark now and keeps it, which is what
-the write-off gunner's fix should have been in the first place. `beams`
-takes the same path and the same fix.
+the write-off gunner's fix should have been in the first place. The gate is
+gone. `beams` takes the same path and the same fix.
 
 **N5. A refusal stood under a panel about something else.** The flight view
 keeps the last refusal on screen, which is right while a captain is flying.
