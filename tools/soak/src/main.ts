@@ -845,9 +845,11 @@ ${botRows}
 ## Network feel
 
 Spec section 3: at 150 ms latency and 2% packet loss there is no visible
-rubber-banding in normal flight, and remote ships move smoothly. This run was
-at ${options.latency} ms round trip with ${(options.loss * 100).toFixed(1)}% of
-each client's input frames held back a step and sent with the next one.
+rubber-banding in normal flight, and remote ships move smoothly.
+
+This run was at ${options.latency} ms round trip, with ${(options.loss * 100).toFixed(1)}% of each client's input frames
+held back a step and sent with the next one — head-of-line blocking, which is
+what loss looks like on a WebSocket.
 
 Rubber-banding is what a correction looks like from the pilot's seat, so it is
 read off the correction itself: \`drift ema\` is the SDK's own smoothed

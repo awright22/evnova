@@ -245,15 +245,15 @@ Done when:
 
 ## M9. Shell and onboarding
 
-- [ ] Title, menus, settings, credits
-- [ ] Onboarding, contextual hints
-- [ ] Gamepad, accessibility options
-- [ ] The final audio mix and music
-- [ ] A performance pass against every budget in section 3
+- [x] Title, menus, settings, credits
+- [x] Onboarding, contextual hints
+- [x] Gamepad, accessibility options
+- [x] The final audio mix and music
+- [x] A performance pass against every budget in section 3
 
 Done when:
-- [ ] A scripted new-player session completes onboarding without getting stuck
-- [ ] Every settings option demonstrably works
+- [x] A scripted new-player session completes onboarding without getting stuck
+- [x] Every settings option demonstrably works
 - [ ] All budgets pass
 
 ## M10. Polish cycles

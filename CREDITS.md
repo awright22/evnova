@@ -29,12 +29,18 @@ documents render.
 
 ## Audio
 
-*None vendored yet.*
+*None vendored.*
 
 Per `docs/HUMAN_TODO.md`, audio sources are not reachable from the build
-environment, so sounds are synthesised in Web Audio. Synthesised audio is
-original work and needs no entry here; if sourced audio is added later, it is
-listed with its author and licence.
+environment, so every sound in the game is synthesised in Web Audio — the
+engine loop, the weapons, the stamp, the interface, and the music. Synthesised
+audio is original work and needs no entry here; if sourced audio is added
+later, it is listed with its author and licence.
+
+The music is generated rather than composed or sampled: a drone, bowed
+strings, a struck low piano and a combat layer, scheduled against the audio
+clock. `docs/ART_DIRECTION.md` section 6 describes it. No melody, recording or
+arrangement comes from anywhere else.
 
 ## Art
 
