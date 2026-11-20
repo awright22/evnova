@@ -72,8 +72,19 @@ ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete
 successfully: exit code: 1
 ```
 
-which is B1, on the deploy path, from a machine that is not this one. The
-fix is in run 44.
+which is B1, on the deploy path, from a machine that is not this one.
+
+Run 44 builds it and boots it:
+
+```
+{"status":"ok","at":"2026-11-20T22:10:01.562Z","flushIntervalMs":2000}
+the image serves /health
+```
+
+That is the base image, the native build of `better-sqlite3`, the copy into
+the runtime stage, and the server's own boot and migration, all exercised
+for the first time. The volume mount is still untested — CI runs the
+container without one — and is noted as such in the human to-do.
 
 **B2. `fly.toml` promised a shutdown window it never set.** `[deploy]
 strategy = "immediate"` carried the comment *"Give the process time to flush

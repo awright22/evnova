@@ -312,15 +312,32 @@ which is right for a project page.
 - To restore one: `fly ssh console`, stop the process, copy the snapshot over
   `/data/marque.db`, and restart the machine.
 
-### What I could not verify here
+### What has been verified, and what has not
 
-- **The container image has never been built.** This machine has no usable
-  Docker daemon. The production server bundle has been built and run outside a
-  container — it boots, migrates the database and serves `/health` — so what
-  is untested is the image build itself: the base image, the native build of
-  `better-sqlite3`, and the volume mount. If `fly deploy` fails, send me the
-  output and I will fix it.
-- **No deploy has run**, since both need your accounts.
+The image **is** built and booted now, on every push: CI builds the
+Dockerfile, starts the container and waits for the health endpoint the host
+polls. The run that added that job is the first time this image had ever
+been built, and it failed — `pnpm install` died inside the container for the
+same reason CI had been red since M0. It passes now:
+
+```
+{"status":"ok","at":"2026-11-20T22:10:01.562Z","flushIntervalMs":2000}
+the image serves /health
+```
+
+So the base image, the native build of `better-sqlite3`, the copy into the
+runtime stage and the server's own boot and migration are all covered.
+
+What is still untested:
+
+- **The volume mount.** CI runs the container without one, so `/data` is
+  container-local there. On Fly it is a mounted volume, which is a different
+  filesystem with different permissions. The Dockerfile creates `/data` owned
+  by the `node` user for this reason, but nothing has proven it against a
+  real mount.
+- **No deploy has run**, since it needs your accounts and your money.
+
+If `fly deploy` fails, send me the output.
 
 ---
 
