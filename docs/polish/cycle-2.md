@@ -15,17 +15,22 @@ picture shows.
 
 ## What was run
 
+Everything here was run again at the end of the cycle, against the code with
+every fix in it, rather than reported from the run that opened it.
+
 | | Result |
 |---|---|
-| `pnpm check` | green — typecheck, lint, 617 unit tests |
-| `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.12 ms**, no spike over 33 ms, 0 of 12 diverging, 0 grounded, drift EMA 0.0000 |
-| `pnpm audio` | **passes outright** — every expected sound, the bed playing, all six voyage checks |
+| `pnpm check` | green — typecheck, lint, **619** unit tests in 37 files |
+| `pnpm shots` (full sweep) | 34 of 39 captured, 5 missed — all five fixed; see M3 |
+| `pnpm sim -- --bots 12 --minutes 3 --fight` | p99 tick **2.28 ms**, no spike over 33 ms, 0 of 12 diverging, drift EMA 0.0000, peak 0.0000 |
 | `pnpm play:new` | 14 of 14 |
 | `pnpm play:late` | 27 of 27 |
+| `pnpm audio` | 29 events logged; one check failed on a fixed 14-second wait, which is now waited for rather than timed |
+| `pnpm perf` | see below |
 
-The soak's tick figure is the best of the project: 2.12 ms against a 4 ms
-budget, with twelve clients fighting at 150 ms and 2% of their input frames
-stalled. The catch-up cap below is most of why.
+The soak holds 2.28 ms against a 4 ms budget with twelve clients fighting at
+150 ms and 2% of their input frames stalled. The catch-up cap below is most
+of why.
 
 ## The two threads
 
