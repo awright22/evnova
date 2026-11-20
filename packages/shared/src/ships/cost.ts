@@ -123,6 +123,44 @@ export function splitBill(bill: Bill, hold: ReadonlyMap<string, number>): BillSh
 }
 
 /**
+ * Whether a berth's Yard stocks a fitting.
+ *
+ * One rule, read by the editor to decide what to show and by the server to
+ * decide what to build, so the palette can never offer something the build
+ * will refuse. A berth that keeps no Yard stocks nothing.
+ */
+export function stocksModule(
+  stock: Partial<Record<string, number>> | undefined,
+  def: Pick<ModuleDef, 'manufacturer' | 'tier'>,
+): boolean {
+  if (!stock) return false;
+  return def.tier <= (stock[def.manufacturer] ?? 0);
+}
+
+/**
+ * The fittings a design calls for that this berth does not stock.
+ *
+ * Grouped by fitting rather than listed per cell: four unstocked engines are
+ * one thing to go and find, not four problems. Each carries the placements
+ * that call for it so the editor can still mark them on the grid.
+ */
+export function unstockedModules(
+  placements: readonly Placement[],
+  catalogue: ReadonlyMap<string, ModuleDef>,
+  stock: Partial<Record<string, number>> | undefined,
+): { moduleId: string; name: string; placements: number[] }[] {
+  const missing = new Map<string, { moduleId: string; name: string; placements: number[] }>();
+  placements.forEach((placement, index) => {
+    const def = catalogue.get(placement.moduleId);
+    if (!def || stocksModule(stock, def)) return;
+    const entry = missing.get(def.id) ?? { moduleId: def.id, name: def.name, placements: [] };
+    entry.placements.push(index);
+    missing.set(def.id, entry);
+  });
+  return [...missing.values()];
+}
+
+/**
  * A module's name without its maker's, for a list too narrow for both.
  *
  * The catalogue names every part in full — "Slipway Thirty Mk I Engine" — and

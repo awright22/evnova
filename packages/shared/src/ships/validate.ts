@@ -26,7 +26,9 @@ export type ProblemCode =
   | 'engine-blocked'
   | 'weapon-blocked'
   | 'too-many-modules'
-  | 'too-large';
+  | 'too-large'
+  /** The design is sound; this berth simply does not sell the fitting. */
+  | 'not-stocked';
 
 export interface Problem {
   readonly code: ProblemCode;

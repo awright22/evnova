@@ -24,6 +24,7 @@ import {
   encodeShareCode,
   placeAll,
   splitBill,
+  unstockedModules,
   validateDesign,
   type LicenceId,
   type Placement,
@@ -52,7 +53,9 @@ export type YardRefusal =
   | 'bad-share-code'
   | 'unknown-fitting'
   | 'unknown-captain'
-  | 'give-to-self';
+  | 'give-to-self'
+  | 'not-stocked-here'
+  | 'no-yard';
 
 export class YardRefused extends Error {
   constructor(
@@ -432,6 +435,10 @@ export class Yard {
       .get(options.systemId)
       ?.ports.find((candidate) => candidate.id === options.portId);
     if (!port) throw new YardRefused('no-such-ship');
+    // The room checks this before it gets here; checking again means the
+    // stock gate below cannot mistake a berth with no Yard at all for a Yard
+    // that happens to stock nothing, and says so in the right words.
+    if (!port.services.includes('yard')) throw new YardRefused('no-yard');
 
     const licence = licences.get(options.pilot.licence as LicenceId);
     if (!licence) throw new YardRefused('invalid-design');
@@ -439,6 +446,21 @@ export class Yard {
     const placed = placeAll(options.placements, modules);
     const check = validateDesign(placed, licence, tuning);
     if (!check.valid) throw new YardRefused('invalid-design', check.problems);
+
+    // What this berth cannot supply, it cannot fit. The editor filters its
+    // palette by the same rule, so this catches a design brought in from
+    // elsewhere — imported, given, or carried from a yard that did stock it.
+    const unstocked = unstockedModules(options.placements, modules, port.yardStock);
+    if (unstocked.length > 0) {
+      throw new YardRefused(
+        'not-stocked-here',
+        unstocked.map((entry) => ({
+          code: 'not-stocked' as const,
+          message: `${port.name} does not stock the ${entry.name}.`,
+          placements: entry.placements,
+        })),
+      );
+    }
 
     return this.store.transaction(() => {
       const previous = options.refitting

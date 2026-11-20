@@ -48,6 +48,11 @@
               "provisions": 4,
               "leaf": 7
             }
+          },
+          "yardStock": {
+            "HRC": 2,
+            "RPO": 2,
+            "SLP": 2
           }
         },
         {
@@ -126,6 +131,11 @@
               "leaf": 8,
               "alloy": 5
             }
+          },
+          "yardStock": {
+            "HRC": 3,
+            "RPO": 1,
+            "SLP": 2
           }
         },
         {
@@ -390,6 +400,11 @@
               "alloy": 16,
               "provisions": 3
             }
+          },
+          "yardStock": {
+            "HRC": 3,
+            "RPO": 1,
+            "SLP": 1
           }
         },
         {
@@ -519,6 +534,11 @@
               "ore": 39,
               "provisions": 4
             }
+          },
+          "yardStock": {
+            "HRC": 2,
+            "RPO": 2,
+            "SLP": 3
           }
         },
         {
@@ -672,6 +692,11 @@
               "circuitry": 4,
               "provisions": 3
             }
+          },
+          "yardStock": {
+            "HRC": 1,
+            "RPO": 1,
+            "SLP": 3
           }
         },
         {
@@ -825,6 +850,11 @@
               "circuitry": 3,
               "ordnance": 4
             }
+          },
+          "yardStock": {
+            "HRC": 2,
+            "RPO": 1,
+            "SLP": 3
           }
         },
         {
@@ -1032,6 +1062,11 @@
               "alloy": 7,
               "circuitry": 3
             }
+          },
+          "yardStock": {
+            "HRC": 1,
+            "RPO": 3,
+            "SLP": 2
           }
         },
         {
@@ -1059,6 +1094,11 @@
             "consumes": {
               "provisions": 3
             }
+          },
+          "yardStock": {
+            "HRC": 1,
+            "RPO": 3,
+            "SLP": 1
           }
         }
       ]
@@ -1209,6 +1249,11 @@
               "propellant": 8,
               "ordnance": 5
             }
+          },
+          "yardStock": {
+            "HRC": 1,
+            "RPO": 3,
+            "SLP": 1
           }
         }
       ]

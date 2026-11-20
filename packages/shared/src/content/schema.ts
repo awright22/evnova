@@ -380,20 +380,34 @@ export const PortTrade = z.object({
 });
 export type PortTrade = z.infer<typeof PortTrade>;
 
-export const PortDef = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  owner: PortOwner,
-  x: z.number(),
-  y: z.number(),
-  radius: z.number().positive(),
-  services: z.array(PortService),
-  /** Present on every berth with a Staple; absent on one without. */
-  trade: PortTrade.optional(),
-  surfaceColour: HexColour,
-  accentColour: HexColour,
-  description: z.string().min(1),
-});
+export const PortDef = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    owner: PortOwner,
+    x: z.number(),
+    y: z.number(),
+    radius: z.number().positive(),
+    services: z.array(PortService),
+    /** Present on every berth with a Staple; absent on one without. */
+    trade: PortTrade.optional(),
+    /**
+     * The highest tier this Yard stocks from each maker.
+     *
+     * Spec section 7: higher-tier fittings are sold only at certain ports. A
+     * company's own yard carries its own maker's best work and a rival's only
+     * second-hand, which is what makes where you build a decision. Present on
+     * every berth with a Yard and absent on one without.
+     */
+    yardStock: z.partialRecord(ManufacturerId, z.int().min(1).max(3)).optional(),
+    surfaceColour: HexColour,
+    accentColour: HexColour,
+    description: z.string().min(1),
+  })
+  .refine((port) => port.services.includes('yard') === (port.yardStock !== undefined), {
+    message: 'a berth with a Yard must say what it stocks, and one without must not',
+    path: ['yardStock'],
+  });
 export type PortDef = z.infer<typeof PortDef>;
 
 export const StarDef = z.object({
