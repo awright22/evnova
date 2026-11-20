@@ -248,15 +248,20 @@ async function flyToRock(page: Page, seconds: number): Promise<boolean> {
  * `staple` and `bourse-orders` at their own guessed numbers. Three screens,
  * three wrong guesses, which is what guessing gets.
  *
- * `rest` is both the phase before a press and the phase after one, and a
- * screen like the Staple has a stamp on every row, so this waits for one to
- * leave rest and then for all of them to be back in it.
+ * What it waits for is the *moving* phases to be over, not for the seal to
+ * disappear. A mark on a line lifts and the stamp returns to `rest`; a mark
+ * on a document stays struck, on purpose — "a chain ends once", and the seal
+ * is the record that it did. An earlier version of this waited for every
+ * stamp to be back at `rest` and hung for twenty-five seconds on the two
+ * screens whose seals are documents, which is what asking a thing to undo
+ * something it is designed to keep gets you.
  */
 async function settleStamp(page: Page): Promise<void> {
-  const OUT = "document.querySelectorAll('.stamp:not(.stamp--rest)').length";
-  await page.waitForFunction(`${OUT} > 0`, undefined, { timeout: 6_000 }).catch(() => undefined);
-  await page.waitForFunction(`${OUT} === 0`, undefined, { timeout: 25_000 });
-  await page.waitForTimeout(250);
+  const MOVING =
+    "document.querySelectorAll('.stamp--press, .stamp--strike, .stamp--settle, .stamp--lifting').length";
+  await page.waitForFunction(`${MOVING} > 0`, undefined, { timeout: 6_000 }).catch(() => undefined);
+  await page.waitForFunction(`${MOVING} === 0`, undefined, { timeout: 25_000 });
+  await page.waitForTimeout(400);
 }
 
 async function engageNearest(
@@ -276,6 +281,14 @@ async function engageNearest(
      * hitting anything is what this was doing instead.
      */
     readonly mark?: string;
+    /**
+     * Stop the moment this is on the page.
+     *
+     * An engagement that exists to provoke a state — the Court posting a
+     * composition, say — is finished when the state arrives, and every
+     * second after that is a second the patrols it called have to answer.
+     */
+    readonly untilSelector?: string;
   } = {},
 ): Promise<boolean> {
   const deadline = Date.now() + seconds * 1000;
@@ -388,8 +401,8 @@ async function engageNearest(
   // captures now use, and the engagement ran its full forty-five or
   // fifty-five seconds before the shutter. Structure answers for a hull that
   // has no shield left to lose.
-  const shieldAtStart = first.markShield;
-  const hpAtStart = first.markHp;
+  let shieldAtStart = first.markShield;
+  let hpAtStart = first.markHp;
 
   // The trigger stays down for the whole engagement, so every pass through
   // the bearing puts rounds on the mark. Holding a key and watching the world
@@ -400,8 +413,37 @@ async function engageNearest(
   try {
     let said = 0;
     while (Date.now() < deadline) {
-      const aim = await read();
-      if (!aim) break;
+      if (options.untilSelector !== undefined && (await page.$(options.untilSelector)) !== null) {
+        console.log(`    gunner stopped: ${options.untilSelector} is on the page`);
+        return true;
+      }
+
+      let aim = await read();
+      if (!aim) {
+        // The latched mark has gone — landed, jumped, or been written off.
+        //
+        // This used to end the engagement, with the trigger still down and
+        // one line in the log, which is what the `posted` capture had been
+        // doing: it latched onto a companion left in the sky by the screen
+        // before, that companion went about its business, and ninety
+        // seconds of firing turned into none. Where the caller named no
+        // mark, any hull will do, so take the next one and carry on.
+        if (options.mark === undefined || options.mark === '') {
+          held = '';
+          const next = await read();
+          if (next && next.name !== '') {
+            held = next.name;
+            shieldAtStart = next.markShield;
+            hpAtStart = next.markHp;
+            console.log(`    gunner lost its mark and took ${held}`);
+            aim = next;
+          }
+        }
+        if (!aim) {
+          console.log(`    gunner lost ${held} and found nothing else to fire on`);
+          break;
+        }
+      }
 
       // Say what the gunner can see, every few seconds. Twenty runs of this
       // capture have been theorised about from the victim's side alone; this
@@ -1579,7 +1621,7 @@ export const SCREENS: readonly Screen[] = [
       // A generous window: this runs after a dozen other captures, with bot
       // traffic in the system and software rasterisation under it all, so the
       // frame loop and every round trip to the page are slower than they look.
-      await engageNearest(page, 90);
+      await engageNearest(page, 90, { untilSelector: '.hud__posted' });
       await page.waitForSelector('.hud__posted', { timeout: 30_000 });
       await page.waitForTimeout(800);
     },

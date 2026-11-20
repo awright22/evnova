@@ -58,13 +58,15 @@
 }
 
 /*
- * On a document it lands on the paper above, over what it confirms: mostly
- * clear of the control, because the control is still live and a captain
- * reading it should not have to read it through a seal.
+ * On a document it lands on the paper above, over what it confirms, and
+ * clear of the control: the control stays live after the mark is struck,
+ * and a captain should not have to read a label through a seal. It hangs
+ * past the right edge so it reads as struck beside the control rather than
+ * centred over it like a watermark.
  */
 .stamp--above .stamp__impression {
   right: -22px;
-  bottom: calc(100% - 18px);
+  bottom: calc(100% + 4px);
 }
 
 /* 2. Strike: 108% and no alpha, settling to 100% and full. */

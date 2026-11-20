@@ -122,22 +122,39 @@ panel that shows eighteen — was not wired, and the `yard-code` capture shows
 it cut through "Mk II Fixed Gun". Wired now. The fade is cheap; finding the
 scrollers is the work, and a capture of each screen is what finds them.
 
-**N3. Three stills were photographs of the stamp, and timing it did not
-fix them.** Cycle 2 found `board` and `staple` photographing the seal
-mid-strike and gave both 2.4 seconds, which is well past the 1.5 seconds the
-stamp's phases add up to. This sweep shows the impression still crossing
-"Take it on" on the board, and crossing "Leave the order: 300 DPR" on
-`bourse-orders`, which had a 700ms guess of its own.
+**N3. One still was a photograph of the stamp. The other two were
+photographs of a placement bug, and I filed all three as the same thing.**
+Cycle 2 found `board` and `staple` photographing the seal mid-strike and
+gave both 2.4 seconds. This sweep showed the impression still crossing
+"Take it on" on the board and "Leave the order: 300 DPR" on
+`bourse-orders`, so I wrote all three up as bad waits and replaced the waits
+with one that holds until every stamp is back at rest.
 
-The number was never the problem. Under software rasterisation the main
-thread is busy enough that the stamp's own timers run long, so no fixed wait
-is right. All three wait for the seal to return to rest now — and because a
-screen like the Staple has a stamp on every row, that means waiting for one
-to leave rest and then for all of them to be back in it.
+That helper then hung for twenty-five seconds on the board and on the
+Bourse ticket and on nothing else, which is what it took to go and read the
+component. `Stamp.tsx` ends its phase machine with `if (size < 40)`, under
+the comment *a mark on a line lifts; a mark on a document stays*. The
+Staple's marks are 30px and lift. The board's, the Yard editor's and the
+Bourse ticket's are the default 72px and are **designed** to stay struck —
+they are the record that the thing was signed. Only the Staple was ever
+mid-animation. The other two stills were the resting state, photographed
+correctly, and my fix was asking two screens to undo something they are
+built to keep.
 
-Three screens, three wrong guesses. The lesson is cycle 2's, arrived at
-again from the other end: a harness that times a thing instead of waiting
-for it is making an assumption about a machine it does not control.
+What those two stills actually show is a different fault. `.stamp--above`
+placed the impression at `bottom: calc(100% - 18px)`, so a document mark
+overlapped the top eighteen pixels of its own control — at full size that
+is the ring's lower arc and the seal's micro-text printed across the
+button's label, permanently, on a control that stays live. The rule's own
+comment said the mark was "mostly clear of the control". It was not, and
+nobody had looked at a struck document mark at native resolution before.
+The mark now sits at `calc(100% + 4px)`, wholly on the paper above.
+
+So: one timing fault, one placement fault, and a harness that could not
+tell them apart because it was built on what I assumed the stamp did. The
+helper waits for the moving phases to end now — `press`, `strike`,
+`settle`, `lifting` — which is true of a mark that lifts and of a mark that
+stays.
 
 **N4. The chat capture was one captain talking to themselves.** The log
 behind the composer held three lines, all said by the captain whose screen
