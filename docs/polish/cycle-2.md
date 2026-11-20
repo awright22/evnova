@@ -128,7 +128,7 @@ Ranked by player impact.
 
 ### Majors
 
-**M0. The order ticket's confirm was below its own fold.** The page grid
+**M1. The order ticket's confirm was below its own fold.** The page grid
 gives row two a 400px cap for the company panel and row three whatever is
 left for the order ticket — about 200px at a 900px-tall screen. The
 `bourse-ticket` capture, with 500 shares entered and a parcel costed at
@@ -147,7 +147,7 @@ any further than this document.
 The same squeeze slices the company panel's price chart through its *fair
 value* label, which is the next thing to size.
 
-**M1. Insurance handed back a hull that was already a third destroyed.**
+**M2. Insurance handed back a hull that was already a third destroyed.**
 The structure a berth quotes comes from `pilot.moduleHp`, the damage array
 on the captain's row, not from the hull. `switchTo` clears it when a captain
 changes hulls at the Moorings, with a comment saying why: the row still
@@ -163,7 +163,7 @@ berth instead of the panel and put the figure on screen. Worth saying
 plainly: four milestones of tests, soaks and verification harnesses did not
 find this, and one look at a picture did.
 
-**M2. Five seconds to read what losing your ship cost.** The write-off panel
+**M3. Five seconds to read what losing your ship cost.** The write-off panel
 lived for exactly as long as the wreck — six seconds — because `respawn`
 then stands the captain on their last berth and the flight view goes with
 it. The claim figures arrive a moment *after* the panel, so the real reading
@@ -172,7 +172,7 @@ berth the captain did not walk into. Nothing about the loss is in doubt by
 then: it is settled, paid and persisted. So only the view of it is held
 back now, behind a "Go ashore" on the panel.
 
-**M3. Five screens had quietly stopped being photographed.** The first full
+**M4. Five screens had quietly stopped being photographed.** The first full
 sweep of the cycle found them — 34 captured, 5 missed, and every miss the
 same family of fault:
 
@@ -199,7 +199,7 @@ things look. A capture that fails is not a harness inconvenience — it is a
 hole in the only review that catches what tests cannot. The `-stuck.png`
 the harness writes on a miss is what made all three legible in minutes.
 
-**M4. Neither of the first two screens was centred.** Both came out of the
+**M5. Neither of the first two screens was centred.** Both came out of the
 same hole as M3: nobody had looked at them.
 
 - **The title plate sat in the corner.** `.title` centred its plate
