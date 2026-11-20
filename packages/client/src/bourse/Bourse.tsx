@@ -1369,7 +1369,19 @@ function Ticket({
           </p>
         )}
 
-        <div className="ticket__confirm">
+      </div>
+
+      {/*
+        Outside the scrolling body on purpose.
+        
+        The body scrolls, and at a 900px-tall screen the order's own confirm
+        was below its fold: the capture caught it as a six-pixel sliver of
+        amber at the panel's edge. It was reachable — the body does scroll —
+        but a captain who has filled in a parcel and cannot see the control
+        that places it has no reason to think there is one. A primary action
+        does not live below a fold.
+      */}
+      <div className="ticket__confirm">
           <Stamp
             issuer={listing.parent}
             issuerName={listing.parent}
@@ -1405,7 +1417,6 @@ function Ticket({
                 ? 'Marks leave your purse when the floor answers.'
                 : 'The fee comes out of the proceeds.'}
           </span>
-        </div>
       </div>
     </>
   );

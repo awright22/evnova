@@ -109,6 +109,25 @@ Ranked by player impact.
 
 ### Majors
 
+**M0. The order ticket's confirm was below its own fold.** The page grid
+gives row two a 400px cap for the company panel and row three whatever is
+left for the order ticket — about 200px at a 900px-tall screen. The
+`bourse-ticket` capture, with 500 shares entered and a parcel costed at
+2,145 marks, shows the amber confirm as a six-pixel sliver at the panel's
+bottom edge. It was reachable: `.ticket__body` does scroll. But a captain
+who has filled in a parcel and cannot see the control that places it has no
+reason to think there is one, and the panel gives no sign it scrolls. The
+confirm is pinned under the body now, in a row of its own, so it is on
+screen whatever height the panel is given.
+
+Filed as a blocker first, on the reading that `.bourse > .panel` is
+`overflow: hidden` and the button was therefore unreachable. The body inside
+it is `overflow-y: auto`, so that was wrong — checked before the claim went
+any further than this document.
+
+The same squeeze slices the company panel's price chart through its *fair
+value* label, which is the next thing to size.
+
 **M1. Insurance handed back a hull that was already a third destroyed.**
 The structure a berth quotes comes from `pilot.moduleHp`, the damage array
 on the captain's row, not from the hull. `switchTo` clears it when a captain
@@ -162,15 +181,6 @@ reads as a deliberate editorial setting; at the sweep's viewport it is a
 card in the bottom-left of an otherwise empty field, and it is the first
 thing a player sees. The plate keeps its left-aligned text and amber rule;
 it now sits in the middle of the page rather than against its edge.
-
-**M5. The Bourse's middle column is cut off at 1440x900.** The page grid
-gives row two a 400px cap for the company and row three whatever is left for
-the order ticket. At the sweep's viewport that is about 200px, and the
-ticket needs more: the capture shows the price chart's *fair value* line
-sliced through mid-label and the top edge of the order's own action button
-clipped by the panel's bottom border. A captain at a 900px-tall screen
-cannot see the button that places the order. Measured rather than inferred —
-see the figures below.
 
 ### Minors
 

@@ -130,8 +130,18 @@
   grid-area: company;
 }
 
+/*
+ * Header, a body that scrolls, and the confirm pinned under it.
+ *
+ * The shared panel rule is two rows — header and a body that takes the rest
+ * — which puts a panel's whole content inside the scrolling part. For the
+ * order ticket that put the control that places the order below its own
+ * fold at a 900px-tall screen. A third row holds the confirm at the foot
+ * whatever height the panel is given.
+ */
 .bourse__ticket {
   grid-area: ticket;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .bourse__book {
@@ -943,11 +953,17 @@
   border-left: 2px solid var(--danger);
 }
 
+/*
+ * The ticket's own foot, pinned under the scrolling body rather than
+ * sitting at the end of it — so the control that places an order is on
+ * screen whatever height the panel is given. It carries the body's
+ * horizontal padding itself, now that it is no longer inside it.
+ */
 .ticket__confirm {
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding-top: var(--space-1);
+  padding: var(--space-1) var(--space-1-5) var(--space-1-5);
   border-top: var(--border-width) solid var(--rule);
 }
 

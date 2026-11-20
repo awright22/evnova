@@ -1478,8 +1478,18 @@ export const SCREENS: readonly Screen[] = [
       });
       await page.route('**/matchmake/**', (route) => route.abort('connectionrefused'));
     },
-    settle: '.boot__failure',
+    // The title first, like everything else since M9. A captain who already
+    // has an account is offered the way back rather than the Register, and
+    // the link fails behind that door.
+    settle: '.title__plate',
     settleMs: 400,
+    act: async (page) => {
+      await page.getByRole('button', { name: /back to the reach|enter the register/i })
+        .first()
+        .click();
+      await page.waitForSelector('.boot__failure', { timeout: 30_000 });
+      await page.waitForTimeout(400);
+    },
   },
   {
     name: 'register-refused',
