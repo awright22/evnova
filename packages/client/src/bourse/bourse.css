@@ -29,7 +29,15 @@
    * chart at any height, and the spare height goes where more rows are
    * worth having: the captain's book and the Register.
    */
-  grid-template-rows: auto minmax(0, 460px) auto minmax(136px, 1fr);
+  /*
+   * The book's floor was 136px, which at 1440x900 is a header, a sticky
+   * totals row and about half of one holding — so a captain with four
+   * companies saw the first one cut in half behind the totals. It gets a
+   * real floor now and the company's chart gives up the difference, which
+   * it can afford: the cap above is what keeps it chart-shaped, not the
+   * particular number.
+   */
+  grid-template-rows: auto minmax(0, 400px) auto minmax(230px, 1fr);
   /*
    * The ledger strip runs the width of the foot, and the middle column holds
    * two panels, not three.

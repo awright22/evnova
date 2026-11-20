@@ -88,6 +88,16 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
     purse === '' ? 'nothing on screen' : purse,
   );
 
+  // The link figure, which reads `--` when the SDK calls the prediction
+  // diverged. A large hull diverging is a netcode finding, not a cosmetic
+  // one, so it is measured rather than left to a screenshot's impression.
+  const link = await textOf(page, '.hud__reading-value');
+  book.record(
+    'the link reads a round trip rather than nothing',
+    /\d/.test(link),
+    link === '' ? 'no reading' : link,
+  );
+
   // --- Alongside --------------------------------------------------------
   await page.keyboard.press('KeyL');
   await page.waitForSelector('.port', { timeout: 60_000 });

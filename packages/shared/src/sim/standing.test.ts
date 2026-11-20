@@ -100,7 +100,10 @@ describe('company standing', () => {
     const { floor, ceiling } = tuning.standing;
     expect(standingName(floor, tuning)).toBe('Barred');
     expect(standingName(0, tuning)).toBe('Unknown');
-    expect(standingName(ceiling, tuning)).toBe('A friend of the House');
+    // Not "a friend of the House": the House is Kessler & Daughters by
+    // name, and this reads against all three charters.
+    expect(standingName(ceiling, tuning)).toBe('A friend of the charter');
+    expect(standingName(ceiling, tuning)).not.toMatch(/house/i);
 
     // Every step is reachable and the names never repeat out of order.
     const seen: string[] = [];
@@ -109,6 +112,19 @@ describe('company standing', () => {
       if (seen.at(-1) !== name) seen.push(name);
     }
     expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it('says something other than Unknown either side of nothing', () => {
+    // The old table called everything from -40 to +39 "Unknown", which is
+    // most of a captain's first week — and the hub printed it in danger red
+    // at -40, so the colour said trouble and the word said nobody has an
+    // opinion.
+    expect(standingName(-40, tuning)).not.toBe('Unknown');
+    expect(standingName(40, tuning)).not.toBe('Unknown');
+    expect(standingName(-200, tuning)).not.toBe(standingName(-40, tuning));
+    expect(standingName(200, tuning)).not.toBe(standingName(40, tuning));
+    // And nothing is still nothing.
+    expect(standingName(0, tuning)).toBe('Unknown');
   });
 
   it('knows a charter from an independent', () => {

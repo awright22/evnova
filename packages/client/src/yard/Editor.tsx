@@ -48,6 +48,15 @@ export interface EditorProps {
    */
   readonly flyingId: string;
   readonly flyingName: string;
+  /**
+   * Draughts this captain has kept.
+   *
+   * The Yard has saved one since M5 and had no way to open one again: the
+   * only routes back were the share code and handing it to somebody at the
+   * Offers counter. A captain who draws a hull, keeps it and comes back
+   * tomorrow should find it on the shelf.
+   */
+  readonly designs: readonly { id: string; name: string; placements: readonly Placement[] }[];
   readonly licence: string;
   readonly marks: number;
   /** The highest tier this berth's Yard stocks from each maker. */
@@ -98,6 +107,7 @@ export function Editor({
   flying,
   flyingId,
   flyingName,
+  designs,
   licence,
   marks,
   stock,
@@ -133,8 +143,8 @@ export function Editor({
   const [name, setName] = useState(flyingName);
   /** Show the whole catalogue, including what this berth cannot supply. */
   const [showAll, setShowAll] = useState(false);
-  /** The share-code drawer: closed, showing a code, or taking one. */
-  const [sharing, setSharing] = useState<'off' | 'out' | 'in'>('off');
+  /** The drawer: closed, the shelf of kept draughts, a code out, or one in. */
+  const [sharing, setSharing] = useState<'off' | 'kept' | 'out' | 'in'>('off');
   const [incoming, setIncoming] = useState('');
 
   const held = licences.get(licence as LicenceId) ?? [...licences.values()][0]!;
@@ -425,10 +435,11 @@ export function Editor({
             <button
               type="button"
               className={`button${sharing !== 'off' ? ' button--primary' : ''}`}
-              onClick={() => setSharing((open) => (open === 'off' ? 'out' : 'off'))}
-              title="Copy this draught as a code, or read one in"
+              onClick={() => setSharing((open) => (open === 'off' ? 'kept' : 'off'))}
+              title="Open a draught you kept, or write one out as a code"
             >
-              Code
+              Draughts
+              {designs.length > 0 && <span className="micro"> {designs.length}</span>}
             </button>
             <button type="button" className="button" onClick={onClose}>
               Close
@@ -439,6 +450,13 @@ export function Editor({
         {sharing !== 'off' && (
           <div className="yard__share panel">
             <div className="yard__share-tabs">
+              <button
+                type="button"
+                className={`yard__share-tab${sharing === 'kept' ? ' yard__share-tab--on' : ''}`}
+                onClick={() => setSharing('kept')}
+              >
+                Kept
+              </button>
               <button
                 type="button"
                 className={`yard__share-tab${sharing === 'out' ? ' yard__share-tab--on' : ''}`}
@@ -455,7 +473,41 @@ export function Editor({
               </button>
             </div>
 
-            {sharing === 'out' ? (
+            {sharing === 'kept' ? (
+              <>
+                {designs.length === 0 ? (
+                  <p className="micro">
+                    Nothing kept yet. Draw a hull and press Keep the draught, and it is on
+                    this shelf whenever you are back at a Yard.
+                  </p>
+                ) : (
+                  <ul className="yard__kept">
+                    {designs.map((design) => (
+                      <li key={design.id} className="yard__kept-row">
+                        <span className="yard__kept-name">{design.name}</span>
+                        <span className="micro">{design.placements.length} fittings</span>
+                        <button
+                          type="button"
+                          className="button"
+                          disabled={busy}
+                          onClick={() => {
+                            dispatch({ kind: 'load', placements: design.placements });
+                            setName(design.name);
+                            setSharing('off');
+                          }}
+                        >
+                          Open it
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="micro">
+                  Opening one puts it on the grid. Nothing is built and nothing is charged
+                  until the bill is stamped.
+                </p>
+              </>
+            ) : sharing === 'out' ? (
               <>
                 {/*
                   Read-only and selected on focus: the point of this field is

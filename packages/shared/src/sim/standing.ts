@@ -105,14 +105,30 @@ export function standingDiscount(standing: number, tuning: Tuning): number {
   return clamp((standing - discountAbove) / reach, 0, 1) * maxDiscount;
 }
 
-/** How a standing reads to a captain. The Register's own words. */
+/**
+ * How a standing reads to a captain. The Register's own words.
+ *
+ * Nine bands rather than six, because the old table called everything from
+ * -40 to +39 "Unknown" — which is most of the range a captain moves through
+ * in their first week, and which the hub printed in `--danger` red at -40,
+ * so the colour said trouble and the word said nobody has an opinion.
+ * "Noted" is this world's own term for a small black mark: a Factor notes a
+ * late delivery.
+ *
+ * Every threshold is a fraction of the floor or the ceiling, so retuning
+ * the range moves the bands with it rather than stranding them.
+ */
 export function standingName(standing: number, tuning: Tuning): string {
   const { ceiling, floor, refusedBelow } = tuning.standing;
   if (standing <= refusedBelow) return 'Barred';
   if (standing <= floor * 0.35) return 'Hostile';
-  if (standing < -40) return 'Out of favour';
-  if (standing < 40) return 'Unknown';
+  if (standing < floor * 0.15) return 'Out of favour';
+  if (standing < floor * 0.02) return 'Noted';
+  if (standing <= ceiling * 0.02) return 'Unknown';
+  if (standing < ceiling * 0.15) return 'Civil';
   if (standing < ceiling * 0.4) return 'Known';
   if (standing < ceiling * 0.75) return 'Trusted';
-  return 'A friend of the House';
+  // Not "a friend of the House": the House is Kessler & Daughters by name,
+  // and this is read against all three charters.
+  return 'A friend of the charter';
 }

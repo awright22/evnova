@@ -37,6 +37,14 @@ export interface EndorsementText {
   readonly instruction: string;
   /** The keys or the control, where there is one. */
   readonly keys?: string;
+  /**
+   * Where it can be earned.
+   *
+   * The card shows the next one the captain can actually do something
+   * about. Asking for a purchase at the Staple while they are in the sky
+   * is an instruction about somewhere they are not.
+   */
+  readonly where: 'sky' | 'berth';
 }
 
 export const ENDORSEMENT_TEXT: Record<Endorsement, EndorsementText> = {
@@ -44,32 +52,39 @@ export const ENDORSEMENT_TEXT: Record<Endorsement, EndorsementText> = {
     heading: 'Under way',
     instruction: 'Take her off the mark and get the feel of her.',
     keys: 'Burn and turn',
+    where: 'sky',
   },
   land: {
     heading: 'Alongside',
     instruction: 'Bring her in to a berth and make fast.',
     keys: 'Come alongside, inside the ring',
+    where: 'sky',
   },
   buy: {
     heading: 'Laden',
     instruction: "Buy something at the berth's Staple. Cheap and dull will do.",
+    where: 'berth',
   },
   jump: {
     heading: 'Cleared outward',
     instruction: 'Plot a course on the chart and spool the lane.',
     keys: 'Open the chart, then spool',
+    where: 'sky',
   },
   sell: {
     heading: 'Discharged',
     instruction: 'Sell it at the far end for more than you paid.',
+    where: 'berth',
   },
   yard: {
     heading: 'Surveyed',
     instruction: 'Look in at a Yard and see what she is made of.',
+    where: 'berth',
   },
   bourse: {
     heading: 'Subscribed',
     instruction: 'Open the Bourse. Every voyage out there is somebody else’s money.',
+    where: 'berth',
   },
 };
 
@@ -123,9 +138,20 @@ export function endorse(pilotage: Pilotage, id: Endorsement): Pilotage {
  * still counts — a captain who opens the Bourse on their first berth has
  * done it — it just is not the one being asked for.
  */
-export function current(pilotage: Pilotage): Endorsement | undefined {
+export function current(
+  pilotage: Pilotage,
+  where?: 'sky' | 'berth',
+): Endorsement | undefined {
   if (pilotage.confirmed) return undefined;
-  return ENDORSEMENTS.find((id) => !pilotage.done.includes(id));
+  const owed = ENDORSEMENTS.filter((id) => !pilotage.done.includes(id));
+  if (where !== undefined) {
+    // The next one they can act on from where they are standing. Falling
+    // back to the first owed, so the card always says what is left rather
+    // than going blank at a berth with only sky work outstanding.
+    const here = owed.find((id) => ENDORSEMENT_TEXT[id].where === where);
+    if (here !== undefined) return here;
+  }
+  return owed[0];
 }
 
 // --- The hints ---------------------------------------------------------

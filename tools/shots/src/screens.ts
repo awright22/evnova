@@ -103,6 +103,7 @@ interface HarnessWindow {
             shield: number;
             destroyedAt: number;
             callsign: string;
+            patrol: boolean;
           }
         >;
         asteroids: Map<string, { x: number; y: number; radius: number; left: number }>;
@@ -213,13 +214,13 @@ async function flyToRock(page: Page, seconds: number): Promise<boolean> {
 async function engageNearest(
   page: Page,
   seconds: number,
-  options: { readonly untilHit?: boolean } = {},
+  options: { readonly untilHit?: boolean; readonly patrolsOnly?: boolean } = {},
 ): Promise<boolean> {
   const deadline = Date.now() + seconds * 1000;
 
   /** Where the nearest hull is, relative to the nose, and how it is holding up. */
   const read = (): Promise<{ delta: number; range: number; markShield: number } | null> =>
-    page.evaluate(() => {
+    page.evaluate((patrolsOnly: boolean) => {
       // This runs in the page, not in Node, so the browser globals are named
       // through globalThis rather than typed from the DOM lib.
       const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
@@ -231,6 +232,9 @@ async function engageNearest(
       let nearest: { range: number; bearing: number; shield: number } | undefined;
       for (const [id, ship] of room.state.ships) {
         if (id === room.sessionId || ship.destroyedAt > 0) continue;
+        // A patrol holds station, so it will not come looking. Firing on one
+        // brings it, and brings the rest of them.
+        if (patrolsOnly && !ship.patrol) continue;
         const range = Math.hypot(ship.x - self.x, ship.y - self.y);
         if (!nearest || range < nearest.range) {
           nearest = {
@@ -246,7 +250,7 @@ async function engageNearest(
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
       return { delta, range: nearest.range, markShield: nearest.shield };
-    });
+    }, options.patrolsOnly === true);
 
   const first = await read();
   if (!first) return false;
@@ -524,7 +528,11 @@ export const SCREENS: readonly Screen[] = [
       // going to win.
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
-      await engageNearest(page, 90);
+      // At a patrol, not at whatever is nearest. A patrol holds station and
+      // will not come looking for a posted captain across a system; fire on
+      // one and it answers, and so does every other one in the sky. Four
+      // minutes of waiting for a patrol to wander past taught this.
+      await engageNearest(page, 120, { patrolsOnly: true });
       await page.waitForSelector('.flight__written-off', { timeout: 240_000 });
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be

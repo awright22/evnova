@@ -151,6 +151,25 @@ function Game({
   // Register's note waits for.
   const bourseHinted = !useHint('bourse').show;
 
+  /**
+   * Whether a counter is open over the berth or the sky.
+   *
+   * The ticket's card is about where the captain is standing, and a
+   * counter is a screen they have walked up to. Floating the card over one
+   * put it through the Yard's Survey — the one panel that says why a build
+   * was refused — the Bourse's Gazette and the Factor's corner. It waits
+   * until they come back out.
+   */
+  const counterOpen =
+    stapleOpen
+    || yardOpen
+    || mooringsOpen
+    || bourseOpen
+    || boardOpen
+    || offersOpen
+    || convoyOpen
+    || chartOpen;
+
   // The provisional ticket: seven endorsements the Register's clerk adds as
   // the captain does each thing once. Device-local, like the settings.
   const [ticket, setTicket] = useState(() => loadPilotage());
@@ -517,6 +536,7 @@ function Game({
               flying={snapshot.yard?.flying ?? []}
               flyingId={snapshot.yard?.flyingId ?? ''}
               flyingName={snapshot.yard?.flyingName ?? purse.draught}
+              designs={snapshot.yard?.designs ?? []}
               licence={purse.licence}
               marks={purse.marks}
               stock={snapshot.yard?.stock ?? {}}
@@ -579,7 +599,7 @@ function Game({
           <Hint which="offers" ready={offersOpen} />
           <Hint which="convoy" ready={convoyOpen} />
           <Hint which="chart" ready={chartOpen} />
-          <Pilotage ticket={ticket} onWaive={waive} />
+          {!counterOpen && <Pilotage ticket={ticket} where="berth" onWaive={waive} />}
           {chatOverlay}
           {chartOverlay}
         </>
@@ -629,7 +649,9 @@ function Game({
             only while something is still owed. Not on the range: nothing
             there is the captain's, so nothing there is endorsed.
           */}
-          {!snapshot.range && <Pilotage ticket={ticket} onWaive={waive} />}
+          {!snapshot.range && !counterOpen && (
+            <Pilotage ticket={ticket} where="sky" onWaive={waive} />
+          )}
           <Hint which="chart" ready={chartOpen} />
           <Hint which="range" ready={snapshot.range !== undefined} />
           {chatOverlay}

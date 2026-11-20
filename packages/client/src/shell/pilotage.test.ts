@@ -119,3 +119,33 @@ describe('what the capture harness starts a page with', () => {
     expect(mine).toEqual([...new Set(experienced)].sort());
   });
 });
+
+describe('what the ticket asks for where the captain is', () => {
+  it('asks for something they can act on from the sky', () => {
+    const ticket = FRESH_TICKET;
+    expect(current(ticket, 'sky')).toBe('fly');
+  });
+
+  it('and something they can act on at a berth', () => {
+    // Under way is still owed, but a captain standing on a berth cannot
+    // take her off the mark from there.
+    expect(current(FRESH_TICKET, 'berth')).toBe('buy');
+    expect(ENDORSEMENT_TEXT[current(FRESH_TICKET, 'berth')!].where).toBe('berth');
+  });
+
+  it('falls back to what is left when nothing here is owed', () => {
+    // Every berth endorsement earned, standing at a berth: the card says
+    // what is still outstanding rather than going blank.
+    let ticket = FRESH_TICKET;
+    for (const id of ENDORSEMENTS) {
+      if (ENDORSEMENT_TEXT[id].where === 'berth') ticket = endorse(ticket, id);
+    }
+    expect(current(ticket, 'berth')).toBe('fly');
+  });
+
+  it('gives every endorsement a place it can be earned', () => {
+    for (const id of ENDORSEMENTS) {
+      expect(['sky', 'berth']).toContain(ENDORSEMENT_TEXT[id].where);
+    }
+  });
+});

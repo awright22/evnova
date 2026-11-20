@@ -23,12 +23,15 @@ import './pilotage.css';
 
 export function Pilotage({
   ticket,
+  where,
   onWaive,
 }: {
   readonly ticket: Ticket;
+  /** Where the captain is standing, so the card asks for something they can do. */
+  readonly where: 'sky' | 'berth';
   onWaive: () => void;
 }): React.JSX.Element | null {
-  const asking = current(ticket);
+  const asking = current(ticket, where);
 
   /**
    * The endorsement just added, held for a moment.
