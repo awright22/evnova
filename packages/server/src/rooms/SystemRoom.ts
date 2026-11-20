@@ -1029,8 +1029,12 @@ export class SystemRoom extends Room<{
             return { closed: closed.id };
           }
 
-          if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+          // Ownership first, and only then where they are standing: an
+          // offer that was made to somebody else is not this captain's
+          // business whether or not they happen to be alongside.
           const offer = world().trades.read(message.id);
+          if (offer.toId !== pilot.accountId) return ctx.reject('no-such-offer');
+          if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
           // The offering captain has to still be standing here. Only this
           // room can say so, because this room is the berth.
           const from = this.pilotOf(offer.fromId);
@@ -1295,6 +1299,9 @@ export class SystemRoom extends Room<{
         world().pilots.touch(pilot.accountId);
         this.sendPurse(client.sessionId);
         this.sendStaple(client.sessionId, port);
+        // The offers counter lists the hold, so a captain who has just
+        // bought something can hand it over without leaving and coming back.
+        this.sendOffers(client.sessionId);
         return result;
       } catch (error) {
         if (error instanceof TradeRefused) return ctx.reject(error.reason);

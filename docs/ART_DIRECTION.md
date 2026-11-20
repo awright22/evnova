@@ -444,6 +444,15 @@ whenever an unintended look appears, then fix it.
   with a sentence adrift in it. A panel sizes to what it holds.
 - A board that draws the hull as a small patch in an empty field. The margin
   around a draught is somewhere to aim, not somewhere to finish.
+- A sentence set in `.micro`. Uppercase at `--track-micro` over two lines
+  turns an aside into a shout: "TO DEMURRAGE" is a sign over a door, and the
+  line on a docket is prose. `.micro` is for labels and figures beside them;
+  a sentence takes `--size-label` in sentence case.
+- A selected state built only from `--amber-wash`. Twelve per cent over
+  `--raised` is not a state: the Factor's two chain endings read as the same
+  card in a capture, and the chosen one has to carry a full `--amber` rule
+  and an inset bar as well as the wash. A selection that only a difference
+  engine can see is not a selection.
 
 **Found in captures and being fixed:**
 
