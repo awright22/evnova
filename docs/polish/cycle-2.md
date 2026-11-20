@@ -134,16 +134,27 @@ berth the captain did not walk into. Nothing about the loss is in doubt by
 then: it is settled, paid and persisted. So only the view of it is held
 back now, behind a "Go ashore" on the panel.
 
-**M3. The Register has not been photographed since M9.** Both of its
-captures wait for `.register` on `/`. Since M9 put a title screen in front of
-everything, `/` is the title — so both timed out every sweep, and the one
-screen a player sees before flying had not been looked at for two
-milestones. The harness wrote a `-stuck.png` each time, which is what
-finally said so. They go through the door now, the way a player does.
+**M3. Three screens had not been photographed in a long time, and nobody
+noticed.** The first full sweep of the cycle found them:
+
+- **`register` and `register-phrase`** wait for `.register` on `/`. Since M9
+  put a title screen in front of everything, `/` is the *title* — so both
+  timed out every sweep, and the one screen a player sees before flying had
+  not been looked at for two milestones. The sign-up act was broken twice
+  over: it also clicked `button[type="submit"]`, and every control on the
+  Register is a `type="button"`.
+- **`yard-code`** clicks `.yard__tools button:text("Code")`. The control is
+  called *Draughts*, and the code lives behind its "Write one out" tab. The
+  selector has been naming a button that does not exist.
+
+All three now take the path a player takes, using the selectors
+`pnpm play:new` already proves work.
 
 The wider point: a screen that cannot be captured is a screen nobody is
 judging, and the quality bar in spec section 3 is explicitly a bar on how
-things look. A capture that fails is not a harness inconvenience.
+things look. A capture that fails is not a harness inconvenience — it is a
+hole in the only review that catches what tests cannot. The `-stuck.png`
+the harness writes on a miss is what made all three legible in minutes.
 
 **M4. The title plate sits in the corner.** `.title` centred its plate
 vertically and left it against the page padding horizontally. At 1280 that

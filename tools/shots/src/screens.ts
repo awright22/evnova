@@ -906,7 +906,7 @@ export const SCREENS: readonly Screen[] = [
     settle: '.title__plate',
     settleMs: 400,
     act: async (page) => {
-      await page.getByRole('button', { name: /enter the register/i }).click();
+      await page.getByRole('button', { name: /enter the register/i }).first().click();
       await page.waitForSelector('.register', { timeout: 20_000 });
       await page.waitForTimeout(500);
     },
@@ -918,11 +918,16 @@ export const SCREENS: readonly Screen[] = [
     settle: '.title__plate',
     settleMs: 400,
     act: async (page) => {
-      await page.getByRole('button', { name: /enter the register/i }).click();
+      // The same selectors `pnpm play:new` uses, which is the only path
+      // through this screen anything has actually exercised. There is no
+      // `button[type="submit"]` on the Register — every control is a
+      // `type="button"` — so the old act would have failed here too, had it
+      // ever got past waiting for a screen that was not on.
+      await page.getByRole('button', { name: /enter the register/i }).first().click();
       await page.waitForSelector('.register', { timeout: 20_000 });
-      await page.fill('.register input[name="callsign"]', 'Quiet Returns');
-      await page.click('.register button[type="submit"]');
-      await page.waitForSelector('.register__phrase', { timeout: 20_000 });
+      await page.locator('.register__input').first().fill('Quiet Returns');
+      await page.getByRole('button', { name: /file for an open ticket/i }).first().click();
+      await page.waitForSelector('.register__phrase', { timeout: 30_000 });
       await page.waitForTimeout(600);
     },
   },
@@ -1034,7 +1039,13 @@ export const SCREENS: readonly Screen[] = [
 
       await page.click('.port__service-list button:text("Open the Yard")');
       await page.waitForSelector('.grid', { timeout: 20_000 });
-      await page.click('.yard__tools button:text("Code")');
+      // There is no "Code" button and has not been since the share drawer
+      // was built: the control is "Draughts", and the code lives behind its
+      // "Write one out" tab. This capture has been failing on a selector for
+      // a button that does not exist, which is why nobody has looked at the
+      // screen it is meant to be of.
+      await page.getByRole('button', { name: /^draughts/i }).first().click();
+      await page.getByRole('button', { name: /write one out/i }).first().click();
       await page.waitForSelector('.yard__code', { timeout: 20_000 });
       await page.waitForTimeout(400);
     },
