@@ -7,11 +7,16 @@ coverage/
 .DS_Store
 *.log
 
-# Local data and generated artifacts
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/snapshots/
+# Local data and generated artifacts.
+#
+# Anchored with ** rather than at the root: a pattern with a slash in it is
+# relative to this file, so `data/*.db` matched nothing under
+# `packages/server/data/` and a running server's world database was being
+# committed with everything else.
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/data/snapshots/
 artifacts/
 .env
 .env.local
