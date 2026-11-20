@@ -245,9 +245,20 @@
  * and everything else small under it. No art behind it: the flight view is
  * the art, and a title screen that tried to compete with it would lose.
  */
+/*
+ * Centred, not cornered.
+ *
+ * The plate was vertically centred and horizontally left against the page
+ * padding, which reads as a deliberate editorial setting at 1280 and as a
+ * dialog that failed to centre at 2880: a card in the bottom-left of an
+ * otherwise empty field, and it is the first thing a player sees. The plate
+ * keeps its own left-aligned text and amber rule; what changes is that it
+ * sits in the middle of the page rather than against its edge.
+ */
 .title {
   display: grid;
   align-content: center;
+  justify-content: center;
   min-height: 100vh;
   padding: var(--space-4) var(--space-3);
   background: var(--void);

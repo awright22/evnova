@@ -134,6 +134,24 @@ berth the captain did not walk into. Nothing about the loss is in doubt by
 then: it is settled, paid and persisted. So only the view of it is held
 back now, behind a "Go ashore" on the panel.
 
+**M3. The Register has not been photographed since M9.** Both of its
+captures wait for `.register` on `/`. Since M9 put a title screen in front of
+everything, `/` is the title — so both timed out every sweep, and the one
+screen a player sees before flying had not been looked at for two
+milestones. The harness wrote a `-stuck.png` each time, which is what
+finally said so. They go through the door now, the way a player does.
+
+The wider point: a screen that cannot be captured is a screen nobody is
+judging, and the quality bar in spec section 3 is explicitly a bar on how
+things look. A capture that fails is not a harness inconvenience.
+
+**M4. The title plate sits in the corner.** `.title` centred its plate
+vertically and left it against the page padding horizontally. At 1280 that
+reads as a deliberate editorial setting; at the sweep's viewport it is a
+card in the bottom-left of an otherwise empty field, and it is the first
+thing a player sees. The plate keeps its left-aligned text and amber rule;
+it now sits in the middle of the page rather than against its edge.
+
 ### Minors
 
 **N1. The Bourse's panels cut their last visible row in half.** A scroller

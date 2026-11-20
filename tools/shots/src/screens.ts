@@ -896,17 +896,30 @@ export const SCREENS: readonly Screen[] = [
     description:
       'The Register: where a new captain is entered, and the one screen a player sees before flying.',
     // No callsign, so the real sign-up screen shows rather than being skipped.
+    //
+    // `/` is the *title*, not the Register — it has been since M9 put a title
+    // screen in front of everything. Both of these screens waited for
+    // `.register` on a page showing `.title__plate` and timed out, which
+    // means the Register itself had not been looked at since M9. They go
+    // through the door now, the way a player does.
     path: '/',
-    settle: '.register',
-    settleMs: 500,
+    settle: '.title__plate',
+    settleMs: 400,
+    act: async (page) => {
+      await page.getByRole('button', { name: /enter the register/i }).click();
+      await page.waitForSelector('.register', { timeout: 20_000 });
+      await page.waitForTimeout(500);
+    },
   },
   {
     name: 'register-phrase',
     description: 'The recovery phrase, shown once. The only copy the captain gets.',
     path: '/',
-    settle: '.register',
+    settle: '.title__plate',
     settleMs: 400,
     act: async (page) => {
+      await page.getByRole('button', { name: /enter the register/i }).click();
+      await page.waitForSelector('.register', { timeout: 20_000 });
       await page.fill('.register input[name="callsign"]', 'Quiet Returns');
       await page.click('.register button[type="submit"]');
       await page.waitForSelector('.register__phrase', { timeout: 20_000 });
