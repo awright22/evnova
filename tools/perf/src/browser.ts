@@ -12,8 +12,9 @@
 import type * as Playwright from 'playwright';
 import { type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { signalGroup, spawnGroup } from '@marque/harness';
@@ -105,9 +106,28 @@ export async function captureFrames(
       MARQUE_SERVER_URL: `ws://127.0.0.1:${options.serverPort}`,
     });
 
+    // A world of its own, thrown away afterwards.
+    //
+    // This was the only harness in the repository that did not do this: it
+    // took the server's default `DATABASE_URL`, which is the repository's
+    // own `packages/server/data/marque.db`. So the first run opened an
+    // account called Rate Card in the real world and every run after it
+    // asked for a callsign that was already taken, got the Register back,
+    // and waited two minutes for a flight view that was never coming.
+    //
+    // That was read as a GPU problem for three cycles, because this machine
+    // has no GPU and "the browser capture timed out" is what a slow renderer
+    // also looks like. It is not: it is a name clash in a database that
+    // should never have been touched.
+    const scratch = join(mkdtempSync(join(tmpdir(), 'marque-perf-')), 'world.db');
+
     procs.push(
       spawnQuiet('pnpm', ['exec', 'tsx', 'src/main.ts'], resolve(REPO_ROOT, 'packages/server'), {
         PORT: String(options.serverPort),
+        DATABASE_URL: scratch,
+        SNAPSHOT_DIR: join(dirname(scratch), 'snapshots'),
+        NODE_ENV: 'development',
+        INVITE_CODE: '',
       }),
     );
     await waitFor(`http://127.0.0.1:${options.serverPort}/health`);
@@ -180,9 +200,14 @@ export async function captureFrames(
       // client has nobody to be and lands on the Register, which has no
       // flight view to measure and no `.hud` to wait for. `debug` publishes
       // the scene counts this reads back.
-      await page.goto(`${baseUrl}/?harness=1&debug=1&callsign=Rate%20Card`, {
-        waitUntil: 'networkidle',
-      });
+      // A callsign this run alone will ask for. Even against a scratch
+      // database, a capture that opens two contexts should not collide with
+      // itself.
+      const callsign = `Rate Card ${Date.now().toString(36).slice(-5)}`;
+      await page.goto(
+        `${baseUrl}/?harness=1&debug=1&callsign=${encodeURIComponent(callsign)}`,
+        { waitUntil: 'networkidle' },
+      );
       // Two minutes, and it says what is on screen if it never comes.
       //
       // Thirty seconds is enough on an idle box and not when the capture is

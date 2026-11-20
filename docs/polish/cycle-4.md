@@ -162,6 +162,46 @@ Worth stating plainly: cycle 3 recorded this as fixed on the strength of the
 change, not on the strength of a capture. The screen it is about is captured
 by name in every sweep, and nobody looked at it.
 
+**M3. `pnpm perf`'s browser capture had been broken for three cycles, and
+the GPU was blamed for it.** The capture failed again this sweep with "the
+flight view never came up". With the diagnostic restored (N3 below) it said
+what was actually on screen:
+
+```
+Marque
+THE REGISTER
+OPEN AN ACCOUNT
+CALLSIGN
+INVITE CODE
+```
+
+It was sitting on the Register. `tools/perf` is the only harness in this
+repository that does not give its server a scratch database — it takes the
+default `DATABASE_URL`, which is `packages/server/data/marque.db`, the world
+`pnpm dev` uses. So the first run opened an account called **Rate Card** in
+the real world, and every run after it asked for a callsign that was already
+taken, was refused, and waited two minutes on the Register. The account is
+still in that database, which is where this was confirmed rather than
+guessed.
+
+Three cycles read that timeout as the GPU, because this container has no GPU
+and a starved renderer times out the same way. It is not the GPU. It is a
+name clash in a database the tool should never have opened. `docs/HUMAN_TODO.md`
+section 3 has been telling the owner that the frame figures need a real
+machine — true, and unrelated to why the tool exited non-zero.
+
+Fixed by giving the capture its own throwaway world and a callsign unique to
+the run. `pnpm perf` exits 0 and reports:
+
+```
+4.1 fps  p50 243.9ms  p95 292.2ms  p99 308.0ms
+renderer: ANGLE (... SwiftShader driver)
+NOTE: software rasterisation, no GPU. These numbers are a floor, not the budget.
+```
+
+Which is the honest answer this box can give, and the note that keeps it from
+being read as a budget result was already there.
+
 ## Minors
 
 **N1. `verify:bourse` built a draught with no propellant tank.** Refused
