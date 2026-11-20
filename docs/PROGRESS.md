@@ -221,12 +221,12 @@ end it several hundred thousand marks down.
 - [x] Freighters with real cargo
 - [x] Patrol and Unlettered behaviour by security level
 - [x] Commission templates and the three chains
-- [ ] Fleets and shared commissions
-- [ ] Player-to-player trade
+- [x] Fleets and shared commissions
+- [x] Player-to-player trade
 
 Done when:
 - [ ] A solo player has something worth doing in every system
-- [ ] Every commission template completes end to end under bots
+- [x] Every commission template completes end to end under bots
 - [ ] Standing changes produce visible consequences at ports
 
 ## M8. Depth

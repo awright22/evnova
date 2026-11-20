@@ -145,14 +145,34 @@ export class Market {
   // --- Reading ------------------------------------------------------------
 
   /** Every commodity a berth trades, with what it would cost right now. */
-  listingsFor(port: PortDef, accountId: string): Listing[] {
+  listingsFor(port: PortDef, pilot: { accountId: string; letter: string }): Listing[] {
     const { commodities, tuning } = content();
-    const held = this.cargoOf(accountId);
+    const held = this.cargoOf(pilot.accountId);
+
+    // What this captain's standing is worth here. The same figure `trade`
+    // charges by: a quote that did not carry it showed a favoured captain
+    // the list price and then charged them less, which is the consequence
+    // of standing made invisible at the one place it is felt.
+    const favour = isCharter(port.owner)
+      ? (this.standings?.discount(pilot.accountId, port.owner) ?? 0)
+      : 0;
+    const premium = prizePremium(pilot.letter as Charter | undefined, port.owner, tuning);
 
     return [...commodities.values()].map((commodity) => {
       const pile = this.pileOf(port, commodity);
       const sell = quote('buy', 1, pile, commodity, tuning);
       const buy = quote('sell', 1, pile, commodity, tuning);
+      const carried = held.get(commodity.id) ?? 0;
+
+      // And what a prize is worth, on the share of this parcel that came off
+      // a wreck — the same share `trade` works out.
+      const prizeShare =
+        premium > 0 && carried > 0
+          ? Math.min(1, this.prizeOf(pilot.accountId, commodity.id) / carried)
+          : 0;
+      const bonus = prizeShare * premium;
+
+      const list = sell.units > 0 ? sell.marks : Math.ceil(unitPrice(0, pile, commodity, tuning));
 
       return {
         commodityId: commodity.id,
@@ -160,12 +180,12 @@ export class Market {
         tier: commodity.tier,
         // A berth with nothing left still quotes, so the interface can show
         // why it cannot sell rather than showing a blank.
-        ask: sell.units > 0 ? sell.marks : Math.ceil(unitPrice(0, pile, commodity, tuning)),
-        bid: buy.units > 0 ? buy.marks : 0,
+        ask: favour > 0 ? Math.ceil(list * (1 - favour)) : list,
+        bid: buy.units > 0 ? Math.floor(buy.marks * (1 + favour + bonus)) : 0,
         stock: pile.stock,
         capacity: pile.capacity,
         pressure: pressure(pile),
-        carried: held.get(commodity.id) ?? 0,
+        carried,
       };
     });
   }

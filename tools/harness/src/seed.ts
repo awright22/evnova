@@ -15,10 +15,17 @@
  * harness puts in the browser's storage so the client joins as that captain
  * instead of opening a new account.
  *
- *   tsx src/seed.ts '[{"callsign":"Audit","chainDone":"daughters-audit"}]'
+ *   tsx tools/harness/src/seed.ts '[{"callsign":"Audit","chainDone":"daughters-audit"}]'
+ *
+ * `runSeed` below is the way to call it: a process of its own, with the
+ * environment the server will be given, because `config` is read once at
+ * import and a harness cannot change its own after it has imported anything.
  */
 
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+import { spawnGroup } from './index.ts';
 
 import { CHARTERS, content, type Charter } from '@marque/shared';
 
@@ -30,6 +37,9 @@ import { Market } from '@marque/server/src/world/Market.ts';
 import { PilotStore } from '@marque/server/src/world/PilotStore.ts';
 import { Standings } from '@marque/server/src/world/Standings.ts';
 import { Yard } from '@marque/server/src/world/Yard.ts';
+
+/** This file, for running it as a script. */
+const HERE = fileURLToPath(import.meta.url);
 
 /** A captain to write, and what they should already have behind them. */
 export interface SeedSpec {
@@ -191,6 +201,40 @@ export function seed(databaseUrl: string, specs: readonly SeedSpec[]): Record<st
 
   store.close();
   return tokens;
+}
+
+/**
+ * Seed a world in a process of its own, and return callsign to device token.
+ *
+ * The environment has to be the one the server will read, so the seeded
+ * world is the one the real code would have produced in it.
+ */
+export async function runSeed(
+  specs: readonly SeedSpec[],
+  env: Record<string, string>,
+): Promise<Record<string, string>> {
+  const seeder = spawnGroup('pnpm', ['exec', 'tsx', HERE, JSON.stringify(specs)], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let out = '';
+  seeder.stdout?.on('data', (chunk: Buffer) => (out += chunk.toString()));
+  seeder.stderr?.on('data', (chunk: Buffer) => (out += chunk.toString()));
+
+  const code = await new Promise<number>((done) =>
+    seeder.on('exit', (exit) => done(exit ?? 1)),
+  );
+  if (code !== 0) throw new Error(`seeding failed:\n${out}`);
+
+  // The tokens are the last line; migration notices come out above them.
+  const last = out.trim().split('\n').at(-1) ?? '{}';
+  try {
+    return JSON.parse(last) as Record<string, string>;
+  } catch {
+    throw new Error(`seeding printed no tokens:\n${out}`);
+  }
 }
 
 // Run as a script: the specs arrive as one JSON argument, the tokens leave as

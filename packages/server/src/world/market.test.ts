@@ -73,7 +73,7 @@ function netPosted(): number {
 describe('the Staple', () => {
   it('lists every commodity with a price on both sides', () => {
     const pilot = captain('Carvalho');
-    const listings = market.listingsFor(berth(), pilot.accountId);
+    const listings = market.listingsFor(berth(), pilot);
 
     expect(listings).toHaveLength(commodities.size);
     for (const listing of listings) {

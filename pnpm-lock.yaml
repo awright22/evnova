@@ -128,7 +128,14 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
-  tools/harness: {}
+  tools/harness:
+    dependencies:
+      '@marque/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+      '@marque/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   tools/perf:
     dependencies:

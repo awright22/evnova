@@ -7,7 +7,7 @@
 
 import type { Page } from 'playwright';
 
-import type { SeedSpec } from './seed.ts';
+import type { SeedSpec } from '@marque/harness/seed';
 
 export interface Screen {
   readonly name: string;

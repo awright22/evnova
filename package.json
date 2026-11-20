@@ -28,7 +28,8 @@
     "verify:trade": "tsx tools/verify/src/trade.ts",
     "verify:yard": "tsx tools/verify/src/yard.ts",
     "verify:bourse": "tsx tools/verify/src/bourse.ts",
-    "verify:convoy": "tsx tools/verify/src/convoy.ts"
+    "verify:convoy": "tsx tools/verify/src/convoy.ts",
+    "verify:standing": "tsx tools/verify/src/standing.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

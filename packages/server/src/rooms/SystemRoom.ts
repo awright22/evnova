@@ -1587,7 +1587,7 @@ export class SystemRoom extends Room<{
     // arrives. That cost an afternoon.
     this.clients.get(sessionId)?.send('market', {
       port: port.id,
-      listings: world().market.listingsFor(port, pilot.accountId),
+      listings: world().market.listingsFor(port, pilot),
       holdCapacity: this.holdCapacityOf(pilot),
       holdUsed: world().market.cargoUnits(pilot.accountId),
     });

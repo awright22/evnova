@@ -23,7 +23,7 @@ import type * as Playwright from 'playwright';
 import { findChromium, LAUNCH_ARGS } from './browser.ts';
 import { SCREENS, type Screen } from './screens.ts';
 import { sleep, start, waitForHttp, type ManagedProcess } from './processes.ts';
-import type { SeedSpec } from './seed.ts';
+import { runSeed } from '@marque/harness/seed';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -280,38 +280,6 @@ async function main(): Promise<void> {
     console.log(`\n${captured.length} screen(s) captured to ${options.outDir}`);
   } finally {
     await Promise.allSettled(processes.map((proc) => proc.stop()));
-  }
-}
-
-/**
- * Write the seeded captains, in a process of their own.
- *
- * Its own process because `config` is read once at import: the seeder has to
- * see the environment the server will see, and the harness cannot change its
- * own after it has imported anything. Returns callsign to device token.
- */
-async function runSeed(
-  specs: readonly SeedSpec[],
-  env: Record<string, string>,
-): Promise<Record<string, string>> {
-  const seeder = start(
-    'seed',
-    'pnpm',
-    ['exec', 'tsx', 'src/seed.ts', JSON.stringify(specs)],
-    { cwd: resolve(HERE, '..'), env },
-  );
-  const code = await new Promise<number>((done) =>
-    seeder.child.on('exit', (exit) => done(exit ?? 1)),
-  );
-  if (code !== 0) throw new Error(`seeding failed:\n${seeder.output()}`);
-
-  // The tokens are the last line; migration notices come out above them.
-  const lines = seeder.output().trim().split('\n');
-  const last = lines.at(-1) ?? '{}';
-  try {
-    return JSON.parse(last) as Record<string, string>;
-  } catch {
-    throw new Error(`seeding printed no tokens:\n${seeder.output()}`);
   }
 }
 

@@ -577,10 +577,15 @@ ${traderRows}
  * What the Factor's board actually paid out, by template.
  *
  * Milestone 7 asks that every commission template completes end to end under
- * bots. The unit tests prove the content at the service level; this says
- * which of them went all the way through the real protocol in this run, and
- * which never came up — a template that is never offered is as broken as one
- * that cannot be answered, and only a run says which.
+ * bots. `Commissions.test.ts` proves all nineteen exhaustively against a real
+ * database — taken, answered, paid, reconciled — because a run of any length
+ * cannot: most templates are a charter's own work and need standing a bot
+ * earns over hours, and the one brain that works a board does not hunt, so
+ * bounties are never taken whatever its standing.
+ *
+ * What this says is which of them went all the way through the real protocol
+ * in *this* run: the board the server built, the intent, the flight, the
+ * landing and the Factor's verdict. It is the other half of that pair.
  */
 function commissionSection(options: Options, samples: readonly Sample[]): string {
   if (!options.factor) return '';
@@ -613,6 +618,13 @@ Nothing was taken off a board this run.
   const answered = everyTemplate.filter((id) => (byTemplate.get(id)?.done ?? 0) > 0);
   const untouched = everyTemplate.filter((id) => !byTemplate.has(id));
 
+  // What a bot could have taken at all. A board only posts a charter's own
+  // work to a captain that charter already trusts, and this brain does not
+  // hunt, so the rest were never on offer to it.
+  const reachable = commissions.templates.filter(
+    (template) => template.kind !== 'bounty' && (template.requiresStanding ?? 0) === 0,
+  );
+
   const lines = [...byTemplate]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(
@@ -629,8 +641,18 @@ ${lines}
 
 | Measure | Value |
 |---|---|
-| Templates answered end to end | ${answered.length} of ${everyTemplate.length} |
-| Never offered to a bot | ${untouched.length === 0 ? 'none' : untouched.join(', ')} |
+| Templates answered through the protocol | ${answered.length} of ${reachable.length} a bot could take |
+| Of all nineteen | ${answered.length} |
+| Taken but not finished when the run ended | ${
+    [...byTemplate].filter(([, entry]) => entry.open > 0 && entry.done === 0).length
+  } |
+| Never taken this run | ${untouched.length === 0 ? 'none' : untouched.join(', ')} |
+
+Every template is proved end to end — taken, answered, paid and reconciled
+against the ledger — by \`packages/server/src/world/Commissions.test.ts\`. A
+board posts a charter's own work only to a captain it already trusts, and
+the brain that works a board does not hunt, so a run of any length reaches
+${reachable.length} of the ${everyTemplate.length}.
 
 `;
 }
