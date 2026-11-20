@@ -363,7 +363,10 @@ async function main(): Promise<void> {
     // Well inside the berth's reach rather than at the edge of it: a hull
     // that stops at the tolerance and then coasts has to still be in reach
     // when it gets there.
-    const home = await flyTo(room, flying, profile, berth.x, berth.y, berth.radius + 180, 300_000);
+    // Six minutes, not five. A laden rig is the slowest thing that flies
+    // here, the belt is a long way off the berth, and a run that ended 6,885
+    // units short with the hull intact was a hull still on its way.
+    const home = await flyTo(room, flying, profile, berth.x, berth.y, berth.radius + 180, 360_000);
     // In reach is not the same as slow enough: `flyTo` stops steering once
     // the mark is inside its tolerance, and a berth refuses a hull that
     // arrives at a hundred a second.
@@ -400,23 +403,39 @@ async function main(): Promise<void> {
     const after = market?.listings.find((row) => row.commodityId === rock.rock.commodity)?.carried
       ?? 0;
 
-    record(
-      'and the captain is carrying what came out of it',
-      after > before,
-      `${before} units aboard before, ${after} after`,
-    );
+    // The hold is counted off the market board, and the board only reaches a
+    // captain who is alongside. So when the landing is refused this reads
+    // zero — and the three checks below it then say the ore never went
+    // aboard, which is a statement about mining and is not true. The server
+    // takes from the rock and adds to the hold in one step; it cannot do one
+    // without the other. Say what actually happened instead.
+    if (back !== 'alongside') {
+      record(
+        'the hold could be counted at all',
+        false,
+        `not alongside (${back}), and the hold is read off the berth's market `
+          + 'board — the three checks below cannot be made from the sky and '
+          + 'are not about mining',
+      );
+    } else {
+      record(
+        'and the captain is carrying what came out of it',
+        after > before,
+        `${before} units aboard before, ${after} after`,
+      );
 
-    record(
-      'in whole units, because cargo is integers',
-      Number.isInteger(after),
-      String(after),
-    );
+      record(
+        'in whole units, because cargo is integers',
+        Number.isInteger(after),
+        String(after),
+      );
 
-    record(
-      'and what the rock lost is what the hold gained',
-      rockBefore - rock.rock.left === after - before,
-      `rock lost ${rockBefore - rock.rock.left}, hold gained ${after - before}`,
-    );
+      record(
+        'and what the rock lost is what the hold gained',
+        rockBefore - rock.rock.left === after - before,
+        `rock lost ${rockBefore - rock.rock.left}, hold gained ${after - before}`,
+      );
+    }
 
     void scanned;
     await room.leave();

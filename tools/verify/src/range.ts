@@ -304,6 +304,16 @@ async function main(): Promise<void> {
         said = Date.now();
         const now = own();
         const me = range.room.state.ships.get(range.room.sessionId);
+        // Who is actually shooting. A count of rounds in the air says a
+        // fight is happening; it does not say who is in it, and the first
+        // version of this reported seven rounds while the captain took no
+        // damage at all.
+        let mine = 0;
+        let theirs = 0;
+        for (const round of range.room.state.projectiles?.values() ?? []) {
+          if (round.owner === range.room.sessionId) mine += 1;
+          else theirs += 1;
+        }
         const spars = [...range.room.state.ships]
           .filter(([id]) => id !== range.room.sessionId)
           .map(([, ship]) => {
@@ -316,7 +326,8 @@ async function main(): Promise<void> {
         console.log(
           `    [range] shield ${Math.round(now.shield)}, structure ${now.hp} ` +
             `(opened at ${Math.round(opened.shield)}/${opened.hp}), ` +
-            `rounds ${range.room.state.projectiles?.size ?? -1}; ` +
+            `rounds ${range.room.state.projectiles?.size ?? -1} ` +
+            `(${mine} the captain's, ${theirs} the spars'); ` +
             `spars: ${spars.join(' | ')}`,
         );
       }
