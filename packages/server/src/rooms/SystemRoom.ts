@@ -42,6 +42,7 @@ import {
   BuyLicenceIntent,
   GiveDesignIntent,
   ImportDesignIntent,
+  BourseIntent,
   SaveDesignIntent,
   SwitchShipIntent,
   StapleIntent,
@@ -51,11 +52,13 @@ import {
   content,
   scrubChat,
   deriveStats,
+  buildCost,
   builtBlueprint,
   encodeShareCode,
   placeAll,
   stepFlight,
   type Blueprint,
+  type Standing,
   type LicenceId,
   type ChatLine,
   type FlightCommand,
@@ -65,6 +68,7 @@ import {
 
 import { registerRoom, TickMetrics } from '../metrics.ts';
 import { AuthError, type Account } from '../accounts.ts';
+import { BourseRefused } from '../world/Exchange.ts';
 import { InsufficientMarks } from '../world/Ledger.ts';
 import { world } from '../world/World.ts';
 import type { Pilot } from '../world/PilotStore.ts';
@@ -136,6 +140,21 @@ const CHAT_WINDOW_MS = 10_000;
 
 /** The presence topic every room listens on for the global channel. */
 const GLOBAL_CHAT_TOPIC = 'chat:global';
+
+/**
+ * Every live system room.
+ *
+ * The World owns the market tick and knows nothing about rooms, which is
+ * right: it should not have to. This is the other half of that — a registry
+ * the server's wiring can walk when the Bourse moves, so captains standing on
+ * a berth see the board change under them rather than only on the next trade.
+ */
+const liveRooms = new Set<SystemRoom>();
+
+/** Tell every room the Bourse has moved. */
+export function refreshEveryBourse(): void {
+  for (const room of liveRooms) room.refreshBourse();
+}
 
 export class SystemRoom extends Room<{
   state: SystemState;
@@ -710,6 +729,42 @@ export class SystemRoom extends Room<{
     }),
 
     /**
+     * Buy or sell shares on the Bourse.
+     *
+     * Only at a berth that keeps one. The price is read from the pool as it
+     * stands, never from whatever the ticket last showed, so a captain who
+     * sat on an order while somebody else moved the market is filled at the
+     * real price and told what it was.
+     */
+    bourse: validate(BourseIntent, (client: Client, message: BourseIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+      if (!port.services.includes('bourse')) return ctx.reject('no-bourse');
+
+      try {
+        const fill = world().exchange.trade({
+          pilot,
+          side: message.side,
+          ticker: message.ticker,
+          shares: message.shares,
+        });
+        world().pilots.touch(pilot.accountId);
+        this.sendPurse(client.sessionId);
+        this.sendBourse(client.sessionId);
+        return fill;
+      } catch (error) {
+        if (error instanceof BourseRefused) return ctx.reject(error.reason);
+        throw error;
+      }
+    }),
+
+    /**
      * Trade at the berth's Staple.
      *
      * The market owns the transaction; the room's job is to establish that
@@ -838,6 +893,7 @@ export class SystemRoom extends Room<{
 
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE, { subSteps: SUB_STEPS });
 
+    liveRooms.add(this);
     this.unregisterMetrics = registerRoom({
       roomId: this.roomId,
       systemId: this.state.systemId,
@@ -887,6 +943,7 @@ export class SystemRoom extends Room<{
   }
 
   override onDispose(): void {
+    liveRooms.delete(this);
     this.unregisterMetrics?.();
     this.unregisterMetrics = undefined;
     this.unsubscribeChat?.();
@@ -1239,6 +1296,80 @@ export class SystemRoom extends Room<{
     });
   }
 
+  /**
+   * Push the board to every captain standing on a berth here.
+   *
+   * Called when the world's market tick fires. Only to those alongside: a
+   * captain in flight has no Bourse open and no use for ten prices, and the
+   * bandwidth budget in spec section 3 is for the flight view.
+   */
+  refreshBourse(): void {
+    for (const [sessionId, pilot] of this.pilotsBySession) {
+      if (pilot.landedPortId === undefined) continue;
+      this.sendBourse(sessionId);
+    }
+  }
+
+  /**
+   * The Bourse, the Gazette and the standings.
+   *
+   * Sent together because they are one screen: a price without the headline
+   * that explains it is the thing spec section 10 exists to prevent.
+   */
+  private sendBourse(sessionId: string): void {
+    const pilot = this.pilotsBySession.get(sessionId);
+    if (!pilot) return;
+
+    const client = this.clients.get(sessionId);
+    if (!client) return;
+
+    const { exchange } = content().tuning;
+    client.send('bourse', {
+      listings: world().exchange.listingsFor(pilot.accountId),
+      feeRate: exchange.feeRate,
+      maxPoolFraction: exchange.maxPoolFraction,
+    });
+    client.send('news', { headlines: world().gazette.recent() });
+    client.send('standings', { standings: this.standingsFor(pilot.accountId) });
+  }
+
+  /**
+   * The leaderboard: what every captain is worth.
+   *
+   * Net worth rather than marks, because a captain who has put everything
+   * into a cruiser and a parcel of Slipway shares is not poor. Hulls count at
+   * what they cost to build, which is the only figure the world actually
+   * knows; a second-hand market would give a better one and there is not one.
+   */
+  private standingsFor(accountId: string): Standing[] {
+    const { modules, tuning } = content();
+    const out: Standing[] = [];
+
+    for (const account of world().pilots.everyone()) {
+      const shares = world().exchange.portfolioValue(account.accountId);
+      let hulls = 0;
+      for (const hull of world().yard.shipsOf(account.accountId)) {
+        try {
+          hulls += buildCost(hull.placements, modules, tuning, []).marks;
+        } catch {
+          // A hull naming a fitting this build lacks is worth nothing we can
+          // state, which is better than refusing to draw the whole board.
+        }
+      }
+
+      out.push({
+        callsign: account.callsign,
+        worth: account.marks + shares + hulls,
+        marks: account.marks,
+        shares,
+        hulls,
+        isSelf: account.accountId === accountId,
+      });
+    }
+
+    return out.sort((a, b) => b.worth - a.worth).slice(0, 20);
+  }
+
   /** Write a captain's hull state back to their row. */
   private persist(sessionId: string): void {
     const pilot = this.pilotsBySession.get(sessionId);
@@ -1546,6 +1677,7 @@ export class SystemRoom extends Room<{
     const berth = this.system?.ports.find((candidate) => candidate.id === portId);
     if (berth) this.sendStaple(sessionId, berth);
     this.sendYard(sessionId);
+    this.sendBourse(sessionId);
 
     // A landed hull leaves the simulation and cannot be attacked. The
     // captain does not leave the room: they are standing on the berth, and

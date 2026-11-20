@@ -98,6 +98,31 @@ export class PilotStore {
   }
 
   /**
+   * Every captain on the books, online or not.
+   *
+   * For the leaderboard, which would be a strange board if it only listed
+   * whoever happened to be flying. Read straight from the database and
+   * overlaid with the in-memory marks of anyone currently loaded, because a
+   * captain who has been spending this minute has not been flushed yet.
+   */
+  everyone(): { accountId: string; callsign: string; marks: number }[] {
+    const rows = this.store.db
+      .select({
+        accountId: schema.accounts.id,
+        callsign: schema.accounts.callsign,
+        marks: schema.pilots.marks,
+      })
+      .from(schema.accounts)
+      .innerJoin(schema.pilots, eq(schema.pilots.accountId, schema.accounts.id))
+      .all();
+
+    return rows.map((row) => ({
+      ...row,
+      marks: this.loaded.get(row.accountId)?.marks ?? row.marks,
+    }));
+  }
+
+  /**
    * Write every changed captain.
    *
    * One transaction for the batch: a flush either lands or it does not, so a

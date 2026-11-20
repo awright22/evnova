@@ -126,12 +126,16 @@ export function buyLimit(
   const available = Math.max(0, listing.available);
   const room = Math.max(0, listing.holdingCap - listing.held);
   const affordable = affordableShares(pool, marks, feeRate, maxPoolFraction);
+  // `affordableShares` is itself bounded by what the pool will sell, so a
+  // captain with marks to spare has `affordable === available`. The pool is
+  // the real constraint there, and naming the marks instead would tell them
+  // their purse was the problem when it is not.
   const bound: BuyBound =
     room <= affordable && room <= available
       ? 'cap'
-      : affordable <= available
-        ? 'marks'
-        : 'pool';
+      : available <= affordable
+        ? 'pool'
+        : 'marks';
 
   return {
     max: Math.min(available, room, affordable),

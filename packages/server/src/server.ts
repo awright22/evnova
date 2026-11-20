@@ -7,9 +7,18 @@
 
 import { defineRoom, defineServer } from '@colyseus/core';
 
+import { world } from './world/World.ts';
+
 import { config } from './config.ts';
 import { routes } from './routes.ts';
-import { SystemRoom } from './rooms/SystemRoom.ts';
+import { SystemRoom, refreshEveryBourse } from './rooms/SystemRoom.ts';
+
+// The Bourse moves on the world's own clock, not on a captain's action, so
+// the rooms are told when it has. Registered here because the World does not
+// know about rooms and the rooms do not know about each other.
+world().onBourseTick = () => {
+  refreshEveryBourse();
+};
 
 export const server = defineServer({
   rooms: {
