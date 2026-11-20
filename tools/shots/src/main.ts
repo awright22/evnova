@@ -23,6 +23,7 @@ import type * as Playwright from 'playwright';
 import { findChromium, LAUNCH_ARGS } from './browser.ts';
 import { SCREENS, type Screen } from './screens.ts';
 import { sleep, start, waitForHttp, type ManagedProcess } from './processes.ts';
+import { requirePortFree } from '@marque/harness';
 import { runSeed } from '@marque/harness/seed';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -211,6 +212,14 @@ async function main(): Promise<void> {
     // 3. Game server, on its own port so a running dev server is untouched,
     // and on a throwaway database so a capture never depends on what an
     // earlier run left behind. Accounts opened here are gone when it exits.
+    // Refuse to start against ports an earlier run left behind. The verify
+    // harnesses have done this since M2; this one did not, so a stale
+    // preview from a killed run turned into a forty-five second timeout
+    // and a stack trace about `matchmake` rather than one sentence naming
+    // the port.
+    await requirePortFree(options.serverPort, 'a game server');
+    await requirePortFree(options.previewPort, 'a client preview');
+
     console.log('Starting game server...');
     const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {
       cwd: resolve(REPO_ROOT, 'packages/server'),

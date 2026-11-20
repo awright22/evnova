@@ -33,6 +33,7 @@ import type * as Playwright from 'playwright';
 
 import { findChromium, LAUNCH_ARGS } from '@marque/shots/browser';
 import { sleep, start, waitForHttp, type ManagedProcess } from '@marque/shots/processes';
+import { requirePortFree } from '@marque/harness';
 import { runSeed } from '@marque/harness/seed';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -166,6 +167,10 @@ async function main(): Promise<void> {
     );
     const deviceToken = tokens[CALLSIGN];
     if (deviceToken === undefined) throw new Error(`no device token seeded for ${CALLSIGN}`);
+
+    // Nothing of an earlier run may still be listening.
+    await requirePortFree(SERVER_PORT, 'a game server');
+    await requirePortFree(PREVIEW_PORT, 'a client preview');
 
     console.log('Starting game server...');
     const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {

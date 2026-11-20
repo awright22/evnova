@@ -20,6 +20,7 @@ import type * as Playwright from 'playwright';
 
 import { findChromium, LAUNCH_ARGS } from '@marque/shots/browser';
 import { sleep, start, waitForHttp, type ManagedProcess } from '@marque/shots/processes';
+import { requirePortFree } from '@marque/harness';
 import { runSeed, type SeedSpec } from '@marque/harness/seed';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,12 @@ export async function openSession(options: SessionOptions): Promise<Session> {
         tokens.set(callsign, token);
       }
     }
+
+    // Nothing of an earlier run may still be listening: a stale preview
+    // turns into a timeout three steps later and a stack trace about the
+    // wrong thing.
+    await requirePortFree(options.serverPort, 'a game server');
+    await requirePortFree(options.previewPort, 'a client preview');
 
     console.log('Starting game server...');
     const server = start('game server', 'pnpm', ['exec', 'tsx', 'src/main.ts'], {
