@@ -95,6 +95,30 @@ first time a captain reads it.
 
 ## Fixed in this cycle
 
+Every blocker and major, and four of the five minors.
+
+| | What was done |
+|---|---|
+| B1 | The ticket's card waits until the captain comes back out of a counter |
+| M1 | The Yard's drawer grows a shelf of kept draughts, with a control that puts one on the grid |
+| M2 | A berth opens where its own trade has pushed it, so a new world has routes on day one |
+| M3 | The book's row has a real floor; the chart gives up the height |
+| M4 | Nine standing bands, and the top one no longer names the wrong company |
+| M5 | The write-off's gunner is a companion browser, which shares the victim's room |
+| N1 | Measured rather than eyeballed: the late session reads the link figure |
+| N2 | Each endorsement knows where it can be earned; the card asks for what is to hand |
+| N3 | Six paint schemes, none of them a livery, held by a test |
+| N4 | A hull over her bays says so |
+| N5 | A position is valued at what closing it would fetch |
+
+**N1 turned out to be nothing.** The `--` was a diverging prediction in one
+run and has not recurred; the late session reads 353 ms and now checks it
+every run, so a real divergence will fail rather than be noticed in a
+screenshot.
+
+And one fault found in the course of the above, which was in the way of
+everything else:
+
 - **Firing on a posted captain used to post you in turn.** The Prize Court
   posts a captain to say they may be answered for, and then struck a
   composition against whoever answered — so a lawful captain who fired on a
@@ -102,3 +126,12 @@ first time a captain reads it.
   supposed to be after the first. Writing one off did the same. Found while
   trying to photograph a write-off: the harness's gunner kept dying instead
   of its mark.
+
+## Open after this cycle
+
+- **A bot client and a browser client in one system did not meet.** Six runs
+  of the write-off capture had the page report itself in parity with five
+  hulls around it and the bot gunner report parity with five hulls and no
+  mark among them. A companion *browser* shares the room without trouble, so
+  the capture is fixed, but the thread is unpulled: either the bot joins
+  differently or two rooms exist for one system. **Cycle 2 should pull it.**
