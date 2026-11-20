@@ -19,6 +19,7 @@ import { ChatLog } from './ChatLog.ts';
 import { Ledger } from './Ledger.ts';
 import { Freight } from './Freight.ts';
 import { Market } from './Market.ts';
+import { Yard } from './Yard.ts';
 import { PilotStore } from './PilotStore.ts';
 
 /** Time, injected. Real time in production; accelerated in the soak. */
@@ -58,6 +59,7 @@ export class World {
   readonly ledger: Ledger;
   readonly market: Market;
   readonly freight: Freight;
+  readonly yard: Yard;
   readonly chat = new ChatLog();
 
   private flushTimer: NodeJS.Timeout | undefined;
@@ -77,6 +79,7 @@ export class World {
     this.ledger = new Ledger(this.store);
     this.market = new Market(this.store, this.ledger);
     this.freight = new Freight(this.market);
+    this.yard = new Yard(this.store, this.ledger, this.market);
     this.lastEconomyAt = this.clock.now();
   }
 

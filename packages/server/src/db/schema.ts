@@ -160,13 +160,63 @@ export const cargo = sqliteTable(
   (table) => [primaryKey({ columns: [table.accountId, table.commodityId] })],
 );
 
+/**
+ * Designs a captain has saved.
+ *
+ * The placements are JSON because a design is read and written whole and
+ * never queried by its parts. A design is not a ship: it is a drawing, and
+ * costs nothing until it is built.
+ */
+export const designs = sqliteTable(
+  'designs',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Placements as JSON: `[{ moduleId, x, y, rotation }]`. */
+    placements: text('placements').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [index('designs_account').on(table.accountId)],
+);
+
+/**
+ * Hulls a captain owns.
+ *
+ * Each is parked at the berth it was left at, and exactly one is being flown.
+ * The pilot row still carries the hull that is in the air, because that is
+ * what the simulation reads every tick; this table is the hangar.
+ */
+export const ships = sqliteTable(
+  'ships',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Placements as JSON, frozen at the moment it was built or refitted. */
+    placements: text('placements').notNull(),
+    /** Where it is parked. Null while it is the hull being flown. */
+    portId: text('port_id'),
+    systemId: text('system_id').notNull(),
+    /** Per-module hit points, as JSON, so a parked hull keeps its damage. */
+    moduleHp: text('module_hp').notNull().default('[]'),
+    builtAt: integer('built_at').notNull(),
+  },
+  (table) => [index('ships_account').on(table.accountId)],
+);
+
 /** Schema version, so a migration knows what it is upgrading. */
 export const meta = sqliteTable('meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Migrations, applied in order.
@@ -262,6 +312,33 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
         units INTEGER NOT NULL CHECK (units > 0),
         PRIMARY KEY (account_id, commodity_id)
       );
+    `,
+  },
+  {
+    // The shipyard: designs a captain has drawn, and hulls they own.
+    version: 5,
+    up: `
+      CREATE TABLE IF NOT EXISTS designs (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        placements TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS designs_account ON designs (account_id);
+
+      CREATE TABLE IF NOT EXISTS ships (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        placements TEXT NOT NULL,
+        port_id TEXT,
+        system_id TEXT NOT NULL,
+        module_hp TEXT NOT NULL DEFAULT '[]',
+        built_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ships_account ON ships (account_id);
     `,
   },
 ];

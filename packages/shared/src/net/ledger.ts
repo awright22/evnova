@@ -17,6 +17,7 @@ export const FAUCETS = {
   dividend: 'Dividend',
   'share-sale': 'Sold on the Bourse',
   salvage: 'Salvage',
+  'refit-refund': 'Refit refund',
 } as const;
 
 /** Marks leaving it. */
