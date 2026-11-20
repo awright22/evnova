@@ -82,7 +82,15 @@ Three screens, three wrong guesses. The lesson is cycle 2's, arrived at
 again from the other end: a harness that times a thing instead of waiting
 for it is making an assumption about a machine it does not control.
 
-**N4. Two of the three required browsers have never been run.** Spec section
+**N4. The chat capture was one captain talking to themselves.** The log
+behind the composer held three lines, all said by the captain whose screen
+it is — which is what the act was written to do, so the composer is
+photographed and the conversation is not. A captain's own line is not drawn
+the way a line from somebody else is, so the thing this screen exists for
+had never been captured in three milestones. It gets a companion who says
+one line now.
+
+**N5. Two of the three required browsers have never been run.** Spec section
 3 asks for current Chrome, Firefox and Safari on desktop. This container has
 Chromium and only Chromium: `/opt/pw-browsers` holds no Firefox or WebKit
 build, and `playwright install` needs a host the network policy refuses. So

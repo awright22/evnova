@@ -1524,6 +1524,25 @@ export const SCREENS: readonly Screen[] = [
     settle: '.hud',
     settleMs: 900,
     bots: 2,
+    // Somebody to talk to.
+    //
+    // The log used to be three lines this captain had said to themselves,
+    // which is a photograph of a composer rather than of a conversation —
+    // and a captain's own line is not drawn the way a line from somebody
+    // else is, so the thing the screen is for had never been captured.
+    companions: [
+      {
+        seed: { callsign: 'Fair Copy', at: 'the-bourse' },
+        act: async (page) => {
+          await page.waitForSelector('.hud', { timeout: 120_000 });
+          await page.waitForTimeout(1500);
+          await page.keyboard.press('Enter');
+          await page.waitForSelector('.chat__input', { timeout: 20_000 });
+          await page.keyboard.type('Leaf is thin at Tolliver. I came out light.', { delay: 8 });
+          await page.keyboard.press('Enter');
+        },
+      },
+    ],
     act: async (page) => {
       // Say a few things, so the log behind the composer is not empty.
       for (const line of [
