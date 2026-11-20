@@ -68,7 +68,25 @@ export async function startStack(options: {
     procs.push(
       quiet(
         'pnpm',
-        ['exec', 'vite', 'preview', '--port', String(options.previewPort), '--strictPort'],
+        [
+          'exec',
+          'vite',
+          'preview',
+          '--port',
+          String(options.previewPort),
+          '--strictPort',
+          // Bound to IPv4 on purpose.
+          //
+          // Left to itself vite binds `localhost`, which on this container
+          // resolves to 127.0.0.1 and on a GitHub runner resolves to ::1
+          // first — so the preview came up, said "Local:
+          // http://localhost:4186/", and the harness's fetch of
+          // `http://127.0.0.1:4186` was answered by nothing. Two CI jobs
+          // spent a minute each waiting for a server that was already
+          // running on the other stack.
+          '--host',
+          '127.0.0.1',
+        ],
         resolve(REPO_ROOT, 'packages/client'),
       ),
     );

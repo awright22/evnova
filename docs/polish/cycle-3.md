@@ -39,6 +39,27 @@ work.
 Found by asking, during this cycle, whether `pnpm build` had ever run — not
 by anything that was watching.
 
+**And behind it, a second fault the first had been hiding.** With the
+install fixed, `Check and build` and `Netcode under latency` passed — the
+first time `pnpm check` and `pnpm build` have run anywhere but here. The two
+browser-driven jobs still failed, with `http://127.0.0.1:4186 never
+answered`, which is the same sentence whether the preview could not find a
+build, crashed on boot, or the port was taken.
+
+So `startStack` now attaches what its processes actually said, and the next
+run answered in one line: the preview was up and had printed `Local:
+http://localhost:4186/`. Vite binds `localhost`, which resolves to
+`127.0.0.1` in this container and to `::1` first on a GitHub runner — so the
+harness spent a minute fetching an address nothing was listening on, while
+the server it wanted ran on the other stack. Every preview in `tools/` is
+bound to `127.0.0.1` explicitly now; four of the five had the same latent
+bug and only ever ran where it does not bite.
+
+That diagnostic was the rule this session added to `CLAUDE.md` after cycle 2
+lost five runs to harnesses that failed in silence. It is the first time it
+has been used on a failure I could not reproduce, and it turned a second
+blind cycle into a one-line answer.
+
 ### Majors
 
 *None so far.*

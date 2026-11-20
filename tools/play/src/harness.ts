@@ -110,7 +110,20 @@ export async function openSession(options: SessionOptions): Promise<Session> {
     const preview = start(
       'client preview',
       'pnpm',
-      ['exec', 'vite', 'preview', '--port', String(options.previewPort), '--strictPort'],
+      [
+        'exec',
+        'vite',
+        'preview',
+        '--port',
+        String(options.previewPort),
+        '--strictPort',
+        // IPv4, explicitly: vite otherwise binds `localhost`, which
+        // resolves to ::1 first on some machines, and every harness
+        // here then waits on 127.0.0.1 for a server already running
+        // on the other stack. See `tools/verify/src/harness.ts`.
+        '--host',
+        '127.0.0.1',
+      ],
       { cwd: resolve(REPO_ROOT, 'packages/client') },
     );
     processes.push(preview);

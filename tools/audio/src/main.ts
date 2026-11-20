@@ -184,7 +184,20 @@ async function main(): Promise<void> {
     const preview = start(
       'client preview',
       'pnpm',
-      ['exec', 'vite', 'preview', '--port', String(PREVIEW_PORT), '--strictPort'],
+      [
+        'exec',
+        'vite',
+        'preview',
+        '--port',
+        String(PREVIEW_PORT),
+        '--strictPort',
+        // IPv4, explicitly: vite otherwise binds `localhost`, which
+        // resolves to ::1 first on some machines, and every harness
+        // here then waits on 127.0.0.1 for a server already running
+        // on the other stack. See `tools/verify/src/harness.ts`.
+        '--host',
+        '127.0.0.1',
+      ],
       { cwd: resolve(REPO_ROOT, 'packages/client') },
     );
     processes.push(preview);
