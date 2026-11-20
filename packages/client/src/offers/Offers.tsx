@@ -26,6 +26,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { OffersState, TradeOfferLine } from '@marque/shared';
 
+import { Stamp } from '../seal/Stamp.tsx';
+
 import './offers.css';
 
 /** A commodity aboard, as the parcel picker needs it. */
@@ -64,6 +66,8 @@ export interface OffersProps {
   readonly designs: readonly DesignLine[];
   readonly marks: number;
   readonly berthName: string;
+  /** Whose berth it is: the seal struck when an offer is taken up. */
+  readonly owner: string;
   readonly busy: boolean;
   readonly notice: string | undefined;
   onOffer: (offer: Draft) => void;
@@ -287,6 +291,7 @@ export function Offers({
   designs,
   marks,
   berthName,
+  owner,
   busy,
   notice,
   onOffer,
@@ -526,6 +531,7 @@ export function Offers({
                               line={line}
                               age={ageOf(line)}
                               marks={marks}
+                              owner={owner}
                               room={room}
                               busy={busy}
                               onAnswer={onAnswer}
@@ -545,6 +551,7 @@ export function Offers({
                               line={line}
                               age={ageOf(line)}
                               marks={marks}
+                              owner={owner}
                               room={room}
                               busy={busy}
                               onAnswer={onAnswer}
@@ -922,6 +929,8 @@ interface DocketProps {
   readonly line: TradeOfferLine;
   readonly age: number;
   readonly marks: number;
+  /** Whose berth it is, for the seal struck when it is taken up. */
+  readonly owner: string;
   /** Room left in the hull's bays, for an inbound parcel that may not fit. */
   readonly room: number;
   readonly busy: boolean;
@@ -935,7 +944,15 @@ interface DocketProps {
  * are the same either way: what is in it, what it costs them, and what their
  * purse comes to. What differs is the answer at the foot.
  */
-function Docket({ line, age, marks, room, busy, onAnswer }: DocketProps): React.JSX.Element {
+function Docket({
+  line,
+  age,
+  marks,
+  owner,
+  room,
+  busy,
+  onAnswer,
+}: DocketProps): React.JSX.Element {
   const reading = readOffer(line);
   const side: Side = reading.inbound ? 'receiving' : 'offering';
   const after = purseAfter(marks, line.marks, side);
@@ -1006,14 +1023,20 @@ function Docket({ line, age, marks, room, busy, onAnswer }: DocketProps): React.
       <div className="offers__docket-actions">
         {reading.inbound ? (
           <>
-            <button
-              type="button"
+            {/*
+              Taking an offer up is the trade being struck, and spec section
+              4 stamps a trade like any other document. Sending one is not:
+              nothing has moved until the other captain answers.
+            */}
+            <Stamp
+              issuer={owner}
               className="button"
+              size={30}
               disabled={busy || short || overfull}
-              onClick={() => onAnswer(line.id, true)}
+              onStamp={() => onAnswer(line.id, true)}
             >
               Take it up
-            </button>
+            </Stamp>
             <button
               type="button"
               className="button"

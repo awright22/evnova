@@ -212,6 +212,10 @@ async function main(): Promise<void> {
 
     const captured: { name: string; file: string; description: string }[] = [];
 
+    /** Screens the run could not take, reported at the end. */
+
+    const missed: { name: string; why: string }[] = [];
+
     // Bot traffic, so flight captures show a system with other hulls in it
     // rather than one ship alone.
     const wantBots = Math.max(0, ...screens.map((screen) => screen.bots ?? 0));
@@ -258,12 +262,23 @@ async function main(): Promise<void> {
           );
         }
 
-        let file: string;
+        // A screen that cannot be captured is reported and the run goes on.
+        // A capture run is twenty minutes of flying; losing the other
+        // twenty-nine screens because one of them did not find anybody to
+        // shoot at is not a trade worth making.
+        let file: string | undefined;
         try {
           file = await capture(browser, baseUrl, screen, options, token);
+        } catch (error) {
+          missed.push({
+            name: screen.name,
+            why: error instanceof Error ? error.message.split('\n')[0]! : String(error),
+          });
+          console.warn(`  ! ${screen.name} was not captured: ${missed.at(-1)?.why ?? ''}`);
         } finally {
           for (const context of held) await context.close();
         }
+        if (file === undefined) continue;
         captured.push({ name: screen.name, file, description: screen.description });
         console.log(`  captured ${screen.name}`);
       }
@@ -283,6 +298,11 @@ async function main(): Promise<void> {
     );
 
     console.log(`\n${captured.length} screen(s) captured to ${options.outDir}`);
+    if (missed.length > 0) {
+      console.warn(`${missed.length} not captured:`);
+      for (const miss of missed) console.warn(`  ${miss.name}: ${miss.why}`);
+      process.exitCode = 1;
+    }
   } finally {
     await Promise.allSettled(processes.map((proc) => proc.stop()));
   }

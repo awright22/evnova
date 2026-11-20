@@ -446,10 +446,22 @@ export const SCREENS: readonly Screen[] = [
     },
     act: async (page) => {
       await page.waitForSelector('.hud', { timeout: 20_000 });
+      // Somebody to fire on has to be there first. The Unlettered and the
+      // patrols are spawned once a captain is in the system, which is not
+      // the instant the HUD appears — and a run that engaged an empty sky
+      // got posted by nobody and was never answered for.
+      await page.waitForFunction(
+        () => {
+          const harness = (globalThis as unknown as HarnessWindow).__marqueHarness;
+          return (harness?.room?.state.ships.size ?? 0) > 1;
+        },
+        undefined,
+        { timeout: 60_000 },
+      );
       await page.keyboard.press('Tab');
       await page.waitForTimeout(300);
-      await engageNearest(page, 90);
-      await page.waitForSelector('.flight__written-off', { timeout: 90_000 });
+      await engageNearest(page, 120);
+      await page.waitForSelector('.flight__written-off', { timeout: 120_000 });
       // The panel goes up on the write-off and the Hall's figures arrive on
       // the next turn of the loop, so the capture waits for the file to be
       // read rather than photographing the sentence that says it is being.

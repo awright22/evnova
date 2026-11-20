@@ -286,6 +286,7 @@ function Game(): React.JSX.Element {
               designs={snapshot.offers?.designs ?? []}
               marks={purse.marks}
               berthName={port.name}
+              owner={port.owner}
               busy={false}
               notice={snapshot.notice}
               onOffer={(offer) => void client.offerTrade(offer)}
