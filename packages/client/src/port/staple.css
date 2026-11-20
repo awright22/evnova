@@ -102,11 +102,15 @@
   background: color-mix(in srgb, var(--hover) 55%, transparent);
 }
 
+/* A cell, like the orders cell: the stacking goes on a span inside it. */
 .staple__good {
-  display: grid;
-  gap: 0;
   text-align: left;
   font-weight: 400;
+}
+
+.staple__good-stack {
+  display: grid;
+  gap: 0;
 }
 
 .staple__name {
@@ -145,7 +149,17 @@
   color: var(--text-disabled);
 }
 
+/*
+ * The cell stays a cell. Putting the flex on the <td> itself took it out of
+ * the table's layout, so the buttons floated past the right edge with the
+ * row's rule stopping short of them.
+ */
 .staple__orders {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.staple__order-pair {
   display: flex;
   gap: var(--space-0-5);
   justify-content: flex-end;

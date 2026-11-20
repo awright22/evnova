@@ -122,8 +122,10 @@ export function Staple({
             {rows.map((row) => (
               <tr key={row.commodityId} className={`staple__row staple__row--${row.standing}`}>
                 <th scope="row" className="staple__good">
-                  <span className="staple__name">{row.name}</span>
-                  <span className="micro">{row.tier}</span>
+                  <span className="staple__good-stack">
+                    <span className="staple__name">{row.name}</span>
+                    <span className="micro">{row.tier}</span>
+                  </span>
                 </th>
                 <td className="staple__num data">{row.ask.toLocaleString()}</td>
                 <td className="staple__num data">{row.bid.toLocaleString()}</td>
@@ -135,22 +137,24 @@ export function Staple({
                 </td>
                 <td className="staple__num data">{row.carried.toLocaleString()}</td>
                 <td className="staple__orders">
-                  <button
-                    type="button"
-                    className="button staple__order"
-                    disabled={busy || row.stock < 1 || room < 1 || marks < row.ask}
-                    onClick={() => onTrade('buy', row.commodityId, lot)}
-                  >
-                    Buy
-                  </button>
-                  <button
-                    type="button"
-                    className="button staple__order"
-                    disabled={busy || row.carried < 1}
-                    onClick={() => onTrade('sell', row.commodityId, lot)}
-                  >
-                    Sell
-                  </button>
+                  <div className="staple__order-pair">
+                    <button
+                      type="button"
+                      className="button staple__order"
+                      disabled={busy || row.stock < 1 || room < 1 || marks < row.ask}
+                      onClick={() => onTrade('buy', row.commodityId, lot)}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      type="button"
+                      className="button staple__order"
+                      disabled={busy || row.carried < 1}
+                      onClick={() => onTrade('sell', row.commodityId, lot)}
+                    >
+                      Sell
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

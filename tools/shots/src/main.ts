@@ -80,16 +80,41 @@ async function main(): Promise<void> {
   const playwright = await importPlaywright();
   if (!playwright) return;
 
-  const screens = options.only
-    ? SCREENS.filter((screen) => screen.name === options.only)
+  // `--only` takes one name or a comma-separated list, so a change to two
+  // screens does not mean recapturing all of them.
+  const wanted = (options.only ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name !== '');
+
+  const screens = wanted.length > 0
+    ? SCREENS.filter((screen) => wanted.includes(screen.name))
     : SCREENS;
+
   if (screens.length === 0) {
     throw new Error(
       `no screen named "${options.only ?? ''}". Known: ${SCREENS.map((s) => s.name).join(', ')}`,
     );
   }
 
-  await rm(options.outDir, { recursive: true, force: true });
+  const unknown = wanted.filter((name) => !SCREENS.some((screen) => screen.name === name));
+  if (unknown.length > 0) {
+    throw new Error(
+      `no screen named "${unknown.join('", "')}". ` +
+        `Known: ${SCREENS.map((s) => s.name).join(', ')}`,
+    );
+  }
+
+  // Clear only what is about to be recaptured: wiping the directory on a
+  // `--only` run threw away every other screen, so a single-screen run left
+  // the gallery with one picture in it.
+  if (wanted.length === 0) {
+    await rm(options.outDir, { recursive: true, force: true });
+  } else {
+    for (const screen of screens) {
+      await rm(resolve(options.outDir, `${screen.name}.png`), { force: true });
+    }
+  }
   await mkdir(options.outDir, { recursive: true });
 
   const processes: ManagedProcess[] = [];

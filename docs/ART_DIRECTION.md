@@ -457,4 +457,10 @@ whenever an unintended look appears, then fix it.
   a feature here too: it now carries the lanes out of the selected system, so
   a route can be read in one place. *(Seen in the first chart capture. Fixed.)*
 
+- *Controls adrift of their row* — the Staple's Buy and Sell buttons sat
+  outside the table's right edge, with each row's rule stopping short of them,
+  because the cell holding them was given `display: flex` and left the table's
+  layout. A control that acts on a row has to sit inside it. The flex belongs
+  on a wrapper inside the cell. *(Seen in the first Staple capture. Fixed.)*
+
 *(Reviewed and extended after each screen is first captured.)*
