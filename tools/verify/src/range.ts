@@ -285,14 +285,46 @@ async function main(): Promise<void> {
     flying.input.data.turn = 0;
     flying.commit();
 
-    const lost = await until(
-      () => (range.room.state.ships.get(range.room.sessionId)?.destroyedAt ?? 0) > 0,
-      90_000,
-    );
+    // Say what is happening to the hull while this waits.
+    //
+    // "Survived, which this check needed it not to" does not distinguish a
+    // hull that is too tough from sparring partners that never close, and
+    // the difference is the difference between a balance finding and a
+    // broken fixture.
+    const own = (): { shield: number; hp: number } => {
+      const ship = range.room.state.ships.get(range.room.sessionId);
+      let hp = 0;
+      for (const point of ship?.moduleHp ?? []) hp += point;
+      return { shield: ship?.shield ?? 0, hp };
+    };
+    const opened = own();
+    let said = Date.now();
+    const lost = await until(() => {
+      if (Date.now() - said > 20_000) {
+        said = Date.now();
+        const now = own();
+        const nearest = [...range.room.state.ships]
+          .filter(([id]) => id !== range.room.sessionId)
+          .map(([, ship]) => {
+            const me = range.room.state.ships.get(range.room.sessionId);
+            return Math.round(Math.hypot(ship.x - (me?.x ?? 0), ship.y - (me?.y ?? 0)));
+          });
+        console.log(
+          `    [range] shield ${Math.round(now.shield)}, structure ${now.hp} ` +
+            `(opened at ${Math.round(opened.shield)}/${opened.hp}), ` +
+            `spars at ${nearest.join('u, ')}u`,
+        );
+      }
+      return (range.room.state.ships.get(range.room.sessionId)?.destroyedAt ?? 0) > 0;
+    }, 90_000);
+    const ended = own();
     record(
       'the hull can be lost out there',
       lost,
-      lost ? 'written off on the range' : 'survived, which this check needed it not to',
+      lost
+        ? 'written off on the range'
+        : `survived: shield ${Math.round(opened.shield)} to ${Math.round(ended.shield)}, ` +
+          `structure ${opened.hp} to ${ended.hp} over 90s`,
     );
 
     const mended = await until(() => {

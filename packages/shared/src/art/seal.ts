@@ -107,9 +107,20 @@ export function sealGeometry(design: SealDesign): SealGeometry {
   const paths: SealPath[] = [];
   const step = POINTS / design.repeats;
 
+  // How close to the middle a device may come.
+  //
+  // A seal is a die somebody cut, not a wheel. Devices that ran back to
+  // within a tenth of the centre met there, and with an inner ring around
+  // them and six arms off them the mark read as a hub, spokes and a rim —
+  // a ship's wheel, which `docs/ART_DIRECTION.md` bans by name along with
+  // the compass rose. The device sits between the inner ring and the rim
+  // now, and the middle of the seal is empty, which is what "leaves the
+  // centre clear" was always supposed to mean.
+  const floor = Math.max(design.reach * 0.46, design.innerRing + 0.07);
+
   for (let i = 0; i < design.repeats; i++) {
     const angle = angleOf(design.turn + i * step);
-    paths.push(strike(design.device, angle, design.reach));
+    paths.push(strike(design.device, angle, design.reach, floor));
   }
 
   const rings = design.innerRing > 0 ? [design.innerRing] : [];
@@ -122,15 +133,20 @@ export function sealGeometry(design: SealDesign): SealGeometry {
   return { paths, rings, ticks };
 }
 
-/** One repeat of a device, pointed along `angle` and reaching `reach`. */
-function strike(device: Device, angle: number, reach: number): SealPath {
+/**
+ * One repeat of a device, pointed along `angle` and reaching `reach`.
+ *
+ * `floor` is the radius it may not come inside, which keeps the middle of
+ * the seal clear however near the centre a device would otherwise start.
+ */
+function strike(device: Device, angle: number, reach: number, floor: number): SealPath {
   const across = angle + Math.PI / 2;
 
   switch (device) {
     case 'lozenge': {
       // A diamond standing on the grid point, half as wide as it is long.
       const tip = at(angle, reach);
-      const base = at(angle, reach * 0.16);
+      const base = at(angle, Math.max(reach * 0.16, floor));
       const half = reach * 0.26;
       const left = {
         x: (tip.x + base.x) / 2 + Math.cos(across) * half,
@@ -147,7 +163,7 @@ function strike(device: Device, angle: number, reach: number): SealPath {
       // A broad arrowhead, open at the back: two arms meeting at the point.
       const tip = at(angle, reach);
       const span = reach * 0.46;
-      const back = reach * 0.42;
+      const back = Math.max(reach * 0.42, floor);
       const arm = (sign: number): { x: number; y: number } => ({
         x: Math.cos(angle) * back + Math.cos(across) * span * sign,
         y: Math.sin(angle) * back + Math.sin(across) * span * sign,
@@ -157,7 +173,7 @@ function strike(device: Device, angle: number, reach: number): SealPath {
 
     case 'bar': {
       // A radial bar with square ends, struck from the middle outward.
-      const inner = at(angle, reach * 0.22);
+      const inner = at(angle, Math.max(reach * 0.22, floor));
       const outer = at(angle, reach);
       const half = reach * 0.11;
       const offset = (point: { x: number; y: number }, sign: number) => ({
@@ -173,8 +189,8 @@ function strike(device: Device, angle: number, reach: number): SealPath {
     case 'ring': {
       // A small circle out on the grid point, drawn as a closed polygon so
       // every device in the system is the same kind of thing to draw.
-      const centre = at(angle, reach * 0.68);
       const radius = reach * 0.3;
+      const centre = at(angle, Math.max(reach * 0.68, floor + radius));
       const points = [];
       for (let i = 0; i < 12; i++) {
         const around = (i / 12) * Math.PI * 2;

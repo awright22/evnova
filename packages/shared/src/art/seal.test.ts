@@ -65,9 +65,16 @@ describe('seals', () => {
           path.points.map((point) => Math.hypot(point.x, point.y)),
         ),
       );
-      // Something is always struck away from dead centre: a device drawn
-      // through the middle would read as a glyph.
-      expect(nearest).toBeGreaterThan(0.02);
+      // A fifth of the rim's radius, not a fiftieth.
+      //
+      // This asked for 0.02 and passed a lozenge whose base sat at 0.096 —
+      // which is "not exactly at dead centre" and nothing like a clear
+      // middle. Three of those met near the middle, an inner ring went round
+      // them, and the mark read as a hub with spokes: a ship's wheel, which
+      // the art direction bans by name. A test that enshrines a weaker
+      // property than the rule it is named after will hold while the rule
+      // breaks.
+      expect(nearest).toBeGreaterThan(0.2);
     }
   });
 

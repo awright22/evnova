@@ -154,8 +154,15 @@ async function main(): Promise<void> {
       // The simulation half is measured and worth reporting even when the
       // browser half cannot run: a tool that throws away twenty seconds of
       // numbers because a selector timed out is a tool nobody runs twice.
+      // The whole message, not its first line.
+      //
+      // `browser.ts` puts what was on screen into this error precisely so a
+      // failure here can be diagnosed, and this used to take `[0]` of it and
+      // throw the rest away — so cycle 4's run reported "the flight view
+      // never came up" and nothing about why, from a harness built to answer
+      // exactly that.
       console.error(
-        `Browser capture failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+        `Browser capture failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       process.exitCode = 1;
     }

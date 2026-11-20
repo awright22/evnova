@@ -498,6 +498,11 @@ whenever an unintended look appears, then fix it.
 - A seal struck small with its strokes scaled down with it: at thirty pixels a
   1.5px rim drawn in viewBox units is a quarter of a pixel and reads as a
   smudge. Strokes are in device pixels, whatever the size
+- A seal whose device runs back to the middle. Three or six of them meet
+  there, an inner ring goes round them, and the mark reads as a hub with
+  spokes inside a rim: a ship's wheel, which is a prop and is already
+  forbidden. The device sits between the inner ring and the rim, and the
+  middle of a seal is empty
 - An impression struck under the control beside it. A mark is on the paper,
   not behind it
 - Animated gradients, shimmer or pulsing idle states on static elements
