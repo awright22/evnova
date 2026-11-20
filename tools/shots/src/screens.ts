@@ -957,6 +957,23 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'admin',
+    description:
+      "The books: the ledger by category with faucets against sinks, what every good "
+      + 'is worth across the Reach, the listings, the stockpiles berth by berth, and the '
+      + 'tuning the world is running on, editable and put in force without a restart.',
+    // The page is reached by URL and shut unless the server was told whose
+    // it is, so the capture signs in as the captain it was told about.
+    path: '/?admin=1',
+    seed: { callsign: 'Harbourmaster', at: 'the-bourse' },
+    settle: '.admin__ledger',
+    settleMs: 1200,
+    act: async (page) => {
+      await page.waitForSelector('.admin__table', { timeout: 20_000 });
+      await page.waitForTimeout(600);
+    },
+  },
+  {
     name: 'boot-unreachable',
     description: 'The terminal when the server does not answer: a designed state, not an error dump.',
     setup: async (page) => {

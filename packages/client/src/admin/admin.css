@@ -1,0 +1,221 @@
+/*
+ * The admin page.
+ *
+ * A ledger page and nothing else: dense tabular figures read downward, the
+ * same type and rules as the Bourse's book, and no flourish anywhere. It is
+ * the one screen in the game nobody is meant to enjoy looking at.
+ */
+
+.admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  align-content: start;
+  gap: var(--space-2);
+  min-height: 100vh;
+  padding: var(--space-2);
+  background: var(--void);
+}
+
+.admin--refused {
+  place-content: center;
+  grid-template-columns: minmax(0, 52ch);
+}
+
+.admin__refusal {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.admin__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  grid-column: 1 / -1;
+  padding: var(--space-2);
+}
+
+.admin__head h1 {
+  margin: 0;
+}
+
+.admin__server {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.admin__server div {
+  display: grid;
+  gap: 2px;
+}
+
+.admin__head .button {
+  margin-left: auto;
+}
+
+.admin__ledger,
+.admin__prices,
+.admin__listings,
+.admin__berths,
+.admin__tuning {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  min-height: 0;
+  padding-bottom: var(--space-1);
+}
+
+.admin__tuning {
+  /* Beside the stockpiles rather than under them, so the whole page is one
+     screen at the width an operator is likely to be at. */
+  grid-column: span 2;
+}
+
+.admin__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin__table thead th {
+  padding: var(--space-0-5) var(--space-1-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  border-bottom: var(--border-width) solid var(--rule);
+}
+
+.admin__table tbody th,
+.admin__table tbody td,
+.admin__table tfoot th,
+.admin__table tfoot td {
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--size-body-sm);
+  text-align: left;
+  color: var(--text-secondary);
+  border-bottom: var(--border-width) solid var(--rule-faint);
+}
+
+.admin__table tbody th,
+.admin__table tfoot th {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.admin__table tfoot th,
+.admin__table tfoot td {
+  border-top: var(--border-width) solid var(--rule);
+  border-bottom: none;
+}
+
+.admin__figure {
+  text-align: right !important;
+}
+
+.admin__kind {
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.admin__kind--faucet {
+  color: var(--gain);
+}
+
+.admin__kind--sink {
+  color: var(--danger);
+}
+
+.admin__kind--transfer {
+  color: var(--text-muted);
+}
+
+.admin__ok {
+  color: var(--gain);
+}
+
+.admin__bad {
+  color: var(--danger);
+}
+
+.admin__scroll {
+  display: grid;
+  gap: var(--space-1-5);
+  /*
+   * Each panel keeps its own scroll, so the page is a screen an operator can
+   * take in at a glance rather than a column they have to ride down. The
+   * ledger alone runs to two dozen categories.
+   */
+  max-height: 34vh;
+  padding: 0 var(--space-1-5);
+  overflow-y: auto;
+}
+
+.admin__ledger .admin__scroll,
+.admin__prices .admin__scroll,
+.admin__listings .admin__scroll {
+  padding: 0;
+}
+
+.admin__berth h3 {
+  margin: 0 0 var(--space-0-5);
+  font-family: var(--font-condensed);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.admin__piles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 2px var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin__piles li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--size-body-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.admin__editor {
+  width: calc(100% - var(--space-3));
+  min-height: 24vh;
+  margin: 0 var(--space-1-5);
+  padding: var(--space-1);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--size-body-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--inset);
+  border: var(--border-width) solid var(--rule);
+  resize: vertical;
+}
+
+.admin__apply {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1-5);
+}
+
+.admin__applied {
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}

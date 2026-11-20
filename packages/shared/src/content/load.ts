@@ -56,8 +56,8 @@ export interface Content {
  * server start: a malformed catalogue should stop the boot, not corrupt a
  * world.
  */
-export function loadContent(): Content {
-  const tuning = parse(Tuning, stripComments(tuningData), 'data/tuning.json');
+export function loadContent(rawTuning: unknown = tuningData): Content {
+  const tuning = parse(Tuning, stripComments(rawTuning), 'data/tuning.json');
   const commodityCatalogue = parse(
     CommodityCatalogue,
     stripComments(commodityData),
@@ -270,4 +270,35 @@ let cached: Content | undefined;
 export function content(): Content {
   cached ??= loadContent();
   return cached;
+}
+
+/**
+ * Swap the tuning without restarting.
+ *
+ * Spec section 12 asks for hot reload of tuning data on the admin page: the
+ * whole point of putting the numbers in data is being able to change one and
+ * see what it does, and a restart to do it means nobody does it.
+ *
+ * Validated first and swapped only if it passes, so a bad figure leaves the
+ * world running on the last good one. What is already built keeps the
+ * numbers it was built with — a hull's derived stats, a pool's opening
+ * holdings — because those were settled when they were made; everything
+ * read per call picks the new figures up at once.
+ *
+ * Returns the content now in force. Throws, changing nothing, if the tuning
+ * is not valid.
+ */
+export function reloadTuning(raw: unknown): Content {
+  const next = loadContent(raw);
+  cached = next;
+  inForce = raw;
+  return next;
+}
+
+/** The raw tuning currently in force, which is the shipped one until it is not. */
+let inForce: unknown = tuningData;
+
+/** The tuning as it stands, for an admin page to show and edit. */
+export function tuningSource(): unknown {
+  return stripComments(inForce);
 }

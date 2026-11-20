@@ -237,7 +237,7 @@ Done when:
 - [x] Boarding disabled ships for cargo
 - [x] Limit orders, and short selling with margin and liquidation, without breaking any invariant
 - [x] A test range where a draught can be flown and fought before buying it
-- [ ] The admin page
+- [x] The admin page
 
 Done when:
 - [ ] Each addition meets the quality bar

@@ -154,6 +154,11 @@ async function main(): Promise<void> {
       // Moorings, and a captain on a new captain's float can only ever be
       // photographed looking at a bill they cannot pay.
       STARTING_MARKS: '4000000',
+      // One screen is the admin page, which is shut unless the server was
+      // told whose it is. Named here rather than per screen: the server is
+      // started once for the whole run, so every screen shares its
+      // configuration, and a callsign nobody is seeded as opens nothing.
+      ADMIN_CALLSIGNS: 'Harbourmaster',
     };
 
     // 2. Captains with a history, for the screens that only exist once

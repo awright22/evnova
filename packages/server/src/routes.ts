@@ -12,7 +12,8 @@ import { z } from 'zod';
 import { AuthError } from './accounts.ts';
 import { metricsReport } from './metrics.ts';
 import { FLUSH_INTERVAL_MS, world } from './world/World.ts';
-import { content, deriveStats, placeAll } from '@marque/shared';
+import { content, deriveStats, placeAll, reloadTuning, tuningSource } from '@marque/shared';
+import { config } from './config.ts';
 
 /** What a sign-up or recovery returns. Shown once, then stored by the client. */
 const SignUpBody = z.object({
@@ -27,6 +28,16 @@ const RecoverBody = z.object({
 
 const BerthBody = z.object({
   deviceToken: z.string().min(1).max(400),
+});
+
+const AdminBody = z.object({
+  deviceToken: z.string().min(1).max(400),
+});
+
+const AdminTuningBody = z.object({
+  deviceToken: z.string().min(1).max(400),
+  /** The whole tuning document. Validated against its schema before it is used. */
+  tuning: z.unknown(),
 });
 
 /** Map an auth failure onto an HTTP status and a line a captain can read. */
@@ -46,6 +57,28 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+/**
+ * Refuse anybody not named in the server's own configuration.
+ *
+ * Returns the refusal to send, or nothing when the captain may proceed. A
+ * token that is not on the Register and a captain who is not an admin are
+ * answered the same way: an admin page should not be a way to find out which
+ * callsigns are admins.
+ */
+function refuseUnlessAdmin(deviceToken: string): Response | undefined {
+  const denied = json({ error: 'not-an-admin', message: 'This is not your page.' }, 403);
+  if (config.adminCallsigns.length === 0) return denied;
+
+  try {
+    const account = world().accounts.signIn(deviceToken);
+    return config.adminCallsigns.includes(account.callsign.trim().toLowerCase())
+      ? undefined
+      : denied;
+  } catch {
+    return denied;
+  }
 }
 
 function authFailure(error: unknown): Response {
@@ -205,6 +238,78 @@ export const routes = createRouter({
         },
       }),
     );
+  }),
+
+  /**
+   * The admin page's own view.
+   *
+   * Spec section 12: ledger totals by category, prices and stockpiles, and
+   * the tuning. Behind the server's own configuration — a callsign has to be
+   * named in `ADMIN_CALLSIGNS` — because unlike `/economy` this one carries
+   * the figures an operator tunes a live world with, and answers a write.
+   *
+   * It names no captain either. An operator looking at the shape of the
+   * economy has no business reading anybody's purse.
+   */
+  adminState: createEndpoint('/admin/state', { method: 'POST', body: AdminBody }, (ctx) => {
+    const refused = refuseUnlessAdmin(ctx.body.deviceToken);
+    if (refused) return Promise.resolve(refused);
+
+    const world_ = world();
+    const categories = world_.ledger.totals();
+    const held = world_.store.raw
+      .prepare('SELECT COALESCE(SUM(marks), 0) AS total FROM pilots')
+      .get() as { total: number };
+
+    return Promise.resolve(
+      json({
+        ledger: {
+          categories,
+          net: categories.reduce((sum, row) => sum + row.total, 0),
+          heldByCaptains: held.total,
+        },
+        commodities: world_.market.survey(),
+        berths: world_.market.berthSurvey(),
+        listings: world_.exchange.products(),
+        tuning: tuningSource(),
+        // So the page can say what it is looking at rather than assuming.
+        server: {
+          economyTimeScale: config.economyTimeScale,
+          startingSystem: config.startingSystem,
+          invite: config.inviteCode !== '',
+        },
+      }),
+    );
+  }),
+
+  /**
+   * Put new tuning in force, without a restart.
+   *
+   * Validated first and swapped only if it passes, so a bad figure leaves
+   * the world running on the last good one. In memory only: the data file on
+   * disk is untouched, and a restart goes back to what is committed. That is
+   * deliberate — a live rebalance is an experiment, and an experiment that
+   * silently rewrites the repository is not one anybody can undo.
+   */
+  adminTuning: createEndpoint('/admin/tuning', { method: 'POST', body: AdminTuningBody }, (ctx) => {
+    const refused = refuseUnlessAdmin(ctx.body.deviceToken);
+    if (refused) return Promise.resolve(refused);
+
+    try {
+      reloadTuning(ctx.body.tuning);
+      console.warn('[admin] tuning reloaded in memory');
+      return Promise.resolve(json({ applied: true, tuning: tuningSource() }));
+    } catch (error) {
+      return Promise.resolve(
+        json(
+          {
+            applied: false,
+            message: error instanceof Error ? error.message : String(error),
+          },
+          400,
+        ),
+      );
+    }
   }),
 
   /** The galaxy, for the chart. Static content, so it is cacheable. */

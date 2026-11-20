@@ -27,11 +27,32 @@ import { Bourse } from './bourse/Bourse.tsx';
 import { Board } from './commissions/Board.tsx';
 import { Convoy } from './convoy/Convoy.tsx';
 import { Offers } from './offers/Offers.tsx';
+import { Admin } from './admin/Admin.tsx';
+import { httpBaseFrom, loadAccount } from './game/account.ts';
 import { RangeBanner } from './flight/RangeBanner.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
 export function App(): React.JSX.Element {
+  // The admin page is not a game screen: it is reached by URL, shows the
+  // books and nothing else, and the server decides whether this device may
+  // see it. Checked before the client is built, because an operator reading
+  // the ledger has no business joining a room to do it.
+  const admin = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('admin') !== null;
+  }, []);
+
+  if (admin) {
+    // The server's HTTP origin, not the socket's: the admin page is three
+            // fetches and no room, and `ws://` is not a scheme fetch knows.
+            return <Admin endpoint={httpBaseFrom(SERVER_URL)} deviceToken={loadAccount()?.deviceToken} />;
+  }
+
+  return <Game />;
+}
+
+function Game(): React.JSX.Element {
   const client = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return new GameClient(

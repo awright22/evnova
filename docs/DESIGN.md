@@ -736,3 +736,18 @@ contract is that `blueprint` names a catalogue draught and anything else
 carries its grid in `hull`. The range forgot the second half and sent a
 session id as a draught name, which left the client with nothing to draw the
 hull from and nothing to predict its flight with.
+
+**2026-11-20 — The admin page tells a stranger and a captain apart by
+nothing.** A device that is not on the Register and a captain who is not
+named in `ADMIN_CALLSIGNS` get the same status and the same words, because a
+page that answered them differently would be a way to find out which
+callsigns are operators. It names nobody either: the shape of an economy is
+not its people, and a page that showed a purse would be a page worth
+stealing a token for.
+
+**2026-11-20 — Tuning is reloaded in memory and never written back.** A live
+rebalance is an experiment, and an experiment that silently rewrites the
+repository is not one anybody can undo. The new figures are validated before
+they are swapped, so a bad one leaves the world running on the last good set,
+and a restart goes back to what is committed. What is already built keeps the
+numbers it was built with; everything read per call picks them up at once.
