@@ -478,6 +478,11 @@ export const SCREENS: readonly Screen[] = [
       // not in a full run, where the traffic has moved on by the time this
       // screen comes round.
       composition: 4000,
+      // Engines already gone. The capture is of the claim the Hall
+      // settled, not of the fight that caused it, and a hull that cannot
+      // run is a hull the gunner finishes in seconds rather than one it
+      // chases for two minutes and loses.
+      crippled: true,
     },
     act: async (page) => {
       await page.waitForSelector('.hud', { timeout: 60_000 });

@@ -19,7 +19,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { captureFrames, type FrameCapture, type LoadMeasure } from './browser.ts';
+import { captureFrames as browserFrames, type FrameCapture, type LoadMeasure } from './browser.ts';
 import {
   Rng,
   SPIKE_PROFILE,
@@ -141,14 +141,24 @@ async function main(): Promise<void> {
   let frames: FrameCapture | undefined;
   if (!options.skipBrowser) {
     console.log('Capturing browser frame times (builds the client and flies it)...');
-    frames = await captureFrames({
+    try {
+      frames = await browserFrames({
       serverPort: 2582,
       previewPort: 4182,
       bots: options.bots,
       seconds: Math.min(20, options.seconds),
       width: options.width,
       height: options.height,
-    });
+      });
+    } catch (error) {
+      // The simulation half is measured and worth reporting even when the
+      // browser half cannot run: a tool that throws away twenty seconds of
+      // numbers because a selector timed out is a tool nobody runs twice.
+      console.error(
+        `Browser capture failed: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+      );
+      process.exitCode = 1;
+    }
   }
 
   const report = `# Performance capture
@@ -254,8 +264,8 @@ The real flight view, flying, with bot traffic in the system.
 |---|---|
 | Viewport | ${f.viewport.width} x ${f.viewport.height} |
 | Ships on screen | ${f.ships} |
-| Rounds in the air | ${f.rounds} |
-| Particles alive | ${f.particles} |
+| Rounds in the air, at most | ${f.rounds} |
+| Particles alive, at most | ${f.particles} |
 | Frames measured | ${f.frames} |
 | Renderer | \`${f.renderer}\` |
 

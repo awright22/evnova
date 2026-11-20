@@ -152,10 +152,14 @@ export async function captureFrames(
         deviceScaleFactor: 1,
       });
 
-      // `harness=1` goes straight into the game: a bare URL now lands on the
-      // title screen, which has no flight view to measure and no `.hud` to
-      // wait for. `debug` publishes the counts this reads back.
-      await page.goto(`${baseUrl}/?harness=1&debug=1`, { waitUntil: 'networkidle' });
+      // `harness=1` goes straight into the game rather than the title
+      // screen, and `callsign` opens an account on arrival: without one the
+      // client has nobody to be and lands on the Register, which has no
+      // flight view to measure and no `.hud` to wait for. `debug` publishes
+      // the scene counts this reads back.
+      await page.goto(`${baseUrl}/?harness=1&debug=1&callsign=Rate%20Card`, {
+        waitUntil: 'networkidle',
+      });
       await page.waitForSelector('.hud', { timeout: 30_000 });
       // Let textures generate and the link settle before measuring.
       await sleep(3000);
@@ -182,30 +186,37 @@ export async function captureFrames(
       await page.keyboard.down('ArrowRight');
       await page.keyboard.down('Space');
 
-      const result: { intervals: number[] } = await page.evaluate(`(function () {
+      // The scene's peaks are sampled inside the loop, not read once at the
+      // end: a single instant after twenty seconds says what happened to be
+      // in the sky then, and the budget is about what the renderer coped
+      // with while the frames were being drawn.
+      const result = await page.evaluate<{
+        intervals: number[];
+        rounds: number;
+        fx: number;
+      }>(`(function () {
         var ms = ${options.seconds * 1000};
         return new Promise(function (done) {
           var intervals = [];
+          var rounds = 0;
+          var fx = 0;
           var last = performance.now();
           var start = last;
           function tick() {
             var now = performance.now();
             intervals.push(now - last);
             last = now;
+            var d = window.marqueDebug;
+            if (d) {
+              var c = d.combat();
+              if (c.rounds > rounds) rounds = c.rounds;
+              if (c.fx > fx) fx = c.fx;
+            }
             if (now - start < ms) requestAnimationFrame(tick);
-            else done({ intervals: intervals });
+            else done({ intervals: intervals, rounds: rounds, fx: fx });
           }
           requestAnimationFrame(tick);
         });
-      })()`);
-
-      // Read the scene before letting go: the counts are of what was on
-      // screen while the frames above were being drawn.
-      const scene = await page.evaluate<{ rounds: number; fx: number }>(`(function () {
-        var d = window.marqueDebug;
-        if (!d) return { rounds: 0, fx: 0 };
-        var c = d.combat();
-        return { rounds: c.rounds, fx: c.fx };
       })()`);
 
       await page.keyboard.up('ArrowUp');
@@ -240,8 +251,8 @@ export async function captureFrames(
         softwareRendered: /swiftshader|llvmpipe|software/i.test(renderer),
         ships: ships + 1,
         viewport: { width: options.width, height: options.height },
-        rounds: scene.rounds,
-        particles: scene.fx,
+        rounds: result.rounds,
+        particles: result.fx,
         load,
       };
     } finally {

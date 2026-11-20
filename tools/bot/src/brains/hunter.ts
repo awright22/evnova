@@ -41,7 +41,9 @@ export function hunterBrain(callsign: string): BotBrain {
       if (view.step - saidAt > 180) {
         saidAt = view.step;
         const names = [...view.ships.values()].map((ship) => ship.callsign).join(', ');
-        console.log(`hunter: after "${callsign}"; in the sky: ${names || 'nobody'}`);
+        console.log(
+          `hunter: in ${view.systemId} after "${callsign}"; in the sky: ${names || 'nobody'}`,
+        );
       }
 
       // Find the mark by name each time it is lost: a captain who was
