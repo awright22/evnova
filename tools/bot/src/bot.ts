@@ -18,6 +18,7 @@ import {
 // bot's verdict and the dev panel's can never disagree.
 import { classifyDrift, type DriftStatus } from "@colyseus/sdk/predict/drift";
 import {
+  MAX_CATCHUP_STEPS,
   PATCH_RATE,
   Rng,
   SERVER_MESSAGES,
@@ -735,7 +736,11 @@ export class Bot {
       this.saidGrounded = false;
     }
 
-    const due = this.predict.tick(performance.now());
+    // Capped, for the reason `MAX_CATCHUP_STEPS` gives: twelve bots in one
+    // process cannot keep twelve sixty-hertz frame loops, so a slow frame
+    // owes a burst of steps and sending them all overflows the reconciler's
+    // replay buffer. A backgrounded browser tab is the same case.
+    const due = Math.min(this.predict.tick(performance.now()), MAX_CATCHUP_STEPS);
 
     for (let i = 0; i < due; i++) {
       const view = this.view();

@@ -14,6 +14,7 @@ import type { Reconciler} from '@colyseus/sdk';
 import { Predict, type InputHandle, type Room } from '@colyseus/sdk';
 import { classifyDrift, type DriftStatus } from '@colyseus/sdk/predict/drift';
 import {
+  MAX_CATCHUP_STEPS,
   PATCH_RATE,
   REJECTIONS,
   rejectionText,
@@ -209,7 +210,15 @@ export class Session {
    */
   tick(now: number, intent: FlightIntent): number {
     this.refreshProfile();
-    const due = this.predict.tick(now);
+    const owed = this.predict.tick(now);
+
+    // Capped. A tab in the background gets no animation frames, so coming
+    // back owes a step for every one missed — ten seconds away is three
+    // hundred — and sending them all floods the reconciler's replay buffer
+    // and replays ten seconds of whatever key was last held. Past the cap
+    // the client stops pretending it was flying and lets the reconciler put
+    // the hull where the server says it is.
+    const due = Math.min(owed, MAX_CATCHUP_STEPS);
 
     for (let i = 0; i < due; i++) {
       this.input.data.turn = intent.turn;
