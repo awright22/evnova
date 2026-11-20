@@ -184,6 +184,12 @@ bottom edge only when there is in fact more there. Bottom only — every table
 here keeps a sticky header, and fading that would dim the column names.
 Applied to all four of the Bourse's scrollers.
 
+**N1b. "Also at this berth" headed an empty box.** The heading means "and
+these as well", and it filters out everything with a row of its own above —
+so at a berth that keeps the lot, it listed nothing and left a labelled
+empty box, which reads as content that failed to load. The section is not
+drawn when it has nothing to say.
+
 **N2. The screen called `combat` was a photograph of no combat.** Two hulls
 1090 units apart — beyond the gun's 850 reach — nothing in flight, speed
 zero, and a landing prompt across the bottom. The fight had happened: the

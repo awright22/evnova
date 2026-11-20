@@ -154,6 +154,11 @@ export function PortHub({
   );
 
   const hurt = state.structure < 0.999;
+
+  // What this berth keeps that has no row of its own above. Everything the
+  // hub already offers is filtered out, so at a full berth this is empty and
+  // the section it heads is not drawn at all.
+  const alsoHere = state.port.services.filter((service) => !ROWED_ABOVE.has(service));
   const tanksShort = state.propellant < state.propellantCapacity;
 
   // A magazine is only worth filling on a hull with something that empties
@@ -374,15 +379,18 @@ export function PortHub({
             </section>
           )}
 
-          <footer className="port__offers">
-            <span className="label">Also at this berth</span>
-            <ul>
-              {state.port.services
-                // Everything with a row of its own above. This listed the
-                // Bourse and the Moorings a second time, under a heading
-                // that means "and these as well".
-                .filter((service) => !ROWED_ABOVE.has(service))
-                .map((service) => {
+          {/*
+            A heading that means "and these as well" needs something to say
+            as well. At a berth where everything it would list already has a
+            row above, the filter empties it and the capture showed a labelled
+            box with nothing in it — which reads as content that failed to
+            load rather than as a berth that keeps nothing else.
+          */}
+          {alsoHere.length > 0 && (
+            <footer className="port__offers">
+              <span className="label">Also at this berth</span>
+              <ul>
+                {alsoHere.map((service) => {
                   const label = SERVICE_LABELS[service];
                   return (
                     <li key={service}>
@@ -393,8 +401,9 @@ export function PortHub({
                     </li>
                   );
                 })}
-            </ul>
-          </footer>
+              </ul>
+            </footer>
+          )}
         </section>
 
         <footer className="port__actions">
