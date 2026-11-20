@@ -6,8 +6,8 @@
       "name": "Prudent Return",
       "licence": "open-ticket",
       "paint": [
-        "#8D98A9",
-        "#5C6777"
+        "#B5643C",
+        "#6E3A22"
       ],
       "description": "The draught every Open Ticket starts with. It carries a little, turns adequately, mounts one gun behind a thin shield, and is cheap to replace.",
       "placements": [
@@ -73,8 +73,8 @@
       "name": "Force Majeure",
       "licence": "open-ticket",
       "paint": [
-        "#2FA596",
-        "#1C6B61"
+        "#A33D3D",
+        "#612424"
       ],
       "description": "Two engines, four thrusters on the corners and almost nowhere to put cargo. One gun is all the reactor will cover. It exists to be somewhere else quickly.",
       "placements": [
@@ -272,8 +272,8 @@
       "name": "Short Measure",
       "licence": "open-ticket",
       "paint": [
-        "#4A525E",
-        "#2F353D"
+        "#3F7A4A",
+        "#255030"
       ],
       "description": "An Unlettered hull. No livery, no registry, and more gun than a working ship has any reason to carry.",
       "placements": [
@@ -354,8 +354,8 @@
       "name": "Spoil Heap",
       "licence": "open-ticket",
       "paint": [
-        "#7C8B3F",
-        "#4D5726"
+        "#6F7A33",
+        "#434C1F"
       ],
       "description": "The Prudent Return with its gun and its shield taken off and a cutting rig put where they were. It carries rather more than it did and it cannot defend any of it, which is why nobody flies one in the Marque.",
       "placements": [
@@ -421,8 +421,8 @@
       "name": "Close Order",
       "licence": "frigate-warrant",
       "paint": [
-        "#6E7A86",
-        "#434D58"
+        "#3E6A74",
+        "#24404A"
       ],
       "description": "Two cutting beams and a pair of watches on a reactor big enough for all of it. It has to be close to do anything at all, and anything a rack sends at it on the way in tends not to arrive.",
       "placements": [

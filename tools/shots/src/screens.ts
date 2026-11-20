@@ -469,14 +469,17 @@ export const SCREENS: readonly Screen[] = [
     settleTimeoutMs: 60_000,
     settleMs: 1500,
     bots: 2,
-    // Answered for by the law rather than by a gunner of the harness's own.
-    // A bot hunter was tried for five runs: standing off, closing in, and
-    // flying the draught the loss harness uses. It kept dying — a lawful
-    // captain who fires on a posted one used to be posted in turn, which
-    // put the patrols onto the gunner instead of its mark — and once that
-    // was fixed it still spent two minutes failing to find a hull that
-    // could run. A patrol hunts a posted captain by rule, and a posted
-    // captain who cannot run is a patrol's whole afternoon.
+    // A gunner of its own, and a mark that cannot run.
+    //
+    // Eleven runs to get here. A patrol hunts a posted captain by rule but
+    // holds station, so it never came looking. A bot hunter found its mark
+    // and then kept dying, because a lawful captain who fired on a posted
+    // one used to be posted in turn and hunted by the patrols that were
+    // supposed to be after the first — which is a game fault this cycle
+    // fixed, not a harness one. With that fixed and the mark's engines
+    // gone, the gunner is a bot flying the same protocol a browser does,
+    // firing on a captain the Prize Court has already posted.
+    gunner: { hunt: 'Act of God', system: 'parity', draught: 'short-measure' },
     //
     // A fragile gunboat with a hold worth dropping, in the Home Roads, with
     // a berth at the far side of the system behind it — so the panel's last

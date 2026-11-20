@@ -28,6 +28,7 @@ import { Notebook, openAs, openSession } from './harness.ts';
 const SERVER_PORT = 2580;
 const PREVIEW_PORT = 4176;
 const CALLSIGN = 'Net of Fees';
+const COMPANION = 'Without Prejudice';
 
 const book = new Notebook();
 
@@ -49,7 +50,11 @@ async function main(): Promise<void> {
         // tenth of a float, and these are a little under that in four
         // companies, which is what a late portfolio looks like.
         holdings: { SLP: 420, TLY: 2800, UWH: 700, RPO: 640 },
-        standing: { thirty: 70, kessler: 25, reprisal: -40 },
+        // A captain who has been at it: well in with the Thirty, civil
+        // with the House, and no longer welcome at Reprisal's berths. Late
+        // numbers, so the session reads the upper bands rather than the
+        // two either side of nothing.
+        standing: { thirty: 620, kessler: 180, reprisal: -380 },
         designs: ['Third Dividend', 'Errors and Omissions'],
         parked: [
           { draught: 'fair-wear-and-tear', at: 'quorum' },
@@ -57,8 +62,10 @@ async function main(): Promise<void> {
         ],
         composition: 1800,
       },
-      // Somebody else at the counter, so Alongside has a name in it.
-      { callsign: 'Without Prejudice', at: 'quorum', flying: 'spoil-heap', marks: 90_000 },
+      // Somebody else at the counter, so Alongside has a name in it. They
+      // have to be *online*: the counter lists captains who are standing
+      // at it, not captains whose row says they are nearby.
+      { callsign: COMPANION, at: 'quorum', flying: 'spoil-heap', marks: 90_000 },
     ],
     bots: { count: 3, brain: 'wander', system: 'vane' },
   });
@@ -73,6 +80,17 @@ async function main(): Promise<void> {
 }
 
 async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<void> {
+  // The other captain comes online first and goes alongside, so there is
+  // somebody at the counter when this one looks.
+  const other = await openAs(session, COMPANION);
+  await other.page.waitForSelector('.hud', { timeout: 60_000 });
+  await other.page.waitForTimeout(1200);
+  await other.page.focus('body');
+  await other.page.keyboard.press('KeyL');
+  await other.page
+    .waitForSelector('.port', { timeout: 30_000 })
+    .catch(() => undefined);
+
   const { page, problems } = await openAs(session, CALLSIGN);
 
   await page.waitForSelector('.hud', { timeout: 60_000 });
@@ -150,6 +168,13 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
   // --- The Yard ---------------------------------------------------------
   await open(page, /open the yard/i, '.grid');
   await page.waitForTimeout(800);
+  // The shelf of kept draughts is behind the drawer, where a captain goes
+  // looking for one.
+  const drawer = page.getByRole('button', { name: /^draughts/i }).first();
+  if ((await drawer.count()) > 0) {
+    await drawer.click();
+    await page.waitForTimeout(500);
+  }
   const yard = await page.locator('.yard, .loft, main').first().innerText();
   book.record(
     'the Yard knows what the captain is flying',
@@ -210,6 +235,8 @@ async function play(session: Awaited<ReturnType<typeof openSession>>): Promise<v
   await page.keyboard.up('ArrowUp');
   await capture(page, 'late-flight');
   book.record('a large hull flies and fires', true);
+
+  await other.page.context().close();
 
   if (problems.length > 0) {
     book.record(
