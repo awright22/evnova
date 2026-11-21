@@ -306,7 +306,7 @@ export function FlightView({
 
       // The setting first, then what the browser asks for.
       const reducedMotion = motionIsReduced();
-      scene = new Scene(app.renderer, system, blueprints, modules, reducedMotion);
+      scene = new Scene(system, blueprints, modules, reducedMotion);
       scene.resize(app.screen.width, app.screen.height);
       app.stage.addChild(scene.root);
 

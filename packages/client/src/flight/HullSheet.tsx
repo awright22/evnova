@@ -2,15 +2,19 @@
  * The hull sheet.
  *
  * Every draught the game ships with, and a handful of awkward grids a captain
- * could lay out in the Loft, pushed through the same texture pipeline the
- * flight view uses and set out side by side at the flight view's own scale.
- * It exists because a renderer cannot be judged from its code: this is what
- * a captain sees, laid out so two renderers can be compared hull by hull.
+ * could lay out in the Loft, baked and lit by the same code the flight view
+ * uses and set out side by side at the flight view's own scale. It exists
+ * because a hull cannot be judged from its code: this is what a captain sees,
+ * square-on and turned, with the star ahead and astern, in each owner's dress.
  *
  * Reached by URL and joins no room:
  *
  *   /?hulls=sheet&zoom=1
- *   /?hulls=sheet&zoom=3&columns=tiles,sculpted
+ *   /?hulls=sheet&zoom=3&columns=sculpted,unlettered
+ *
+ * Columns: `sculpted` (a captain's paint, star fore and to port),
+ * `sculpted-turned`, `sculpted-aft` (star astern), `company`, `court` and
+ * `unlettered`.
  *
  * `zoom` is the flight camera's zoom, so 1 is what a captain sees with the
  * camera at rest and 3 is the closest it comes. One offscreen renderer draws
@@ -19,7 +23,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { autoDetectRenderer, Container, Rectangle, Sprite, type Renderer } from 'pixi.js';
+import { autoDetectRenderer, Container, Rectangle, type Renderer } from 'pixi.js';
 import { CELL_METRES, content, type Blueprint, type ModuleDef } from '@marque/shared';
 
 import { PX_PER_UNIT } from './camera.ts';
@@ -28,7 +32,6 @@ import { hullArtOf, lookOf, sceneLight, type Allegiance, type HullArt } from './
 import { createLitHull } from './hull/litHull.ts';
 import { LOFT_TESTS } from './hullSheetTests.ts';
 import { palette } from './palette.ts';
-import { renderShipArt, TEXTURE_PX_PER_UNIT } from './shipTexture.ts';
 import './hullSheet.css';
 
 /** A way of drawing a hull, and the turn it is drawn at. */
@@ -37,29 +40,11 @@ interface Column {
   readonly label: string;
   /** Radians. The flight view turns a hull; a renderer has to survive it. */
   readonly turn: number;
-  readonly draw: (renderer: Renderer, blueprint: Blueprint, modules: ReadonlyMap<string, ModuleDef>) => Container;
+  readonly draw: (blueprint: Blueprint, modules: ReadonlyMap<string, ModuleDef>) => Container;
 }
 
 /** Turned far enough that a grid drawn as tiles shows it, as a hull in flight does. */
 const TURNED = (-35 * Math.PI) / 180;
-
-function tiles(turn: number, label: string, key: string): Column {
-  return {
-    key,
-    label,
-    turn,
-    draw: (renderer, blueprint, modules) => {
-      const art = renderShipArt(renderer, blueprint, modules);
-      const sprite = new Sprite(art.texture);
-      sprite.anchor.set(art.anchorX, art.anchorY);
-      sprite.scale.set(PX_PER_UNIT / TEXTURE_PX_PER_UNIT);
-      sprite.rotation = turn;
-      const holder = new Container();
-      holder.addChild(sprite);
-      return holder;
-    },
-  };
-}
 
 /**
  * One bake per hull, however many columns draw it: a bake is the expensive
@@ -92,7 +77,7 @@ function sculpted(
     key,
     label,
     turn,
-    draw: (_renderer, blueprint, modules) => {
+    draw: (blueprint, modules) => {
       const art = artFor(blueprint, modules);
       const p = palette();
       const hull = createLitHull(art.material, art.anchor, sceneLight(0xfff1dc, p.nebulaHomeRoads));
@@ -110,8 +95,6 @@ function sculpted(
 const captain = (blueprint: Blueprint): Allegiance => ({ kind: 'captain', paint: blueprint.paint });
 
 const COLUMNS: Readonly<Record<string, Column>> = {
-  tiles: tiles(0, 'Tiles', 'tiles'),
-  'tiles-turned': tiles(TURNED, 'Tiles, turned', 'tiles-turned'),
   sculpted: sculpted('sculpted', 'Captain', 0, STAR_FORE_PORT, captain),
   'sculpted-turned': sculpted('sculpted-turned', 'Captain, turned', TURNED, STAR_FORE_PORT, captain),
   'sculpted-aft': sculpted('sculpted-aft', 'Star astern', 0, STAR_AFT, captain),
@@ -120,7 +103,7 @@ const COLUMNS: Readonly<Record<string, Column>> = {
   unlettered: sculpted('unlettered', 'Unlettered', 0, STAR_FORE_PORT, () => ({ kind: 'unlettered' })),
 };
 
-const DEFAULT_COLUMNS = ['tiles', 'tiles-turned'];
+const DEFAULT_COLUMNS = ['sculpted', 'sculpted-turned'];
 
 /** Room around each hull in its cell, in CSS pixels. */
 const PAD = 18;
@@ -169,7 +152,7 @@ export function HullSheet(): React.JSX.Element {
         // against its neighbours' and two columns line up row for row.
         const drawn = hulls.map((blueprint) =>
           wanted.map((column) => {
-            const view = column.draw(renderer!, blueprint, modules);
+            const view = column.draw(blueprint, modules);
             view.scale.set(zoom);
             const bounds = view.getLocalBounds();
             return { view, bounds };

@@ -1036,11 +1036,14 @@ export function bakeHull(
       }
 
       case 'bridge': {
-        // A canopy across the forward half, glazed on its forward face.
-        const ox0 = x + w * 0.35;
-        const ox1 = x + w - 0.08;
-        const half = h / 2 - 0.16;
-        // The canopy follows the prow: it stands on the deck, inside the rake.
+        // A raised superstructure over the forward part of the bridge, round
+        // shouldered and drawn in toward the bow, with a band of glazing across
+        // its forward face, lit from inside.
+        const ox0 = x + w * 0.3;
+        const ox1 = x + w - 0.1;
+        const half = h / 2 - 0.18;
+        const length = ox1 - ox0;
+        // The superstructure follows the prow: it stands on the deck, inside the rake.
         const inset = 0.22 * P;
         const raked = (i: number, d: number): number => {
           const px = (i % W) + 0.5;
@@ -1048,22 +1051,46 @@ export function bakeHull(
           const keep = prowCover(px, py, inset);
           return keep >= 1 ? d : Math.max(d, (0.5 - keep) / P);
         };
+        const outline = (gx: number, gy: number): number => {
+          const t = clamp01((gx - ox0) / length);
+          const narrowed = half * (1 - 0.28 * t * t);
+          return sdRoundBox(gx, gy, (ox0 + ox1) / 2, cy, length / 2, narrowed, Math.min(0.32, narrowed));
+        };
         each(ox0 - 0.05, y, ox1 + 0.05, y + h, (i, gx, gy) => {
-          const d = raked(i, sdRoundBox(gx, gy, (ox0 + ox1) / 2, cy, (ox1 - ox0) / 2, half, Math.min(0.3, half)));
-          const lift = 0.12 * clamp01(-d * 6) + 0.04;
-          fit(i, d, deckAt + lift, METAL, 0.5);
+          const d = raked(i, outline(gx, gy));
+          const shoulder = Math.sqrt(clamp01(-d / 0.2));
+          fit(i, d, deckAt + 0.03 + 0.15 * shoulder, METAL, 0.55);
         });
+        // The glazing: a band set into the forward shoulder, its panes parted
+        // by thin frames.
+        const glassAft = ox1 - 0.26;
         const panes = Math.max(3, Math.round(h * 2.5));
-        const glassX0 = ox1 - 0.2;
-        each(glassX0, y, ox1, y + h, (i, gx, gy) => {
-          const d = raked(i, sdRoundBox(gx, gy, (glassX0 + ox1) / 2 - 0.02, cy, 0.08, half - 0.08, 0.06));
-          if (d > 0.01) return;
-          const slot = ((gy - (cy - half)) / ((half * 2) / panes)) % 1;
-          const mullion = slot < 0.12 || slot > 0.88;
-          fit(i, d, deckAt + 0.17, mullion ? GLASS : WINDOW_GLOW, 0.9, {
-            glow: mullion ? 0 : 0.85,
+        each(glassAft - 0.05, y, ox1 + 0.02, y + h, (i, gx, gy) => {
+          const d = raked(i, outline(gx, gy));
+          const band = Math.max(d + 0.05, glassAft - gx);
+          if (band > 0.01) return;
+          const slot = (((gy - (cy - half)) / ((half * 2) / panes)) % 1 + 1) % 1;
+          const frame = slot < 0.07 || slot > 0.93;
+          const depthIn = clamp01(-band / 0.06);
+          fit(i, band, deckAt + 0.03 + 0.13 * Math.sqrt(clamp01(-d / 0.2)), frame ? GLASS : WINDOW_GLOW, 0.9, {
+            glow: frame ? 0 : 0.55 + 0.3 * depthIn,
             glowColour: WINDOW_GLOW,
           });
+        });
+        break;
+      }
+
+      case 'fin': {
+        // A blade: bevelled along every edge, with a flat top.
+        const outline = shapeOutline('fin', x, y, w, h, module.placement.rotation).map(
+          ([u, v]) => [toPx(u), toPy(v)] as Point,
+        );
+        const ccw = isCcw(outline);
+        each(x - 0.1, y - 0.1, x + w + 0.1, y + h + 0.1, (i) => {
+          const px = (i % W) + 0.5;
+          const py = Math.floor(i / W) + 0.5;
+          const sd = sdConvex(px, py, outline, ccw) / P;
+          fit(i, sd, 0.03 + 0.07 * Math.sqrt(clamp01(-sd / 0.12)), METAL, 0.6);
         });
         break;
       }

@@ -342,6 +342,16 @@ faint overlay on a targeted or damaged hull, so a captain can read which
 module took the hit. Damage otherwise draws over the hull — scorch at 50%
 module health, a blown panel and venting at 0% — without re-rendering it.
 
+**Working numbers.** Baked at 64 texture pixels a cell, mipmapped, so a hull
+is sharp at the camera's closest zoom (54 screen pixels a cell). Section: a
+chine 0.12 cells wide and high, a side rising 0.24 over 0.62, a crown of 0.3
+toward the keel. Light 38° above the plane; ambient is a little of the
+region's nebula over a dark neutral; the cool rim is the nebula's hue.
+Livery is sized to 20% of the bare hull. The Unlettered's gunmetal is the
+metal multiplied by (0.62, 0.66, 0.72). Judge a change on the hull sheet
+(`/?hulls=sheet&zoom=1` and `&zoom=3`, captured by `pnpm shots` as
+`hulls-1x` and `hulls-3x`), never from the code.
+
 ### Effect recipes
 
 **Engine plume.** Length `18 + 46 × throttle` px, additive, core
@@ -542,6 +552,20 @@ whenever an unintended look appears, then fix it.
   lines on them is a diagram of a ship, not a ship
 - Hulls flooded with one livery colour. The hull is metal; paint is bands,
   stripes and the seal, about a fifth of the surface
+- Decks that light the same from every side. A hull whose top is flat takes
+  the star the same whichever way it lies; the section is a chine, a raked
+  side and a crowned deck so the side turned to the star shows
+- Engine nacelles drawn across the thrust axis, which read as tyres laid on
+  the stern. A nacelle runs fore and aft, one to a bell
+- Pods standing straight out from the hull like stalks. A pod is long along
+  the flight axis, on a short pylon
+- Panel seams as crazy paving. Seams near the edge follow the outline; on the
+  deck they are frames and strakes square to the hull
+- Containers laid one to a cell, or in lanes on the cell rows. Lanes are
+  narrower than a cell and lengths never match one
+- A prow that throws cells away. The rake never takes most of a cell and
+  leaves alone a bow that is the hull's broadest part, so nothing that can be
+  hit is drawn as empty space and nothing is left hanging off it
 - Border radius above 0 anywhere; corners are chamfered or square
 - Centre-floating HUD elements that obscure the flight view
 - Neon glow on text; bloom belongs to engines, weapons and shields only

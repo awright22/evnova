@@ -633,24 +633,29 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'hulls-1x',
     description:
-      'Every draught and five awkward Loft grids through the flight view\'s own hull '
-      + 'renderer, at the camera\'s resting zoom: square-on and turned.',
-    path: '/?hulls=sheet&zoom=1',
+      'Every draught and five awkward Loft grids, baked and lit as the flight view does '
+      + 'at the camera\'s resting zoom: square-on and turned under the same star, with '
+      + 'the star astern, and dressed as the Court and the Unlettered.',
+    path: '/?hulls=sheet&zoom=1&columns=sculpted,sculpted-turned,sculpted-aft,court,unlettered',
     settle: '.hull-sheet[data-ready="true"]',
+    settleTimeoutMs: 120_000,
     settleMs: 300,
     viewport: { width: 1440, height: 900 },
     fullPage: true,
+    act: requireSheet,
   },
   {
     name: 'hulls-3x',
     description:
-      'The same hulls at the camera\'s closest zoom, square-on, where a grid that is '
-      + 'only hidden at a distance shows.',
-    path: '/?hulls=sheet&zoom=3&columns=tiles',
+      'The same hulls at the camera\'s closest zoom, where a grid that is only hidden at '
+      + 'a distance would show: square-on and turned.',
+    path: '/?hulls=sheet&zoom=3&columns=sculpted,sculpted-turned',
     settle: '.hull-sheet[data-ready="true"]',
+    settleTimeoutMs: 120_000,
     settleMs: 300,
     viewport: { width: 1440, height: 900 },
     fullPage: true,
+    act: requireSheet,
   },
   {
     name: 'draught-force-majeure',
@@ -1758,4 +1763,18 @@ async function requireDraught(page: Page, name: string): Promise<void> {
     const shown = (await page.textContent('.hud'))?.replace(/\s+/g, ' ').slice(0, 200) ?? '(no HUD)';
     throw new Error(`expected to be flying ${name}; the HUD reads: ${shown}`);
   }
+}
+
+/**
+ * Fail if the hull sheet could not draw. It marks itself ready either way, so
+ * that a failure is photographed with its reason rather than timing out; the
+ * capture still has to be refused.
+ */
+async function requireSheet(page: Page): Promise<void> {
+  // `$` rather than `textContent`: the latter waits for an element that, on
+  // a sheet that drew, never comes.
+  const failure = await page.$('.hull-sheet__failure');
+  if (failure) throw new Error(`the hull sheet could not draw: ${(await failure.textContent()) ?? ''}`);
+  const hulls = await page.$$eval('.hull-sheet__cell canvas', (canvases) => canvases.length);
+  if (hulls === 0) throw new Error('the hull sheet settled with no hulls on it');
 }

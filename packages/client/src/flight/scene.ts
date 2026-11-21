@@ -8,7 +8,7 @@
  * actively reconciled, and remote hulls, which are interpolated.
  */
 
-import { Container, Graphics, Sprite, type Renderer } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import {
   clamp,
   mountsOf,
@@ -31,7 +31,7 @@ import {
   motion,
   type BeamFrame,
 } from './beams.ts';
-import { mix, palette, parseHex } from './palette.ts';
+import { mix, palette } from './palette.ts';
 import { planetTexture, starTexture } from './planet.ts';
 import { rockShape, rockWear, type RockShape } from './rock.ts';
 import { hullBakery, type Bakery } from './hull/bakery.ts';
@@ -42,27 +42,9 @@ import {
   sceneLightOf,
   type Allegiance,
   type HullArt,
-  type ModuleRect,
-  type Nozzle,
 } from './hull/hullArt.ts';
 import { createLitHull, type LitHull, type SceneLight } from './hull/litHull.ts';
 import type { HullBook } from './hulls.ts';
-import { renderShipArt, TEXTURE_PX_PER_UNIT, type ShipArt } from './shipTexture.ts';
-
-/**
- * `?hulls=tiles` draws hulls with the old tile renderer, for comparison while
- * the sculpted one is judged against it.
- */
-const TILE_HULLS =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hulls') === 'tiles';
-
-/** What the scene needs of a hull's art, whichever renderer drew it. */
-interface ShipGeometry {
-  readonly lengthUnits: number;
-  readonly widthUnits: number;
-  readonly nozzles: readonly Nozzle[];
-  readonly moduleRects: readonly ModuleRect[];
-}
 
 export type { BeamFrame } from './beams.ts';
 
@@ -129,9 +111,8 @@ export interface ShipFrame {
 interface ShipNode {
   readonly root: Container;
   readonly plume: Graphics;
-  readonly art: ShipGeometry;
-  /** The lit hull; absent when the tile renderer is drawing. */
-  readonly lit: LitHull | undefined;
+  readonly art: HullArt;
+  readonly lit: LitHull;
   /** Intact hit points per module, so damage can be drawn as a fraction. */
   readonly maxHp: readonly number[];
   lastThrottle: number;
@@ -216,7 +197,6 @@ export class Scene {
   private elapsedMs = 0;
 
   private readonly ships = new Map<string, ShipNode>();
-  private readonly art = new Map<string, ShipArt>();
   /** Baked hulls on this renderer, one per draught, shared by every hull flying it. */
   private readonly hullArt = new Map<string, HullArt>();
   private readonly bakery: Bakery;
@@ -240,7 +220,6 @@ export class Scene {
   private height = 1;
 
   constructor(
-    private readonly renderer: Renderer,
     private readonly system: SystemDef,
     private readonly blueprints: HullBook,
     private readonly modules: ReadonlyMap<string, ModuleDef>,
@@ -251,7 +230,7 @@ export class Scene {
     this.light = sceneLightOf(system);
     // The draughts the game ships with fly in every system: have them out of
     // the oven before the first one jumps in.
-    if (!TILE_HULLS) this.bakery.prepare(blueprints.catalogueDraughts());
+    this.bakery.prepare(blueprints.catalogueDraughts());
 
     this.backdrop = createBackdrop(system.region, system.id);
     this.root.addChild(this.backdrop.view);
@@ -322,21 +301,6 @@ export class Scene {
     }
   }
 
-  /** Texture for a draught, rendered once and shared by every hull flying it. */
-  private artFor(blueprintId: string): ShipArt | undefined {
-    const cached = this.art.get(blueprintId);
-    if (cached) return cached;
-
-    const blueprint = this.blueprints.get(blueprintId);
-    if (!blueprint) return undefined;
-
-    const art = renderShipArt(this.renderer, blueprint, this.modules, {
-      lightTint: parseHex(this.system.star.lightTint) ?? 0xffffff,
-    });
-    this.art.set(blueprintId, art);
-    return art;
-  }
-
   /**
    * A draught's baked hull on this renderer, or undefined while the bakery
    * still has it in the oven: the hull is drawn from the frame it is ready.
@@ -370,31 +334,16 @@ export class Scene {
     const blueprint = this.blueprints.get(frame.blueprint);
     if (!blueprint) return undefined;
 
+    const art = this.hullArtFor(blueprint);
+    if (!art) return undefined;
+
     const root = new Container();
     const plume = new Graphics();
-    let art: ShipGeometry;
-    let lit: LitHull | undefined;
-
-    if (TILE_HULLS) {
-      const tiles = this.artFor(frame.blueprint);
-      if (!tiles) return undefined;
-      const hull = new Sprite(tiles.texture);
-      hull.anchor.set(tiles.anchorX, tiles.anchorY);
-      // Textures are drawn at a larger scale than the world, so they stay
-      // crisp when the camera zooms.
-      hull.scale.set(PX_PER_UNIT / TEXTURE_PX_PER_UNIT);
-      root.addChild(plume, hull);
-      art = tiles;
-    } else {
-      const sculpted = this.hullArtFor(blueprint);
-      if (!sculpted) return undefined;
-      lit = createLitHull(sculpted.material, sculpted.anchor, this.light);
-      lit.look(lookOf(this.allegianceOf(frame, blueprint)));
-      lit.mesh.scale.set(PX_PER_UNIT / sculpted.texturePxPerUnit);
-      // The plume sits under the hull so the nozzle overlaps it.
-      root.addChild(plume, lit.mesh);
-      art = sculpted;
-    }
+    const lit = createLitHull(art.material, art.anchor, this.light);
+    lit.look(lookOf(this.allegianceOf(frame, blueprint)));
+    lit.mesh.scale.set(PX_PER_UNIT / art.texturePxPerUnit);
+    // The plume sits under the hull so the nozzle overlaps it.
+    root.addChild(plume, lit.mesh);
     this.shipLayer.addChild(root);
 
     const maxHp = blueprint.placements.map((placement) => this.modules.get(placement.moduleId)?.hitPoints ?? 1);
@@ -427,14 +376,14 @@ export class Scene {
       node.root.rotation = frame.angle;
       // The star is at the origin: light each hull from where it actually
       // lies, in the hull's own frame, so the highlight stays put as it turns.
-      node.lit?.light(Math.atan2(-frame.y, -frame.x), frame.angle);
-      node.lit?.wreck(frame.writtenOff ? 1 : 0);
+      node.lit.light(Math.atan2(-frame.y, -frame.x), frame.angle);
+      node.lit.wreck(frame.writtenOff ? 1 : 0);
       this.drawPlume(node, frame.throttle, dtMs);
     }
 
     for (const [id, node] of this.ships) {
       if (seen.has(id)) continue;
-      node.lit?.destroy();
+      node.lit.destroy();
       node.root.destroy({ children: true });
       this.ships.delete(id);
     }
@@ -983,12 +932,10 @@ export class Scene {
 
   destroy(): void {
     for (const node of this.ships.values()) {
-      node.lit?.destroy();
+      node.lit.destroy();
       node.root.destroy({ children: true });
     }
     this.ships.clear();
-    for (const art of this.art.values()) art.texture.destroy(true);
-    this.art.clear();
     for (const art of this.hullArt.values()) art.material.destroy();
     this.hullArt.clear();
     this.beamNodes.clear();
