@@ -925,3 +925,15 @@ fight soak, range, boarding and late-game checks pass. A fin beside a pod
 does not count as its second neighbour, so a fin swept back to a pod reads
 as a wing with a wingtip pod. The Loft draws each shape over its cell and its
 mirror turns a shaped section as well as moving it.
+
+**2026-11-21. A captain's colours are theirs, not a hull's.**
+Spec section 4 has always said players pick two paint colours, and no
+milestone built it: a Yard painted every built hull from a short list by the
+hull's id. A captain now picks one colour for the bands and one for the
+stripe in the Yard's Livery panel, from twelve paints in tuning data kept
+clear of the three charters' liveries, and sees them on the draught on the
+board through the flight view's own bake and shader. The choice is stored on
+the captain (`pilots.paint`, migration 14), so every hull they fly wears it,
+and rides on the hull's state so every client paints them the same. It is
+free and needs a berth with a Yard. A captain who has not chosen flies
+whatever the yard painted, as before.

@@ -141,7 +141,70 @@
         "#2F353D"
       ]
     ],
-    "$liveriesComment": "A yard delivers a hull in one of these, chosen by the hull's own id so it is settled once and never changes. Free captains buy paint by the drum, not by the swatch: working greys, a weathered olive and an oxide red, all from the palette in docs/ART_DIRECTION.md."
+    "$liveriesComment": "A yard delivers a hull in one of these, chosen by the hull's own id so it is settled once and never changes, until its captain picks colours of their own from `paints`. Working greys, a weathered olive and an oxide red, all from the palette in docs/ART_DIRECTION.md.",
+    "paints": [
+      {
+        "id": "copper",
+        "name": "Copper",
+        "hex": "#B5643C"
+      },
+      {
+        "id": "umber",
+        "name": "Umber",
+        "hex": "#6E3A22"
+      },
+      {
+        "id": "oxblood",
+        "name": "Oxblood",
+        "hex": "#7A2E2A"
+      },
+      {
+        "id": "ochre",
+        "name": "Ochre",
+        "hex": "#B8862F"
+      },
+      {
+        "id": "sand",
+        "name": "Sand",
+        "hex": "#B9A57E"
+      },
+      {
+        "id": "parchment",
+        "name": "Parchment",
+        "hex": "#CFC3A0"
+      },
+      {
+        "id": "moss",
+        "name": "Moss",
+        "hex": "#6B7F3A"
+      },
+      {
+        "id": "bottle",
+        "name": "Bottle",
+        "hex": "#2F5D45"
+      },
+      {
+        "id": "slate",
+        "name": "Slate",
+        "hex": "#5B7FA6"
+      },
+      {
+        "id": "navy",
+        "name": "Navy",
+        "hex": "#2B3F66"
+      },
+      {
+        "id": "plum",
+        "name": "Plum",
+        "hex": "#5E3A57"
+      },
+      {
+        "id": "charcoal",
+        "name": "Charcoal",
+        "hex": "#3A3F46"
+      }
+    ],
+    "$paintsComment": "What a captain may have their hulls painted in, two at a time: one for the bands, one for the stripe. Muted, period colours from the palette's family, kept clear of the three charters' liveries so a free captain is never mistaken for a company hull."
   },
   "law": {
     "$comment": "What the Prize Court charges for firing on lawful traffic. A composition is struck per point of damage dealt \u2014 shields included, because the offence is the attack and not whether it got through \u2014 plus a flat sum for a hull written off, and both are weighted by how much law reaches the system: the Home Roads at full, the Concessions lightly, the Marque not at all. A posted captain is refused at Home Roads berths until it is paid.",

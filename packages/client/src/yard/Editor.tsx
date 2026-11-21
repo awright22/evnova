@@ -23,6 +23,7 @@ import {
   splitBill,
   stocksModule,
   validateDesign,
+  type Blueprint,
   type LicenceId,
   type ModuleDef,
   type Placement,
@@ -32,6 +33,7 @@ import {
 import type { StapleState } from '../game/GameClient.ts';
 import { Stamp } from '../seal/Stamp.tsx';
 import { Grid } from './Grid.tsx';
+import { Livery } from './Livery.tsx';
 import { cellsCovered, designReducer, emptyDesign, type DesignAction } from './design.ts';
 import { useScroller } from '../shell/scroller.ts';
 
@@ -84,6 +86,11 @@ export interface EditorProps {
   /** Problems the server found, which outrank anything shown here. */
   readonly serverProblems: readonly Problem[];
   readonly busy: boolean;
+  /** The captain's two colours, or undefined while they fly whatever the yard painted. */
+  readonly paint: readonly [string, string] | undefined;
+  /** The paint the hull on the board is wearing now: the captain's, or the yard's. */
+  readonly flyingPaint: readonly string[];
+  onPaint: (bands: string, stripe: string) => void;
   onBuild: (name: string, placements: readonly Placement[], refitting: boolean) => void;
   /** Take the draught out on the range, where nothing costs anything. */
   onTakeOut: (name: string, placements: readonly Placement[]) => void;
@@ -121,6 +128,9 @@ export function Editor({
   notice,
   serverProblems,
   busy,
+  paint,
+  flyingPaint,
+  onPaint,
   onBuild,
   onTakeOut,
   onSave,
@@ -159,6 +169,22 @@ export function Editor({
   const placed = useMemo(
     () => placeAll(state.placements, modules),
     [state.placements, modules],
+  );
+
+  /** The draught on the board as the flight view would draw it, for the livery's preview. */
+  const previewDraught = useMemo<Blueprint | undefined>(
+    () =>
+      state.placements.length === 0
+        ? undefined
+        : {
+            id: flyingId || 'loft',
+            name: name || flyingName,
+            licence: licence as LicenceId,
+            placements: [...state.placements],
+            // Until the server has said, the first of the yards' own liveries.
+            paint: [flyingPaint[0] ?? tuning.yard.liveries[0]![0], flyingPaint[1] ?? tuning.yard.liveries[0]![1]],
+          },
+    [state.placements, name, flyingName, flyingId, licence, flyingPaint, tuning],
   );
   const stats = useMemo(() => deriveStats(placed, tuning), [placed, tuning]);
   const survey = useMemo(
@@ -683,6 +709,14 @@ export function Editor({
             />
           </dl>
         </div>
+
+        <Livery
+          paints={tuning.yard.paints}
+          chosen={paint}
+          draught={previewDraught}
+          busy={busy}
+          onPick={onPaint}
+        />
 
         <div className="yard__cost panel">
           <header className="panel-header">

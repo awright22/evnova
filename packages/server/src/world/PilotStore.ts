@@ -44,6 +44,8 @@ export interface Pilot {
   letter: string;
   /** Owed to the Prize Court. Non-zero means posted. */
   composition: number;
+  /** The captain's two colours, "#rrggbb #rrggbb", or empty for the yard's. */
+  paint: string;
 }
 
 export class PilotStore {
@@ -88,6 +90,7 @@ export class PilotStore {
       licence: row.pilot.licence,
       letter: row.pilot.letter,
       composition: row.pilot.composition,
+      paint: row.pilot.paint,
     };
 
     this.loaded.set(accountId, pilot);
@@ -186,6 +189,7 @@ export class PilotStore {
             licence: pilot.licence,
             letter: pilot.letter,
             composition: Math.max(0, Math.round(pilot.composition)),
+            paint: pilot.paint,
             updatedAt: now,
           })
           .where(eq(schema.pilots.accountId, pilot.accountId))

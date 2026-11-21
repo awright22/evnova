@@ -212,6 +212,10 @@ export interface YardState {
     held: boolean;
     behind: boolean;
   }[];
+  /** The captain's two colours, or undefined while they fly whatever the yard painted. */
+  readonly paint: readonly [string, string] | undefined;
+  /** What the hull being flown is wearing now. */
+  readonly flyingPaint: readonly string[];
 }
 
 export interface GameSnapshot {
@@ -627,7 +631,9 @@ export class GameClient {
     });
 
     room.onMessage('yard', (payload) => {
-      this.yard = payload as YardState;
+      // JSON has no undefined: a captain who has chosen no colours arrives as null.
+      const yard = payload as Omit<YardState, 'paint'> & { paint: [string, string] | null };
+      this.yard = { ...yard, paint: yard.paint ?? undefined };
       this.emit();
     });
 
@@ -1004,6 +1010,11 @@ export class GameClient {
   /** Buy the next warrant up. */
   async buyLicence(licence: string): Promise<boolean> {
     return this.requestOk('buy-licence', { licence });
+  }
+
+  /** Have the yards paint every hull this captain flies in these two colours. */
+  async paint(bands: string, stripe: string): Promise<boolean> {
+    return this.requestOk('paint', { bands, stripe });
   }
 
   /** Take out a hull moored at this berth. */

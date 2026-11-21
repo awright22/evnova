@@ -565,6 +565,7 @@ export function FlightView({
             patrol: view.patrol,
             posted: view.posted,
             freighter: view.freighter,
+            paint: view.paint,
             isTarget: view.isTarget,
             writtenOff: view.writtenOff,
           };

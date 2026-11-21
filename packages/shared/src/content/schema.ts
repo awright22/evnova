@@ -436,6 +436,22 @@ export const Tuning = z.object({
     refundFraction: z.number().min(0).max(1),
     /** What insurance settles on a written-off hull, as a share of its cost. */
     claimFraction: z.number().min(0).max(1),
+    /**
+     * What a captain may have their hulls painted in: spec section 4, players
+     * pick two paint colours. One goes on the bands, one on the stripe.
+     */
+    paints: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          name: z.string().min(1),
+          hex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+        }),
+      )
+      .min(2)
+      .refine((paints) => new Set(paints.map((paint) => paint.hex.toLowerCase())).size === paints.length, {
+        message: 'two paints share a colour',
+      }),
   }),
   law: z.object({
     compositionPerDamage: z.number().nonnegative(),

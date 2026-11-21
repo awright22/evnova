@@ -100,6 +100,12 @@ export const pilots = sqliteTable(
     /** Composition owed to the Prize Court. Non-zero means posted. */
     composition: integer('composition').notNull().default(0),
 
+    /**
+     * The captain's two colours, "#rrggbb #rrggbb", or empty while they fly
+     * whatever the yard painted.
+     */
+    paint: text('paint').notNull().default(''),
+
     updatedAt: integer('updated_at').notNull(),
   },
   (table) => [index('pilots_system').on(table.systemId)],
@@ -493,7 +499,7 @@ export const meta = sqliteTable('meta', {
   value: text('value').notNull(),
 });
 
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 /**
  * Migrations, applied in order.
@@ -781,6 +787,13 @@ export const MIGRATIONS: readonly { version: number; up: string }[] = [
       );
       CREATE INDEX IF NOT EXISTS orders_open ON orders (state, ticker);
       CREATE INDEX IF NOT EXISTS orders_account ON orders (account_id, state);
+    `,
+  },
+  {
+    version: 14,
+    up: `
+      -- Spec section 4: players pick two paint colours. Empty is the yard's.
+      ALTER TABLE pilots ADD COLUMN paint TEXT NOT NULL DEFAULT '';
     `,
   },
 ];

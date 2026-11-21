@@ -104,6 +104,8 @@ export interface ShipFrame {
   readonly posted: boolean;
   /** A company freighter, which flies its berth's charter livery. */
   readonly freighter: boolean;
+  /** A captain's two colours as "#rrggbb #rrggbb", or empty for the draught's own. */
+  readonly paint: string;
   readonly isTarget: boolean;
   readonly writtenOff: boolean;
 }
@@ -324,7 +326,8 @@ export class Scene {
     if (frame.patrol) return { kind: 'court' };
     if (frame.hostile) return { kind: 'unlettered' };
     if (frame.freighter) return freighterAllegiance(this.system, frame.id);
-    return { kind: 'captain', paint: blueprint.paint };
+    const chosen = frame.paint.split(' ').filter((hex) => hex !== '');
+    return { kind: 'captain', paint: chosen.length === 2 ? chosen : blueprint.paint };
   }
 
   private nodeFor(frame: ShipFrame): ShipNode | undefined {

@@ -159,6 +159,8 @@ export interface HullBake {
   /** Livery's measured share of the hull, for the tests and the sheet. */
   readonly liveryShare: number;
   readonly registry: string;
+  /** Where the registry is painted, in texture pixels, with how many stencil dots it has. */
+  readonly registryBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly dots: number } | undefined;
 }
 
 // --- Small helpers -----------------------------------------------------------
@@ -1369,6 +1371,42 @@ export function bakeHull(
   }
   const liveryShare = paintFor(scale, true);
 
+  // --- Seal spot ----------------------------------------------------------------
+
+  let seal: HullBake['seal'];
+  {
+    let best = -1;
+    let bestScore = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const d = depth[i]!;
+      if (d < 0.3 || fitted[i]! > 0.02 || detailed[i]! > 0.05 || glow[i]! > 0.05) continue;
+      const x = i % W;
+      const along = (x - hullMinX) / hullLength;
+      const score = d - 0.25 * Math.abs(along - 0.45);
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    if (best >= 0) {
+      const radius = Math.min(0.4, depth[best]! * 0.75) * P;
+      if (radius >= 0.18 * P) {
+        const sx = best % W;
+        seal = { x: sx + 0.5, y: (best - sx) / W + 0.5, radius };
+        // The seal is struck on bare metal: no band under it.
+        const r2 = (radius * 1.1) ** 2;
+        for (let py = Math.floor(seal.y - radius * 1.1); py <= Math.ceil(seal.y + radius * 1.1); py++) {
+          for (let px = Math.floor(seal.x - radius * 1.1); px <= Math.ceil(seal.x + radius * 1.1); px++) {
+            if ((px + 0.5 - seal.x) ** 2 + (py + 0.5 - seal.y) ** 2 > r2) continue;
+            const i = py * W + px;
+            liveryA[i] = 0;
+            liveryB[i] = 0;
+          }
+        }
+      }
+    }
+  }
+
   // --- Registry stencil ------------------------------------------------------------
 
   const prefix = ({ 'open-ticket': 'OT', 'frigate-warrant': 'FW', 'cruiser-warrant': 'CW', 'capital-charter': 'CC' } as const)[
@@ -1386,7 +1424,10 @@ export function bakeHull(
     for (let ty = 0; ty < H - textHeight; ty++) {
       const probe = (px: number, py: number): boolean => {
         const i = Math.min(H - 1, Math.max(0, Math.round(py))) * W + Math.min(W - 1, Math.max(0, Math.round(px)));
+        const clearOfSeal =
+          seal === undefined || Math.hypot(px - seal.x, py - seal.y) > seal.radius * 1.35;
         return (
+          clearOfSeal &&
           depth[i]! > 0.34 &&
           fitted[i]! < 0.05 &&
           detailed[i]! < 0.05 &&
@@ -1420,42 +1461,6 @@ export function bakeHull(
           liveryB[i] = Math.max(liveryB[i]!, cx * cy);
           liveryA[i] = liveryA[i]! * (1 - cx * cy);
           detailed[i] = 1;
-        }
-      }
-    }
-  }
-
-  // --- Seal spot ----------------------------------------------------------------
-
-  let seal: HullBake['seal'];
-  {
-    let best = -1;
-    let bestScore = -Infinity;
-    for (let i = 0; i < N; i++) {
-      const d = depth[i]!;
-      if (d < 0.3 || fitted[i]! > 0.02 || detailed[i]! > 0.05 || glow[i]! > 0.05) continue;
-      const x = i % W;
-      const along = (x - hullMinX) / hullLength;
-      const score = d - 0.25 * Math.abs(along - 0.45);
-      if (score > bestScore) {
-        bestScore = score;
-        best = i;
-      }
-    }
-    if (best >= 0) {
-      const radius = Math.min(0.4, depth[best]! * 0.75) * P;
-      if (radius >= 0.18 * P) {
-        const sx = best % W;
-        seal = { x: sx + 0.5, y: (best - sx) / W + 0.5, radius };
-        // The seal is struck on bare metal: no band under it.
-        const r2 = (radius * 1.1) ** 2;
-        for (let py = Math.floor(seal.y - radius * 1.1); py <= Math.ceil(seal.y + radius * 1.1); py++) {
-          for (let px = Math.floor(seal.x - radius * 1.1); px <= Math.ceil(seal.x + radius * 1.1); px++) {
-            if ((px + 0.5 - seal.x) ** 2 + (py + 0.5 - seal.y) ** 2 > r2) continue;
-            const i = py * W + px;
-            liveryA[i] = 0;
-            liveryB[i] = 0;
-          }
         }
       }
     }
@@ -1533,5 +1538,8 @@ export function bakeHull(
     nozzles,
     liveryShare,
     registry,
+    registryBox: registryAt
+      ? { x: registryAt.x, y: registryAt.y, width: textWidth, height: textHeight, dots: dots.length }
+      : undefined,
   };
 }

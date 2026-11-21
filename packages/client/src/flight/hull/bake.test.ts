@@ -78,6 +78,23 @@ describe('bakeHull', () => {
       it('carries a registry number in the stencil', () => {
         expect(bake.registry).toMatch(/^(OT|FW|CW|CC) \d{4}$/);
       });
+
+      it('keeps every dot of the registry it painted', () => {
+        // Something painted after the stencil — the seal's bare disc once —
+        // must not eat into it. Measured at the game's own bake size, where
+        // a dot is more than a pixel across.
+        const full = bakeHull(blueprint, modules);
+        const box = full.registryBox;
+        if (box === undefined) return;
+        let inked = 0;
+        for (let py = Math.floor(box.y); py < Math.ceil(box.y + box.height); py++) {
+          for (let px = Math.floor(box.x); px < Math.ceil(box.x + box.width); px++) {
+            inked += full.paint[(py * full.width + px) * 4 + 3]! / 255;
+          }
+        }
+        const dotArea = (box.width / (Math.round(box.width / (box.height / 7)))) ** 2;
+        expect(inked / (box.dots * dotArea)).toBeGreaterThan(0.85);
+      });
     });
   }
 });

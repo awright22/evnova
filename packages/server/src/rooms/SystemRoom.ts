@@ -42,6 +42,7 @@ import {
   ChatIntent,
   ForgetDesignIntent,
   BuyLicenceIntent,
+  PaintIntent,
   GiveDesignIntent,
   ImportDesignIntent,
   BourseIntent,
@@ -1248,6 +1249,36 @@ export class SystemRoom extends Room<{
     }),
 
     /**
+     * Pick the colours a captain's hulls are painted in.
+     *
+     * Spec section 4: players pick two paint colours. At a berth with a Yard,
+     * from the yards' own paints, and free: the yard paints every hull this
+     * captain flies from now on, and the next one out of this berth wears it.
+     */
+    paint: validate(PaintIntent, (client: Client, message: PaintIntent, ctx) => {
+      if (!this.allowIntent(client.sessionId)) return ctx.reject('rate-limited');
+
+      const pilot = this.pilotsBySession.get(client.sessionId);
+      if (!pilot) return ctx.reject('not-owned');
+      if (pilot.landedPortId === undefined) return ctx.reject('not-landed');
+
+      const port = this.system?.ports.find((candidate) => candidate.id === pilot.landedPortId);
+      if (!port) return ctx.reject('unknown-target');
+      if (!port.services.includes('yard')) return ctx.reject('no-yard');
+
+      const { paints } = content().tuning.yard;
+      const find = (hex: string) => paints.find((paint) => paint.hex.toLowerCase() === hex.toLowerCase());
+      const bands = find(message.bands);
+      const stripe = find(message.stripe);
+      if (!bands || !stripe) return ctx.reject('no-such-paint');
+
+      pilot.paint = `${bands.hex} ${stripe.hex}`;
+      world().pilots.touch(pilot.accountId);
+      this.sendYard(client.sessionId);
+      return { bands: bands.hex, stripe: stripe.hex };
+    }),
+
+    /**
      * Take out a hull moored at this berth.
      *
      * The captain must be landed here, and the hull must be tied up here:
@@ -1761,6 +1792,10 @@ export class SystemRoom extends Room<{
       flying: blueprint.placements,
       flyingId: owned?.id ?? '',
       flyingName: blueprint.name,
+      // The captain's colours, or null while they fly what the yard painted;
+      // and what the hull being flown wears without them.
+      paint: pilot.paint === '' ? null : pilot.paint.split(' '),
+      flyingPaint: blueprint.paint,
 
       /** What this berth's Yard stocks, so the palette shows only the rest. */
       stock: berth?.yardStock ?? {},
@@ -2059,6 +2094,7 @@ export class SystemRoom extends Room<{
     ship.callsign = pilot.callsign;
     ship.blueprint = blueprint.id;
     ship.hull = code;
+    ship.paint = pilot.paint;
     ship.hostile = false;
     // Being posted follows the captain between systems and across sessions.
     ship.posted = pilot.composition > 0;

@@ -72,6 +72,8 @@ interface YardPayload {
     held: boolean;
     behind: boolean;
   }[];
+  /** The captain's two colours, or null while they fly the yard's. */
+  paint: [string, string] | null;
 }
 
 interface Purse {
@@ -296,10 +298,38 @@ async function main(): Promise<void> {
       `flying "${shipwright.inbox.yard?.flyingName}" (${shipwright.inbox.yard?.flyingId.slice(0, 8)})`,
     );
 
+    // --- The captain's colours ----------------------------------------------
+    //
+    // Spec section 4: players pick two paint colours. From the yards' own
+    // paints only, and they ride on the hull's state so every client paints
+    // the captain the same.
+    const { paints } = content().tuning.yard;
+    const offPalette = await refusal(shipwright.room, 'paint', { bands: '#123456', stripe: paints[0]!.hex });
+    record(
+      'a colour the yards do not keep is refused',
+      offPalette === 'no-such-paint',
+      `refused with "${offPalette}"`,
+    );
+
+    const chosen: [string, string] = [paints[2]!.hex, paints[5]!.hex];
+    await shipwright.room.request('paint', { bands: chosen[0], stripe: chosen[1] });
+    await sleep(500);
+    record(
+      "the captain's colours are on their books",
+      JSON.stringify(shipwright.inbox.yard?.paint) === JSON.stringify(chosen),
+      `the yard says ${JSON.stringify(shipwright.inbox.yard?.paint ?? null)}`,
+    );
+
     await shipwright.room.request('launch', {});
     await sleep(1200);
 
     const inSpace = shipwright.room.state.ships.get(shipwright.room.sessionId);
+
+    record(
+      'the next hull out wears them, where every client can read them',
+      inSpace !== undefined && inSpace.paint === chosen.join(' '),
+      inSpace ? `the hull carries "${inSpace.paint}"` : 'no hull in the room',
+    );
 
     record(
       'the built hull is what launches, and its grid travels with it',

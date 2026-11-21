@@ -43,6 +43,7 @@ export const REJECTIONS = {
   'too-many-designs': 'Your books are full. Clear a draught first.',
   'too-many-ships': 'Your moorings are full.',
   'no-yard': 'This berth keeps no Yard.',
+  'no-such-paint': 'The yards keep no such colour.',
   'no-such-commodity': 'The Register knows no such good.',
   'no-such-market': 'This berth keeps no Staple.',
   'nothing-to-trade': 'Nothing to trade.',
@@ -562,6 +563,16 @@ export const BuyLicenceIntent = z.object({
   licence: z.string().max(64),
 });
 export type BuyLicenceIntent = z.infer<typeof BuyLicenceIntent>;
+
+/**
+ * Have the yards paint every hull this captain flies: one colour for the
+ * bands, one for the stripe, both from the yards' own paints.
+ */
+export const PaintIntent = z.object({
+  bands: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  stripe: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+export type PaintIntent = z.infer<typeof PaintIntent>;
 
 /** Take out a hull moored at this berth and leave the current one in its place. */
 export const SwitchShipIntent = z.object({

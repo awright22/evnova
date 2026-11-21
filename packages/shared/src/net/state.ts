@@ -66,6 +66,12 @@ export const ShipState = schema(
      * made without knowing whether it was worth it.
      */
     freighter: t.boolean().default(false),
+    /**
+     * A captain's two colours as "#rrggbb #rrggbb", or empty for the
+     * draught's own. Spec section 4: players pick two paint colours, and
+     * every client has to paint a captain the same.
+     */
+    paint: t.string().default(''),
     /** Posted by the Prize Court: patrols answer for this hull. */
     posted: t.boolean().default(false),
     /**

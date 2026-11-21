@@ -559,6 +559,9 @@ function Game({
               notice={snapshot.notice}
               serverProblems={snapshot.surveyProblems}
               busy={false}
+              paint={snapshot.yard?.paint}
+              flyingPaint={snapshot.yard?.flyingPaint ?? []}
+              onPaint={(bands, stripe) => void client.paint(bands, stripe)}
               onBuild={(name, placements, refitting) =>
                 // The editor decides this from the same `flyingId` it quotes
                 // against, so the bill it showed is the bill that is charged.

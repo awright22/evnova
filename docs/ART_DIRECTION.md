@@ -332,7 +332,10 @@ picture lit once would carry its highlight round with it as the ship turned.
 **Paint.** The hull is neutral metal, plate by plate a shade lighter or darker.
 Livery is bands across the hull, stripes along it and the seal — about a fifth
 of the surface, never a flood. Captains' hulls take their two paint colours
-and a registry number. Company freighters take their charter's livery and
+— chosen at a Yard from the yards' twelve paints, which are kept clear of the
+charters' liveries so a free captain is never taken for a company hull — and
+a registry number. The first colour goes on the bands, the second on the
+stripe and the stencil. Company freighters take their charter's livery and
 seal; the Prize Court's patrols take the Court's seal on registry white. The
 Unlettered carry no markings at all, on darker gunmetal, which is how you
 recognise them.

@@ -67,6 +67,8 @@ export interface ShipView {
   readonly posted: boolean;
   /** A company freighter, which flies its berth's charter livery. */
   readonly freighter: boolean;
+  /** A captain's two colours as "#rrggbb #rrggbb", or empty for the draught's own. */
+  readonly paint: string;
   readonly writtenOff: boolean;
   /** Every engine out: it cannot run, and it can be boarded. */
   readonly adrift: boolean;
@@ -285,6 +287,7 @@ export class Session {
         patrol: ship.patrol,
         posted: ship.posted,
         freighter: ship.freighter,
+        paint: ship.paint,
         writtenOff: ship.destroyedAt > 0,
         adrift: ship.adrift,
         isTarget: id === marked,
