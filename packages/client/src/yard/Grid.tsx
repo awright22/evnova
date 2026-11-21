@@ -14,6 +14,8 @@ import { useMemo } from 'react';
 
 import { rotatedFootprint, type ModuleDef, type Placement, type Problem } from '@marque/shared';
 
+import { shapeOutline } from '../flight/hull/shapes.ts';
+
 export interface GridProps {
   readonly placements: readonly Placement[];
   readonly modules: ReadonlyMap<string, ModuleDef>;
@@ -239,7 +241,19 @@ export function Grid({
               width={width}
               height={height}
               fill={TYPE_FILL[def.type] ?? 'var(--rule)'}
+              opacity={def.shape ? 0.35 : undefined}
             />
+            {def.shape && (
+              // The cell is the section to the simulation; this is the shape
+              // it draws, so which way it points is decided here.
+              <polygon
+                className="grid__shape"
+                points={shapeOutline(def.shape, placement.x, placement.y, width, height, placement.rotation)
+                  .map(([px, py]) => `${px.toFixed(3)},${py.toFixed(3)}`)
+                  .join(' ')}
+                fill={TYPE_FILL[def.type] ?? 'var(--rule)'}
+              />
+            )}
             <title>{def.name}</title>
           </g>
         );

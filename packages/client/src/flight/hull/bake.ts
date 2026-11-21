@@ -38,6 +38,7 @@ import { boundsOf, placeAll, type Blueprint, type ModuleDef, type PlacedModule }
 
 import { blur, nearestSite } from './distance.ts';
 import { traceOutline } from './outline.ts';
+import { shapeOutline, type Point } from './shapes.ts';
 import { STENCIL_ROWS, stencilDots } from './stencil.ts';
 
 /** Texture pixels per grid cell. Sharp at the flight camera's closest zoom. */
@@ -215,7 +216,6 @@ function valueNoise(x: number, y: number, seed: number): number {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 
-type Point = readonly [number, number];
 
 /** Signed distance to a convex polygon given counter-clockwise or clockwise; approximate outside corners. */
 function sdConvex(px: number, py: number, poly: readonly Point[], ccw: boolean): number {
@@ -374,7 +374,11 @@ export function bakeHull(
         [0, 1],
         [0, -1],
       ] as const
-    ).filter(([dx, dy]) => at(x + dx, y + dy) >= 0);
+    ).filter(([dx, dy]) => {
+      // A fin beside a pod is the pod's wing, not a second thing it hangs from.
+      const neighbour = at(x + dx, y + dy);
+      return neighbour >= 0 && roles[neighbour] !== 'fin';
+    });
     if (neighbours.length === 1) podParent.set(index, neighbours[0]!);
   });
 
@@ -426,75 +430,9 @@ export function bakeHull(
     polygons.push(poly);
   };
 
-  const rotate = (u: number, v: number, rotation: number, cx: number, cy: number): Point => {
-    const t = (rotation * Math.PI) / 180;
-    const du = u - 0.5;
-    const dv = v - 0.5;
-    return [cx + 0.5 + du * Math.cos(t) - dv * Math.sin(t), cy + 0.5 + du * Math.sin(t) + dv * Math.cos(t)];
-  };
-
-  const addShaped = (module: PlacedModule, role: Role): void => {
+  const addShaped = (module: PlacedModule, role: 'wedge' | 'nose' | 'fin'): void => {
     const { x, y, rotation } = module.placement;
-    if (role === 'wedge') {
-      // Rotation picks the raked corner: 0 fore-port, 90 fore-starboard,
-      // 180 aft-starboard, 270 aft-port.
-      const corners: Point[] = [
-        [0, 0],
-        [1, 0],
-        [1, 1],
-        [0, 1],
-      ];
-      const cutIndex = { 0: 1, 90: 2, 180: 3, 270: 0 }[rotation] ?? 1;
-      const kept = corners.filter((_, i) => i !== cutIndex).map(([u, v]) => [x + u, y + v] as Point);
-      freePolygons.push(kept);
-      return;
-    }
-    if (role === 'nose') {
-      // A prow across the whole footprint, pointing the way rotation says:
-      // 0 forward, 90 starboard, 180 aft, 270 port.
-      const pointing = ({ 0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1] } as const)[rotation] ?? [1, 0];
-      const along = pointing[0] !== 0;
-      const length = along ? module.width : module.height;
-      const breadth = along ? module.height : module.width;
-      const cxm = x + module.width / 2;
-      const cym = y + module.height / 2;
-      const steps = 12;
-      const left: Point[] = [];
-      const right: Point[] = [];
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const half = (breadth / 2) * Math.pow(1 - Math.pow(t, 1.8), 0.75) + 0.03 * (t > 0.98 ? 1 : 0);
-        const a = -length / 2 + t * length;
-        const ax = cxm + pointing[0] * a;
-        const ay = cym + pointing[1] * a;
-        const lx = -pointing[1];
-        const ly = pointing[0];
-        left.push([ax + lx * half, ay + ly * half]);
-        right.push([ax - lx * half, ay - ly * half]);
-      }
-      freePolygons.push([...left, ...right.reverse()]);
-      return;
-    }
-    if (role === 'fin') {
-      // A swept blade. 0 stands out to starboard from its port edge and 180
-      // to port from its starboard edge, both swept aft; 90 trails aft and
-      // 270 points forward.
-      const starboardFin: Point[] = [
-        [0.06, 0],
-        [0.92, 0],
-        [0.36, 0.95],
-        [-0.06, 0.95],
-      ];
-      let local: Point[];
-      if (rotation === 180) local = starboardFin.map(([u, v]) => [u, 1 - v] as Point);
-      else if (rotation === 0) local = starboardFin;
-      else local = starboardFin.map(([u, v]) => [u, v] as Point);
-      const placed =
-        rotation === 0 || rotation === 180
-          ? local.map(([u, v]) => [x + u, y + v] as Point)
-          : local.map(([u, v]) => rotate(u, v, rotation, x, y));
-      freePolygons.push(placed);
-    }
+    freePolygons.push(shapeOutline(role, x, y, module.width, module.height, rotation));
   };
 
   /**

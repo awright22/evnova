@@ -304,10 +304,10 @@ and module damage stay exactly as they are, and only how a blueprint becomes
 a texture changes. Spec section 4 now carries the rule.
 
 - [x] Spec section 4, the art direction and the avoid list carry the new rule
-- [ ] Before sheets of every blueprint at 1x and 3x, kept where a sweep cannot delete them
-- [ ] New renderer behind a flag: skin from a smoothed distance field, shape by role, star light with rim and shadow, metal with livery at about a fifth
-- [ ] Wedge, nose and fin modules; NPC blueprints reworked to use them; combat checks and soak re-run
-- [ ] The grid shows only in the Loft and as a faint overlay on targeted or damaged hulls
+- [x] Before sheets of every blueprint at 1x and 3x, kept where a sweep cannot delete them
+- [x] New renderer behind a flag: skin from a smoothed distance field, shape by role, star light with rim and shadow, metal with livery at about a fifth
+- [x] Wedge, nose and fin modules; NPC blueprints reworked to use them; combat checks and soak re-run
+- [x] The grid shows only in the Loft and as a faint overlay on targeted or damaged hulls
 - [ ] No ship reads as a grid at 1x or 3x; after sheets captured
 - [ ] The tile renderer removed
 

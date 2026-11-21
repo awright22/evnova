@@ -910,3 +910,18 @@ one of the charters holding a berth in the system by the hull's id: mixed
 traffic in a contested system, the same colours on the same hull. A system
 no charter holds sends out freighters in the registry's plain dress. The
 Prize Court's patrols wear registry white with the Court's seal in rule ink.
+
+**2026-11-21. Silhouette sections weigh what they look like.**
+`hrc-wedge-1`, `hrc-nose-1`, `hrc-nose-2` and `hrc-fin-1` are hull sections
+with a `shape`: whole cells to the simulation, an outline to the eye. A
+wedge or nose is light (mass 1 a cell, 45 structure) and a fin lighter
+still in structure, so structure per tonne matches plain plating and none
+of them is cheap armour. The NPC draughts use them inside their licences:
+an Open Ticket carries 16 fittings and a Frigate Warrant 11 cells across, so
+Force Majeure gains two fins, Short Measure two wedges and Fair Wear and
+Tear one bow section in its empty upper-fore block. Raider top speed falls
+4–5% and turn rate 8–9%; no ordering against the starter changes, and the
+fight soak, range, boarding and late-game checks pass. A fin beside a pod
+does not count as its second neighbour, so a fin swept back to a pod reads
+as a wing with a wingtip pod. The Loft draws each shape over its cell and its
+mirror turns a shaped section as well as moving it.

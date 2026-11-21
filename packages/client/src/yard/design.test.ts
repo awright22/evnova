@@ -32,6 +32,21 @@ describe('the editor´s design state', () => {
     expect(two).toBe(one);
   });
 
+  it('turns a mirrored wedge, nose or fin so its twin draws the mirror image', () => {
+    const wedge = modules.get('hrc-wedge-1')!;
+    const nose = modules.get('hrc-nose-1')!;
+    const next = run(
+      emptyDesign(),
+      { kind: 'mirror', on: true },
+      { kind: 'place', placement: at(wedge, 2, 0, 0), def: wedge },
+      { kind: 'place', placement: at(nose, 3, 2, 0), def: nose },
+    );
+    // Raked fore-port on one side is raked aft-port on the other; a prow
+    // pointing forward points aft.
+    expect(next.placements).toContainEqual(at(wedge, -2, 0, 270));
+    expect(next.placements).toContainEqual(at(nose, -3, 2, 180));
+  });
+
   it('places a mirrored twin when mirroring is on', () => {
     const next = run(
       emptyDesign(),

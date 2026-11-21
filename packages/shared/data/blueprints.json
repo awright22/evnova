@@ -147,6 +147,18 @@
           "moduleId": "hrc-tank-1",
           "x": 3,
           "y": 3
+        },
+        {
+          "moduleId": "hrc-fin-1",
+          "x": 1,
+          "y": -1,
+          "rotation": 180
+        },
+        {
+          "moduleId": "hrc-fin-1",
+          "x": 1,
+          "y": 4,
+          "rotation": 0
         }
       ]
     },
@@ -264,6 +276,12 @@
           "moduleId": "slp-reactor-1",
           "x": 9,
           "y": 2
+        },
+        {
+          "moduleId": "hrc-nose-2",
+          "x": 9,
+          "y": -2,
+          "rotation": 0
         }
       ]
     },
@@ -346,6 +364,18 @@
           "moduleId": "hrc-tank-1",
           "x": 5,
           "y": 2
+        },
+        {
+          "moduleId": "hrc-wedge-1",
+          "x": 6,
+          "y": 2,
+          "rotation": 90
+        },
+        {
+          "moduleId": "hrc-wedge-1",
+          "x": 3,
+          "y": 3,
+          "rotation": 180
         }
       ]
     },

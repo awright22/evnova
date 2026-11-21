@@ -13,6 +13,8 @@
  */
 
 import type { ModuleDef, Placement, Rotation } from '@marque/shared';
+
+import { mirroredRotation } from '../flight/hull/shapes.ts';
 import { rotatedFootprint } from '@marque/shared';
 
 export interface DesignState {
@@ -103,7 +105,9 @@ function mirrored(placement: Placement, def: ModuleDef): Placement | undefined {
   const { width } = rotatedFootprint(def, placement.rotation);
   const x = -(placement.x + width - 1);
   if (x === placement.x) return undefined;
-  return { ...placement, x };
+  // A wedge, nose or fin is turned as well as moved, so its twin draws the
+  // mirror image of its shape rather than the same shape somewhere else.
+  return { ...placement, x, rotation: mirroredRotation(def.shape, placement.rotation) };
 }
 
 const TURNS: readonly Rotation[] = [0, 90, 180, 270];

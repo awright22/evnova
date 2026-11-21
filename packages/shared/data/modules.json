@@ -45,6 +45,94 @@
       "description": "Pressed frame and skin. The cheapest way to make a ship bigger."
     },
     {
+      "id": "hrc-wedge-1",
+      "name": "Home Roads Chandlery Raked Section",
+      "type": "hull",
+      "shape": "wedge",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 1,
+      "hitPoints": 45,
+      "cost": 180,
+      "bom": {
+        "alloy": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "A hull section with one corner pressed off. Half the frame of a square one and half the strength; it is there so a hull stops looking like a stack of crates."
+    },
+    {
+      "id": "hrc-nose-1",
+      "name": "Home Roads Chandlery Prow Section",
+      "type": "hull",
+      "shape": "nose",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 1,
+      "hitPoints": 45,
+      "cost": 200,
+      "bom": {
+        "alloy": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "A pointed cap for the end of a hull. It takes a hit like any light section and parts nothing but the eye of whoever is looking."
+    },
+    {
+      "id": "hrc-nose-2",
+      "name": "Home Roads Chandlery Bow Section",
+      "type": "hull",
+      "shape": "nose",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "mass": 3,
+      "hitPoints": 135,
+      "cost": 650,
+      "bom": {
+        "alloy": 6
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "Four cells of frame drawn to a point across a broad bow. A freighter's prow, bought mostly for the look of the thing."
+    },
+    {
+      "id": "hrc-fin-1",
+      "name": "Home Roads Chandlery Swept Fin",
+      "type": "hull",
+      "shape": "fin",
+      "manufacturer": "HRC",
+      "tier": 1,
+      "footprint": {
+        "width": 1,
+        "height": 1
+      },
+      "mass": 1,
+      "hitPoints": 30,
+      "cost": 150,
+      "bom": {
+        "alloy": 2
+      },
+      "power": {
+        "draw": 0
+      },
+      "description": "A blade of plate swept aft off the hull. There is no air out there to cut; captains fit them anyway."
+    },
+    {
       "id": "hrc-cargo-1",
       "name": "Home Roads Chandlery Pattern 3 Cargo Bay",
       "type": "cargo",

@@ -172,6 +172,13 @@
   stroke-width: 0.04;
 }
 
+/* A wedge, nose or fin: the shape it draws, over the cell it occupies. */
+.grid__shape {
+  stroke: var(--void);
+  stroke-width: 0.04;
+  pointer-events: none;
+}
+
 .grid__module--selected rect {
   stroke: var(--amber);
   stroke-width: 0.12;
