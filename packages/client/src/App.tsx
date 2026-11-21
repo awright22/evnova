@@ -49,6 +49,7 @@ import {
   type Settings as SettingsState,
 } from './shell/settings.ts';
 import { RangeBanner } from './flight/RangeBanner.tsx';
+import { HullSheet } from './flight/HullSheet.tsx';
 import { BUILD_VERSION, SERVER_URL } from './net/connection.ts';
 import './styles/boot.css';
 
@@ -61,6 +62,14 @@ export function App(): React.JSX.Element {
     const params = new URLSearchParams(window.location.search);
     return params.get('admin') !== null;
   }, []);
+
+  // The hull sheet is a working page for judging the ship renderer: every
+  // draught through the flight view's own texture pipeline, side by side. It
+  // reads only the bundled content and never touches the server.
+  const hullSheet = useMemo(
+    () => new URLSearchParams(window.location.search).get('hulls') === 'sheet',
+    [],
+  );
 
   // Settings are applied before anything renders, so a captain who has
   // scaled the interface up never sees one frame of it small.
@@ -88,6 +97,8 @@ export function App(): React.JSX.Element {
       ? 'game'
       : 'title';
   });
+
+  if (hullSheet) return <HullSheet />;
 
   if (admin) {
     // The server's HTTP origin, not the socket's: the admin page is three

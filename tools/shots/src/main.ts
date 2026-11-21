@@ -484,7 +484,7 @@ async function capture(
   deviceToken?: string,
 ): Promise<string> {
   const context = await browser.newContext({
-    viewport: options.viewport,
+    viewport: screen.viewport ?? options.viewport,
     deviceScaleFactor: options.scale,
     colorScheme: 'dark',
     reducedMotion: 'no-preference',
@@ -593,7 +593,10 @@ async function capture(
         if (i + 1 < screen.frames.count) await sleep(screen.frames.everyMs);
       }
     } else {
-      await page.screenshot({ path: resolve(options.outDir, file) });
+      await page.screenshot({
+        path: resolve(options.outDir, file),
+        fullPage: screen.fullPage === true,
+      });
     }
 
     return file;

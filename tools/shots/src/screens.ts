@@ -48,6 +48,14 @@ export interface Screen {
   readonly settleTimeoutMs?: number;
   /** Extra settle time in ms, for animations that have no end selector. */
   readonly settleMs?: number;
+  /**
+   * A viewport of its own, for a sheet wider than the usual screen. The
+   * capture still uses the run's device scale, so a sheet shows hulls at the
+   * density every other screen does.
+   */
+  readonly viewport?: { readonly width: number; readonly height: number };
+  /** Capture the whole page, not just the viewport: a sheet is taller than a screen. */
+  readonly fullPage?: boolean;
   /** Drive the page before capturing: hold keys, wait, fly somewhere. */
   readonly act?: (page: Page) => Promise<void>;
   /** Bot traffic to fly in the same system during this capture. */
@@ -621,6 +629,28 @@ export const SCREENS: readonly Screen[] = [
       await page.keyboard.down('ArrowRight');
       await page.waitForTimeout(900);
     },
+  },
+  {
+    name: 'hulls-1x',
+    description:
+      'Every draught and five awkward Loft grids through the flight view\'s own hull '
+      + 'renderer, at the camera\'s resting zoom: square-on and turned.',
+    path: '/?hulls=sheet&zoom=1',
+    settle: '.hull-sheet[data-ready="true"]',
+    settleMs: 300,
+    viewport: { width: 1440, height: 900 },
+    fullPage: true,
+  },
+  {
+    name: 'hulls-3x',
+    description:
+      'The same hulls at the camera\'s closest zoom, square-on, where a grid that is '
+      + 'only hidden at a distance shows.',
+    path: '/?hulls=sheet&zoom=3&columns=tiles',
+    settle: '.hull-sheet[data-ready="true"]',
+    settleMs: 300,
+    viewport: { width: 1440, height: 900 },
+    fullPage: true,
   },
   {
     name: 'draught-force-majeure',

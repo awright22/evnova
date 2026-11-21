@@ -1,0 +1,54 @@
+/*
+ * The hull sheet: a working page for judging renderers, not a game screen.
+ * Hulls sit on the flight view's own void, at its own scale, so what is on
+ * the sheet is what a captain sees.
+ */
+
+.hull-sheet {
+  min-height: 100vh;
+  padding: var(--space-3) var(--space-3) var(--space-6);
+  background: var(--void);
+  color: var(--text-primary);
+}
+
+.hull-sheet__header {
+  display: grid;
+  gap: var(--space-0-5);
+  margin-bottom: var(--space-2);
+}
+
+.hull-sheet__header h1 {
+  margin: 0;
+  font-family: var(--font-condensed);
+  font-size: var(--size-h1);
+  font-weight: 600;
+}
+
+.hull-sheet__grid {
+  display: grid;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.hull-sheet__column {
+  padding-bottom: var(--space-0-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.hull-sheet__name {
+  display: grid;
+  gap: 2px;
+}
+
+.hull-sheet__title {
+  font-family: var(--font-condensed);
+  font-weight: 600;
+}
+
+.hull-sheet__cell canvas {
+  display: block;
+}
+
+.hull-sheet__failure {
+  color: var(--danger);
+}
