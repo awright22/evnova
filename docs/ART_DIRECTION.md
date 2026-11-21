@@ -279,15 +279,68 @@ hull from the star's actual position.
 
 ### Ships
 
-Every module tile is drawn by one procedural system so any player design looks
-intentional: a 2px darker outline, interior panel lines on a 4px grid, a 1px
-top-left highlight and bottom-right shade, lit windows on habitable modules, and
-glowing nozzles on engines. Players pick two paint colours; the renderer derives
-a third shade for panel lines. Company hulls add a livery band and a seal decal;
-every hull carries a registry number.
+The module grid is the ship's mechanics, not its look. A blueprint's cells are
+its hitbox, its mass and the thing module damage lands on; none of that shows.
+What a captain sees is a sculpted, lit hull from above, the way a pre-rendered
+model reads, and someone who has never opened the Loft should not be able to
+tell it was laid out on squares.
 
-Each blueprint renders once to a texture; damage draws as overlays — scorch at
-50% module health, a blown-panel overlay plus venting at 0%.
+**Skin.** The blueprint's occupancy becomes a mask, the mask becomes a
+smoothed distance field, and the outline is a level set of that field — never
+the cell edges. Stair-steps become a chamfer on each outer corner and a
+fairing in each inner one, so a run of single steps reads as one raked line.
+A cell that sticks out on its own becomes a pod on a short neck. The drawn
+hull may stand a little proud of its cells; hits still resolve on the grid.
+
+**Depth.** Height comes from the distance field: a bevelled edge, a slope up
+to a deck, and a spine along the long axis. The surface normal is the gradient
+of that height, which on the hull is the distance gradient. Fittings stand on
+top of it — barrels, turret housings, container bulges, nacelles — and carry
+their own height, so they cast short shadows on the hull and sit in a ring of
+occlusion where they meet it.
+
+**Shape by role.**
+
+| Fitting | Drawn as |
+|---|---|
+| Bow | The forward end tapers: heavier chamfers on every forward-facing corner |
+| Engine | A nacelle ending in a bell nozzle that stands proud of the stern, hot throat |
+| Thruster | A small jet set into the hull side, not a tile |
+| Gun | A barrel on a mount, laid along the hull and out past the bow |
+| Turret | A round housing on top of the hull with its barrel forward |
+| Missile rack | A launcher box with its tube mouths forward |
+| Beam, mining rig | An emitter housing ending in a lens |
+| Point defense | A low dome with a stub barrel |
+| Cargo | Raised container bulges with ribbed ends |
+| Bridge | Glazing on the forward face, lit from inside |
+| Reactor, tank, shield, hull, armour | Not drawn as themselves: vents, hatches and conduits on the plating |
+| Wedge, nose, fin | Whole cells to the simulation; to the eye, a raked corner, a prow, a swept blade |
+
+**Light.** Each hull is lit from its system's star, wherever the star actually
+is relative to that hull and whichever way the hull is turned, with the star's
+tint. A cool rim lifts the edges turned away from the star off the void, and
+a warm rim catches the edges turned toward it. Seams and recesses darken.
+Panel lines follow the hull's contours — offset outlines of the skin and
+breaks across them — and never the cell grid. Glazing and nozzle throats are
+the only things that light themselves.
+
+The bake is once per blueprint and produces the hull's material, not a lit
+picture: colour, height and normal, occlusion, and which pixels are metal,
+paint, glass or glow. The light is applied as the hull is drawn, because a
+picture lit once would carry its highlight round with it as the ship turned.
+
+**Paint.** The hull is neutral metal, plate by plate a shade lighter or darker.
+Livery is bands across the hull, stripes along it and the seal — about a fifth
+of the surface, never a flood. Captains' hulls take their two paint colours
+and a registry number. Company freighters take their charter's livery and
+seal; the Prize Court's patrols take the Court's seal on registry white. The
+Unlettered carry no markings at all, on darker gunmetal, which is how you
+recognise them.
+
+**The grid shows in two places.** The Loft, which is where it belongs, and a
+faint overlay on a targeted or damaged hull, so a captain can read which
+module took the hit. Damage otherwise draws over the hull — scorch at 50%
+module health, a blown panel and venting at 0% — without re-rendering it.
 
 ### Effect recipes
 
@@ -484,6 +537,11 @@ whenever an unintended look appears, then fix it.
 
 **Also avoided in this project:**
 
+- Ships that read as tile grids or floor plans. The grid is the ship's
+  mechanics; a hull that shows its cells, steps along them or carries panel
+  lines on them is a diagram of a ship, not a ship
+- Hulls flooded with one livery colour. The hull is metal; paint is bands,
+  stripes and the seal, about a fifth of the surface
 - Border radius above 0 anywhere; corners are chamfered or square
 - Centre-floating HUD elements that obscure the flight view
 - Neon glow on text; bloom belongs to engines, weapons and shields only
