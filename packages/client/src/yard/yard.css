@@ -518,15 +518,30 @@
   color: var(--text-primary);
 }
 
-/* The livery: the captain's two colours, and the draught wearing them. */
+/*
+ * The livery: the captain's two colours, and the draught wearing them. A
+ * drawer over the top of the board, like the draughts: the readout column is
+ * already as tall as the screen, and the bill at its foot has to stay in view.
+ */
 .yard__livery {
   display: grid;
-  gap: var(--space-1);
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  align-items: start;
+  padding: var(--space-1);
+  margin-bottom: var(--space-1);
 }
 
-.hull-preview {
-  justify-self: center;
+.yard__livery .panel-header {
+  grid-column: 1 / -1;
 }
+
+.yard__livery .hull-preview {
+  grid-row: 2 / span 2;
+}
+
 
 .yard__swatches {
   display: grid;

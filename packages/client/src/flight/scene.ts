@@ -178,6 +178,8 @@ const BEAM_SEGMENTS = 12;
 
 /** How far the grid overlay's outlines sit inside each module, in world units. */
 const GRID_INSET = 0.5;
+/** The grid overlay's line, in screen pixels at any zoom. */
+const GRID_LINE_PX = 0.75;
 
 export class Scene {
   readonly root = new Container();
@@ -747,6 +749,9 @@ export class Scene {
     const p = palette();
     const g = this.overlayLayer;
     g.clear();
+    // The overlay is drawn in world space, which the camera scales; a grid
+    // line has to stay a hairline however close the camera comes.
+    const hairline = GRID_LINE_PX / Math.max(0.25, this.camera.state.zoom);
 
     for (const frame of frames) {
       const node = this.ships.get(frame.id);
@@ -784,7 +789,7 @@ export class Scene {
       // faint over a marked hull or one carrying damage, so a captain can read
       // which module took the hit.
       const damaged = node.maxHp.some((full, index) => (frame.moduleHp[index] ?? full) < full);
-      if (frame.isTarget || damaged) this.drawGrid(g, node, frame, cos, sin, originX, originY);
+      if (frame.isTarget || damaged) this.drawGrid(g, node, frame, cos, sin, originX, originY, hairline);
 
       // Shield bubble, only while it is carrying something.
       if (frame.shieldFraction > 0.02) {
@@ -841,6 +846,7 @@ export class Scene {
     sin: number,
     originX: number,
     originY: number,
+    width: number,
   ): void {
     const p = palette();
     const at = (x: number, y: number): [number, number] => [
@@ -856,11 +862,12 @@ export class Scene {
       const x1 = rect.x + rect.width - GRID_INSET;
       const y1 = rect.y + rect.height - GRID_INSET;
       const points = [...at(x0, y0), ...at(x1, y0), ...at(x1, y1), ...at(x0, y1)];
+      // Faint: the hull is the picture, and the grid only says where on it.
       if (lost > 0) {
-        g.poly(points).fill({ color: p.danger, alpha: 0.06 + 0.22 * lost });
-        g.poly(points).stroke({ width: 1, color: p.danger, alpha: 0.35 + 0.35 * lost });
+        g.poly(points).fill({ color: p.danger, alpha: 0.04 + 0.12 * lost });
+        g.poly(points).stroke({ width, color: p.danger, alpha: 0.2 + 0.25 * lost });
       } else {
-        g.poly(points).stroke({ width: 1, color: p.textSecondary, alpha: frame.isTarget ? 0.2 : 0.12 });
+        g.poly(points).stroke({ width, color: p.textSecondary, alpha: frame.isTarget ? 0.14 : 0.08 });
       }
     });
   }

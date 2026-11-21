@@ -160,6 +160,8 @@ export function Editor({
   const [showAll, setShowAll] = useState(false);
   /** The drawer: closed, the shelf of kept draughts, a code out, or one in. */
   const [sharing, setSharing] = useState<'off' | 'kept' | 'out' | 'in'>('off');
+  /** The livery drawer, which shares the board's drawer slot with the draughts. */
+  const [livery, setLivery] = useState(false);
   const [incoming, setIncoming] = useState('');
 
   const held = licences.get(licence as LicenceId) ?? [...licences.values()][0]!;
@@ -465,8 +467,22 @@ export function Editor({
             </button>
             <button
               type="button"
+              className={`button${livery ? ' button--primary' : ''}`}
+              onClick={() => {
+                setLivery((open) => !open);
+                setSharing('off');
+              }}
+              title="The two colours your hulls are painted in"
+            >
+              Livery
+            </button>
+            <button
+              type="button"
               className={`button${sharing !== 'off' ? ' button--primary' : ''}`}
-              onClick={() => setSharing((open) => (open === 'off' ? 'kept' : 'off'))}
+              onClick={() => {
+                setSharing((open) => (open === 'off' ? 'kept' : 'off'));
+                setLivery(false);
+              }}
               title="Open a draught you kept, or write one out as a code"
             >
               Draughts
@@ -477,6 +493,16 @@ export function Editor({
             </button>
           </div>
         </header>
+
+        {livery && (
+          <Livery
+            paints={tuning.yard.paints}
+            chosen={paint}
+            draught={previewDraught}
+            busy={busy}
+            onPick={onPaint}
+          />
+        )}
 
         {sharing !== 'off' && (
           <div className="yard__share panel">
@@ -709,14 +735,6 @@ export function Editor({
             />
           </dl>
         </div>
-
-        <Livery
-          paints={tuning.yard.paints}
-          chosen={paint}
-          draught={previewDraught}
-          busy={busy}
-          onPick={onPaint}
-        />
 
         <div className="yard__cost panel">
           <header className="panel-header">

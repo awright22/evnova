@@ -296,7 +296,7 @@ look fixed in cycle 3 was back on the screen it was named after. None of
 those were new breakage. They were all there the whole time, behind tests
 that passed and a deploy path nothing ran.
 
-## Ship rendering pass — in progress
+## Ship rendering pass — done 2026-11-21
 
 Owner's instruction, 2026-11-21: ships read as floor plans. The grid is the
 ship's mechanics, not its look; the blueprint format, stat derivation, hitbox
@@ -308,8 +308,9 @@ a texture changes. Spec section 4 now carries the rule.
 - [x] New renderer behind a flag: skin from a smoothed distance field, shape by role, star light with rim and shadow, metal with livery at about a fifth
 - [x] Wedge, nose and fin modules; NPC blueprints reworked to use them; combat checks and soak re-run
 - [x] The grid shows only in the Loft and as a faint overlay on targeted or damaged hulls
-- [ ] No ship reads as a grid at 1x or 3x; after sheets captured
-- [ ] The tile renderer removed
+- [x] No ship reads as a grid at 1x or 3x; after sheets captured
+- [x] The tile renderer removed
+- [x] Captains pick two paint colours at a Yard (spec section 4 asked for it since M5; nothing had built it)
 
 ---
 
@@ -1226,3 +1227,100 @@ somewhere that can answer.
 **The write-off capture is the one screen that will not photograph itself.**
 It needs a captain to actually be lost, which needs a gunner, a sky and two
 minutes of patience. Every other screen in the gallery is current.
+
+## Ship rendering pass — 2026-11-21
+
+### What is now playable
+
+Every hull in the flight view is a sculpted, lit spacecraft seen from above
+instead of a floor plan of tiles. The grid still decides everything it
+decided before — hitbox, mass, inertia, module damage — and shows itself in
+only two places: the Loft, and a faint hairline overlay of module outlines
+on a targeted hull or one carrying damage, with damaged modules washed red
+in proportion to what they have lost. Scorch and blown panels still draw
+over the hull at half and at nothing.
+
+- **Skin.** The outline is a smoothed distance field over the occupied
+  cells: steps become chamfers and fairings, a single cell standing out
+  becomes a streamlined pod on a pylon, the bow rakes to a prow.
+- **Shape by role.** Engines are nacelles ending in flared bell nozzles
+  that stand proud of the stern, one plume to a bell; guns are barrels on
+  mounts out past the bow; turrets are domed housings; cargo is containers
+  stacked in lanes that never keep the cell pitch; the bridge is a
+  round-shouldered superstructure with lit glazing; reactors, tanks,
+  shields and plain plating show only as vents, hatches, bosses and
+  conduits.
+- **Light.** Each hull is lit every frame from its system's star, from
+  wherever the star actually lies and whichever way the hull is turned,
+  with a warm rim toward the star, a cool rim from the region's nebula away
+  from it, and short shadows cast by fittings. A written-off hull goes dark
+  and its lights die.
+- **Paint.** Neutral metal, plate by plate a shade apart, with livery as
+  two bands and a contour stripe over about a fifth of the hull and a
+  registry number in stencil. Captains fly two colours of their own,
+  picked in the Yard's new Livery panel with the draught on the board shown
+  wearing them through the flight view's own renderer (spec section 4 had
+  asked for this since M5 and nothing had built it); company freighters fly
+  a charter's livery and seal; Prize Court patrols
+  fly registry white with the Court's seal; the Unlettered fly bare
+  gunmetal with no markings at all.
+- **Silhouette sections.** Four new HRC hull sections — Raked Section
+  (wedge), Prow Section, Bow Section and Swept Fin — are whole cells to the
+  simulation and only change the drawn outline. They are in every Yard that
+  stocks HRC, the Loft draws their shape over the cell, and its mirror
+  turns them correctly. Force Majeure, Short Measure and Fair Wear and Tear
+  use them.
+
+### How to run it
+
+```bash
+pnpm dev
+```
+
+Then open the client and fly. To judge hulls without flying, open
+`/?hulls=sheet&zoom=1` or `/?hulls=sheet&zoom=3` on the dev client (columns:
+`sculpted`, `sculpted-turned`, `sculpted-aft`, `company`, `court`,
+`unlettered`), or capture them:
+
+```bash
+pnpm shots -- --only hulls-1x,hulls-3x,yard-livery
+```
+
+The Livery drawer is the **Livery** button in the Yard's board header.
+
+Before and after: `artifacts/shots/hulls-before-1x.png` and
+`hulls-before-3x.png` are the tile renderer as it was;
+`hulls-compare-1x.png` and `hulls-compare-3x.png` set the tile renderer
+beside the sculpted one for the same grids; `hulls-1x.png` and
+`hulls-3x.png` are the sculpted renderer alone.
+
+### Balance
+
+The NPC rework adds light sections inside each licence. Raider top speed
+falls 4–5% and turn rate 8–9% (Force Majeure 297 → 283 u/s, 2.78 → 2.54
+rad/s; Short Measure 193 → 185, 1.85 → 1.71); Fair Wear and Tear loses 2.4%
+of its speed. Nothing changes order against the starter. `pnpm sim`,
+`pnpm sim -- --fight`, `pnpm verify:range`, `pnpm verify:boarding` and
+`pnpm play:late` all pass.
+
+### Known issues
+
+- A hull is baked in a worker the first time its grid is seen, 150–400ms.
+  The catalogue's draughts are baked as a system opens, so this only shows
+  on a built hull nobody in the system has flown before: it appears a
+  moment after its contact.
+- The hull shader samples its height map twelve times a pixel for shadows.
+  It has been run under software rasterisation only; the GPU frame budget is
+  as unverified here as it was before the pass.
+- Fair Wear and Tear's bow section sits in its upper-fore block, because
+  the Frigate Warrant's 11-cell extent leaves no room for a centred prow;
+  its bow is asymmetric.
+- The Loft's mirror flips fore and aft rather than port and starboard. That
+  predates this pass and its tests describe it; shaped sections follow it.
+- The server does not record which company a freighter sails for, so the
+  client chooses one of the system's charters by the hull's id.
+- In the full `pnpm shots` sweep for this pass, `posted` timed out once
+  waiting for the Court to post the captain; it was run while unit tests and
+  two harnesses were running alongside it, and it passes on its own. It
+  depends on lawful traffic being within reach and on frame timing under
+  software rasterisation, so a loaded machine can starve it.

@@ -1243,6 +1243,41 @@ export const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: 'yard-livery',
+    description:
+      "The livery drawer open over the Yard's board: the captain's two colours, picked "
+      + 'from the yards\' paints, on the draught as the flight view will draw it.',
+    path: '/?callsign=Signwriter',
+    settle: '.hud',
+    settleMs: 900,
+    act: async (page) => {
+      await page.waitForSelector('.hud__travel', { timeout: 20_000 });
+      await page.keyboard.press('KeyL');
+      await page.waitForSelector('.port', { timeout: 20_000 });
+
+      await page.click('.port__service-list button:text("Open the Yard")');
+      await page.waitForSelector('.grid', { timeout: 20_000 });
+      await page.click('.yard__tools button:text("Livery")');
+      await page.waitForSelector('.yard__livery', { timeout: 10_000 });
+
+      // Pick a pair, then wait for the server to have it and the preview to
+      // have been drawn in it: a drawer with an empty picture is not the
+      // screen this is for.
+      await page.click('.yard__swatches:has-text("Bands") .yard__swatch[title="Oxblood"]');
+      await page.click('.yard__swatches:has-text("Stripe") .yard__swatch[title="Parchment"]');
+      try {
+        await page.waitForSelector('.yard__swatches:has-text("Stripe") .yard__swatch--chosen[title="Parchment"]', {
+          timeout: 10_000,
+        });
+        await page.waitForSelector('.yard__livery .hull-preview canvas', { timeout: 20_000 });
+      } catch {
+        const shown = (await page.textContent('.yard__livery'))?.replace(/\s+/g, ' ').slice(0, 200) ?? '(no drawer)';
+        throw new Error(`the livery drawer never showed a chosen pair on a drawn hull: ${shown}`);
+      }
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     name: 'yard-code',
     description:
       "A draught written out as a code: the share drawer open over the editor's board, "
