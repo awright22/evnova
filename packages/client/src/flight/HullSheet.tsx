@@ -23,6 +23,9 @@ import { autoDetectRenderer, Container, Rectangle, Sprite, type Renderer } from 
 import { CELL_METRES, content, type Blueprint, type ModuleDef } from '@marque/shared';
 
 import { PX_PER_UNIT } from './camera.ts';
+import { bakeHull } from './hull/bake.ts';
+import { hullArtOf, lookOf, sceneLight, type Allegiance, type HullArt } from './hull/hullArt.ts';
+import { createLitHull } from './hull/litHull.ts';
 import { LOFT_TESTS } from './hullSheetTests.ts';
 import { palette } from './palette.ts';
 import { renderShipArt, TEXTURE_PX_PER_UNIT } from './shipTexture.ts';
@@ -58,9 +61,63 @@ function tiles(turn: number, label: string, key: string): Column {
   };
 }
 
+/**
+ * One bake per hull, however many columns draw it: a bake is the expensive
+ * part, and every sculpted column draws the same material differently lit
+ * and differently dressed.
+ */
+const baked = new Map<string, HullArt>();
+function artFor(blueprint: Blueprint, modules: ReadonlyMap<string, ModuleDef>): HullArt {
+  let art = baked.get(blueprint.id);
+  if (!art) {
+    art = hullArtOf(bakeHull(blueprint, modules), blueprint, modules);
+    baked.set(blueprint.id, art);
+  }
+  return art;
+}
+
+/** Up and to the left of the sheet, the way a picture is lit. Radians, from hull to star. */
+const STAR_FORE_PORT = (-135 * Math.PI) / 180;
+/** Astern and to starboard: the side a captain usually sees in a chase. */
+const STAR_AFT = (160 * Math.PI) / 180;
+
+function sculpted(
+  key: string,
+  label: string,
+  turn: number,
+  star: number,
+  dress: (blueprint: Blueprint) => Allegiance,
+): Column {
+  return {
+    key,
+    label,
+    turn,
+    draw: (_renderer, blueprint, modules) => {
+      const art = artFor(blueprint, modules);
+      const p = palette();
+      const hull = createLitHull(art.material, art.anchor, sceneLight(0xfff1dc, p.nebulaHomeRoads));
+      hull.light(star, turn);
+      hull.look(lookOf(dress(blueprint), p));
+      hull.mesh.scale.set(PX_PER_UNIT / art.texturePxPerUnit);
+      hull.mesh.rotation = turn;
+      const holder = new Container();
+      holder.addChild(hull.mesh);
+      return holder;
+    },
+  };
+}
+
+const captain = (blueprint: Blueprint): Allegiance => ({ kind: 'captain', paint: blueprint.paint });
+
 const COLUMNS: Readonly<Record<string, Column>> = {
   tiles: tiles(0, 'Tiles', 'tiles'),
   'tiles-turned': tiles(TURNED, 'Tiles, turned', 'tiles-turned'),
+  sculpted: sculpted('sculpted', 'Captain', 0, STAR_FORE_PORT, captain),
+  'sculpted-turned': sculpted('sculpted-turned', 'Captain, turned', TURNED, STAR_FORE_PORT, captain),
+  'sculpted-aft': sculpted('sculpted-aft', 'Star astern', 0, STAR_AFT, captain),
+  company: sculpted('company', 'Company', 0, STAR_FORE_PORT, () => ({ kind: 'company', charter: 'thirty' })),
+  court: sculpted('court', 'Prize Court', 0, STAR_FORE_PORT, () => ({ kind: 'court' })),
+  unlettered: sculpted('unlettered', 'Unlettered', 0, STAR_FORE_PORT, () => ({ kind: 'unlettered' })),
 };
 
 const DEFAULT_COLUMNS = ['tiles', 'tiles-turned'];

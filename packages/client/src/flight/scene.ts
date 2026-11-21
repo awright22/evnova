@@ -14,6 +14,7 @@ import {
   mountsOf,
   placeAll,
   wrapAngle,
+  type Blueprint,
   type ModuleDef,
   type Mount,
   type SystemDef,
@@ -33,8 +34,35 @@ import {
 import { mix, palette, parseHex } from './palette.ts';
 import { planetTexture, starTexture } from './planet.ts';
 import { rockShape, rockWear, type RockShape } from './rock.ts';
+import { hullBakery, type Bakery } from './hull/bakery.ts';
+import {
+  freighterAllegiance,
+  hullArtOf,
+  lookOf,
+  sceneLightOf,
+  type Allegiance,
+  type HullArt,
+  type ModuleRect,
+  type Nozzle,
+} from './hull/hullArt.ts';
+import { createLitHull, type LitHull, type SceneLight } from './hull/litHull.ts';
 import type { HullBook } from './hulls.ts';
 import { renderShipArt, TEXTURE_PX_PER_UNIT, type ShipArt } from './shipTexture.ts';
+
+/**
+ * `?hulls=tiles` draws hulls with the old tile renderer, for comparison while
+ * the sculpted one is judged against it.
+ */
+const TILE_HULLS =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hulls') === 'tiles';
+
+/** What the scene needs of a hull's art, whichever renderer drew it. */
+interface ShipGeometry {
+  readonly lengthUnits: number;
+  readonly widthUnits: number;
+  readonly nozzles: readonly Nozzle[];
+  readonly moduleRects: readonly ModuleRect[];
+}
 
 export type { BeamFrame } from './beams.ts';
 
@@ -92,15 +120,18 @@ export interface ShipFrame {
   readonly patrol: boolean;
   /** Posted by the Prize Court. */
   readonly posted: boolean;
+  /** A company freighter, which flies its berth's charter livery. */
+  readonly freighter: boolean;
   readonly isTarget: boolean;
   readonly writtenOff: boolean;
 }
 
 interface ShipNode {
   readonly root: Container;
-  readonly hull: Sprite;
   readonly plume: Graphics;
-  readonly art: ShipArt;
+  readonly art: ShipGeometry;
+  /** The lit hull; absent when the tile renderer is drawing. */
+  readonly lit: LitHull | undefined;
   /** Intact hit points per module, so damage can be drawn as a fraction. */
   readonly maxHp: readonly number[];
   lastThrottle: number;
@@ -162,6 +193,9 @@ const BEAM_REFERENCE_DAMAGE = 40;
  */
 const BEAM_SEGMENTS = 12;
 
+/** How far the grid overlay's outlines sit inside each module, in world units. */
+const GRID_INSET = 0.5;
+
 export class Scene {
   readonly root = new Container();
   readonly camera: Camera;
@@ -183,6 +217,11 @@ export class Scene {
 
   private readonly ships = new Map<string, ShipNode>();
   private readonly art = new Map<string, ShipArt>();
+  /** Baked hulls on this renderer, one per draught, shared by every hull flying it. */
+  private readonly hullArt = new Map<string, HullArt>();
+  private readonly bakery: Bakery;
+  /** The star's light on the hulls: its tint, the fill in shadow, the region's rim. */
+  private readonly light: SceneLight;
   /** Beams that are up or still fading, keyed by their wire key. */
   private readonly beamNodes = new Map<string, BeamNode>();
   /** Mounts per draught, resolved once: a flying hull's grid cannot change. */
@@ -208,6 +247,11 @@ export class Scene {
     private readonly reducedMotion: boolean,
   ) {
     this.camera = new Camera(reducedMotion);
+    this.bakery = hullBakery(modules);
+    this.light = sceneLightOf(system);
+    // The draughts the game ships with fly in every system: have them out of
+    // the oven before the first one jumps in.
+    if (!TILE_HULLS) this.bakery.prepare(blueprints.catalogueDraughts());
 
     this.backdrop = createBackdrop(system.region, system.id);
     this.root.addChild(this.backdrop.view);
@@ -293,31 +337,69 @@ export class Scene {
     return art;
   }
 
+  /**
+   * A draught's baked hull on this renderer, or undefined while the bakery
+   * still has it in the oven: the hull is drawn from the frame it is ready.
+   */
+  private hullArtFor(blueprint: Blueprint): HullArt | undefined {
+    const cached = this.hullArt.get(blueprint.id);
+    if (cached) return cached;
+    const bake = this.bakery.get(blueprint);
+    if (!bake) return undefined;
+    const art = hullArtOf(bake, blueprint, this.modules);
+    this.hullArt.set(blueprint.id, art);
+    return art;
+  }
+
+  /**
+   * Who a hull flies for, as far as its paint goes. A patrol is the Prize
+   * Court's; any other hostile is Unlettered; a freighter is its berth's
+   * charter's; everyone else is a captain in their own colours.
+   */
+  private allegianceOf(frame: ShipFrame, blueprint: Blueprint): Allegiance {
+    if (frame.patrol) return { kind: 'court' };
+    if (frame.hostile) return { kind: 'unlettered' };
+    if (frame.freighter) return freighterAllegiance(this.system, frame.id);
+    return { kind: 'captain', paint: blueprint.paint };
+  }
+
   private nodeFor(frame: ShipFrame): ShipNode | undefined {
     const existing = this.ships.get(frame.id);
     if (existing) return existing;
 
-    const art = this.artFor(frame.blueprint);
-    if (!art) return undefined;
+    const blueprint = this.blueprints.get(frame.blueprint);
+    if (!blueprint) return undefined;
 
     const root = new Container();
     const plume = new Graphics();
-    const hull = new Sprite(art.texture);
-    hull.anchor.set(art.anchorX, art.anchorY);
-    // Textures are drawn at a larger scale than the world, so they stay crisp
-    // when the camera zooms.
-    hull.scale.set(PX_PER_UNIT / TEXTURE_PX_PER_UNIT);
+    let art: ShipGeometry;
+    let lit: LitHull | undefined;
 
-    // The plume sits under the hull so the nozzle overlaps it.
-    root.addChild(plume, hull);
+    if (TILE_HULLS) {
+      const tiles = this.artFor(frame.blueprint);
+      if (!tiles) return undefined;
+      const hull = new Sprite(tiles.texture);
+      hull.anchor.set(tiles.anchorX, tiles.anchorY);
+      // Textures are drawn at a larger scale than the world, so they stay
+      // crisp when the camera zooms.
+      hull.scale.set(PX_PER_UNIT / TEXTURE_PX_PER_UNIT);
+      root.addChild(plume, hull);
+      art = tiles;
+    } else {
+      const sculpted = this.hullArtFor(blueprint);
+      if (!sculpted) return undefined;
+      lit = createLitHull(sculpted.material, sculpted.anchor, this.light);
+      lit.look(lookOf(this.allegianceOf(frame, blueprint)));
+      lit.mesh.scale.set(PX_PER_UNIT / sculpted.texturePxPerUnit);
+      // The plume sits under the hull so the nozzle overlaps it.
+      root.addChild(plume, lit.mesh);
+      art = sculpted;
+    }
     this.shipLayer.addChild(root);
 
-    const blueprint = this.blueprints.get(frame.blueprint);
-    const maxHp = blueprint
-      ? blueprint.placements.map((placement) => this.modules.get(placement.moduleId)?.hitPoints ?? 1)
-      : [];
+    const maxHp = blueprint.placements.map((placement) => this.modules.get(placement.moduleId)?.hitPoints ?? 1);
 
-    const node: ShipNode = { root, hull, plume, art, maxHp, lastThrottle: 0 };
+    const node: ShipNode = { root, plume, art, lit, maxHp, lastThrottle: 0 };
     this.ships.set(frame.id, node);
     return node;
   }
@@ -343,11 +425,16 @@ export class Scene {
 
       node.root.position.set(frame.x * PX_PER_UNIT, frame.y * PX_PER_UNIT);
       node.root.rotation = frame.angle;
+      // The star is at the origin: light each hull from where it actually
+      // lies, in the hull's own frame, so the highlight stays put as it turns.
+      node.lit?.light(Math.atan2(-frame.y, -frame.x), frame.angle);
+      node.lit?.wreck(frame.writtenOff ? 1 : 0);
       this.drawPlume(node, frame.throttle, dtMs);
     }
 
     for (const [id, node] of this.ships) {
       if (seen.has(id)) continue;
+      node.lit?.destroy();
       node.root.destroy({ children: true });
       this.ships.delete(id);
     }
@@ -741,6 +828,12 @@ export class Scene {
         }
       });
 
+      // The grid, in one of the two places it shows (the Loft is the other):
+      // faint over a marked hull or one carrying damage, so a captain can read
+      // which module took the hit.
+      const damaged = node.maxHp.some((full, index) => (frame.moduleHp[index] ?? full) < full);
+      if (frame.isTarget || damaged) this.drawGrid(g, node, frame, cos, sin, originX, originY);
+
       // Shield bubble, only while it is carrying something.
       if (frame.shieldFraction > 0.02) {
         const radius = Math.max(node.art.lengthUnits, node.art.widthUnits) * 0.62 * PX_PER_UNIT;
@@ -781,6 +874,43 @@ export class Scene {
         g.stroke({ width: 1, color: p.amber, alpha: 0.7 });
       }
     }
+  }
+
+  /**
+   * A hull's modules as faint outlines, turned with it, inset so neighbours
+   * read as separate. A module that has taken damage is outlined in the danger
+   * colour and filled in proportion to what it has lost.
+   */
+  private drawGrid(
+    g: Graphics,
+    node: ShipNode,
+    frame: ShipFrame,
+    cos: number,
+    sin: number,
+    originX: number,
+    originY: number,
+  ): void {
+    const p = palette();
+    const at = (x: number, y: number): [number, number] => [
+      originX + (x * cos - y * sin) * PX_PER_UNIT,
+      originY + (x * sin + y * cos) * PX_PER_UNIT,
+    ];
+    node.art.moduleRects.forEach((rect, index) => {
+      const full = node.maxHp[index] ?? 1;
+      const hp = frame.moduleHp[index] ?? full;
+      const lost = full > 0 ? clamp(1 - hp / full, 0, 1) : 0;
+      const x0 = rect.x + GRID_INSET;
+      const y0 = rect.y + GRID_INSET;
+      const x1 = rect.x + rect.width - GRID_INSET;
+      const y1 = rect.y + rect.height - GRID_INSET;
+      const points = [...at(x0, y0), ...at(x1, y0), ...at(x1, y1), ...at(x0, y1)];
+      if (lost > 0) {
+        g.poly(points).fill({ color: p.danger, alpha: 0.06 + 0.22 * lost });
+        g.poly(points).stroke({ width: 1, color: p.danger, alpha: 0.35 + 0.35 * lost });
+      } else {
+        g.poly(points).stroke({ width: 1, color: p.textSecondary, alpha: frame.isTarget ? 0.2 : 0.12 });
+      }
+    });
   }
 
   /** Supplied by the flight loop, which knows the hull's muzzle velocity. */
@@ -852,10 +982,15 @@ export class Scene {
   }
 
   destroy(): void {
-    for (const node of this.ships.values()) node.root.destroy({ children: true });
+    for (const node of this.ships.values()) {
+      node.lit?.destroy();
+      node.root.destroy({ children: true });
+    }
     this.ships.clear();
     for (const art of this.art.values()) art.texture.destroy(true);
     this.art.clear();
+    for (const art of this.hullArt.values()) art.material.destroy();
+    this.hullArt.clear();
     this.beamNodes.clear();
     this.mountBooks.clear();
     this.poses.clear();

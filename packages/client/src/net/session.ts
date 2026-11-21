@@ -65,6 +65,8 @@ export interface ShipView {
   readonly patrol: boolean;
   /** Posted by the Prize Court: patrols will answer for this hull. */
   readonly posted: boolean;
+  /** A company freighter, which flies its berth's charter livery. */
+  readonly freighter: boolean;
   readonly writtenOff: boolean;
   /** Every engine out: it cannot run, and it can be boarded. */
   readonly adrift: boolean;
@@ -282,6 +284,7 @@ export class Session {
         hostile: ship.hostile,
         patrol: ship.patrol,
         posted: ship.posted,
+        freighter: ship.freighter,
         writtenOff: ship.destroyedAt > 0,
         adrift: ship.adrift,
         isTarget: id === marked,

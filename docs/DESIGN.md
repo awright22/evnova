@@ -876,3 +876,37 @@ link where this container reads 17.0 fps and 348ms, so a FAIL there would
 name the wrong thing and a PASS would claim an experiment that did not run.
 Prediction under latency stays covered in CI without a renderer by
 `pnpm sim --fight`.
+
+**2026-11-21. A hull is baked as material and lit as it is drawn.**
+The bake (`packages/client/src/flight/hull/bake.ts`) turns a grid into three
+maps once per draught: colour and coverage; normal, height and occlusion;
+shine, glow and two livery weights. A GLSL shader (`litHull.ts`) lights them
+each frame from the star's actual bearing in the hull's own frame, with a
+warm and a cool rim and shadows marched over the height. A picture lit once
+would carry its highlight round with it as the ship turned. The same maps
+dress every owner: livery colours, the seal and gunmetal are uniforms.
+
+**2026-11-21. The skin is a distance field, and the section is hard-surface.**
+Cell squares with chamfers, fairings, pods and the shaped sections become
+polygons, a mask, an exact Euclidean distance transform (Felzenszwalb and
+Huttenlocher) and a smoothed signed field. Height is a chine, a raked side
+and a crowned deck by distance from the edge: facets take the light
+differently, so which side faces the star shows, which a domed pillow did
+not. Panel seams are contour bands near the edge and frames and strakes
+square to the hull on the deck, never the cells. The prow's rake skips a
+bow that is the broadest part of the hull and never takes more than 45% of a
+cell, so no cell a shot can hit is drawn as empty space.
+
+**2026-11-21. Bakes run in workers and are kept for the page.**
+A bake is 150–400ms of arithmetic. Two workers bake off the main thread and
+the results are kept, keyed by the grid, across scenes; the catalogue's
+draughts are baked as a scene opens. Without a worker the bakery warns once
+and bakes on the main thread. Wide blurs are three running-sum box passes
+(Wells 1986), which took the crown from 270ms to a few.
+
+**2026-11-21. A freighter flies one of its system's charters.**
+The server does not attribute freighters to a company, so the client picks
+one of the charters holding a berth in the system by the hull's id: mixed
+traffic in a contested system, the same colours on the same hull. A system
+no charter holds sends out freighters in the registry's plain dress. The
+Prize Court's patrols wear registry white with the Court's seal in rule ink.

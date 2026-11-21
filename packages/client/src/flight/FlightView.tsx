@@ -564,6 +564,7 @@ export function FlightView({
             hostile: view.hostile,
             patrol: view.patrol,
             posted: view.posted,
+            freighter: view.freighter,
             isTarget: view.isTarget,
             writtenOff: view.writtenOff,
           };

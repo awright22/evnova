@@ -655,11 +655,15 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'draught-force-majeure',
     description: 'Force Majeure under burn: two engines, four thrusters, no hold.',
-    path: '/?draught=force-majeure&callsign=Force%20Majeure',
+    // No callsign: a callsign opens an account, and the server flies a
+    // captain's own draught rather than the one asked for. These two screens
+    // photographed the starter under other names until the draught was checked.
+    path: '/?draught=force-majeure&harness=1',
     settle: '.hud',
     settleMs: 400,
     bots: 3,
     act: async (page) => {
+      await requireDraught(page, 'Force Majeure');
       await page.keyboard.down('ArrowUp');
       await page.waitForTimeout(2200);
     },
@@ -667,11 +671,12 @@ export const SCREENS: readonly Screen[] = [
   {
     name: 'draught-fair-wear-and-tear',
     description: 'Fair Wear and Tear under burn: five bays, one large engine, visibly slower to answer.',
-    path: '/?draught=fair-wear-and-tear&callsign=Fair%20Wear',
+    path: '/?draught=fair-wear-and-tear&harness=1',
     settle: '.hud',
     settleMs: 400,
     bots: 3,
     act: async (page) => {
+      await requireDraught(page, 'Fair Wear and Tear');
       await page.keyboard.down('ArrowUp');
       await page.waitForTimeout(2200);
     },
@@ -1731,3 +1736,26 @@ export const SCREENS: readonly Screen[] = [
     },
   },
 ];
+
+/**
+ * Fail unless the HUD names the draught a screen says it shows.
+ *
+ * The server falls back to the starter for a draught it will not fly, and a
+ * capture of the starter labelled as something else is worse than no capture.
+ */
+async function requireDraught(page: Page, name: string): Promise<void> {
+  try {
+    await page.waitForFunction(
+      (wanted: string) =>
+        (((globalThis as unknown as PageDom).document.querySelector('.hud') as { textContent?: string } | null)
+          ?.textContent ?? '')
+          .toLowerCase()
+          .includes(wanted),
+      name.toLowerCase(),
+      { timeout: 10_000 },
+    );
+  } catch {
+    const shown = (await page.textContent('.hud'))?.replace(/\s+/g, ' ').slice(0, 200) ?? '(no HUD)';
+    throw new Error(`expected to be flying ${name}; the HUD reads: ${shown}`);
+  }
+}

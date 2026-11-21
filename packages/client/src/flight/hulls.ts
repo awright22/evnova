@@ -55,6 +55,11 @@ export class HullBook {
     return this.catalogue.has(id) || this.learned.has(id);
   }
 
+  /** Every draught the game ships with, which is what most of the sky is flying. */
+  catalogueDraughts(): Iterable<Blueprint> {
+    return this.catalogue.values();
+  }
+
   /**
    * Take in a hull seen on the wire.
    *

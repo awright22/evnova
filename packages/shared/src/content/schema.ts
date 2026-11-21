@@ -116,6 +116,18 @@ export const ModuleDef = z
     shieldRegen: z.number().positive().optional(),
     shieldDelay: z.number().positive().optional(),
     weapon: WeaponDef.optional(),
+    /**
+     * Hull sections only: the shape the section is drawn as. A wedge is a
+     * raked corner, a nose a prow, a fin a swept blade. To the simulation it
+     * is a whole cell either way — hitbox, mass and damage are the hull
+     * section's — because the grid is the ship's mechanics and this is only
+     * its look. Rotation picks which corner is raked or which way it points.
+     */
+    shape: z.enum(['wedge', 'nose', 'fin']).optional(),
+  })
+  .refine((m) => m.shape === undefined || m.type === 'hull', {
+    message: 'only hull sections may declare a drawn shape',
+    path: ['shape'],
   })
   .refine((m) => (m.type === 'engine') === (m.thrust !== undefined), {
     message: 'engines must declare thrust, and only engines may',
