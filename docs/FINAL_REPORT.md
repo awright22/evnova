@@ -2,6 +2,31 @@
 
 Written at the end of M10, against the branch `claude/trusting-planck-jet8il`.
 
+## The completion condition
+
+Spec section 18 closes the project when all milestones are checked off,
+every command is green, at least three polish cycles have run, and two
+cycles in a row found no blockers or majors.
+
+| | |
+|---|---|
+| Milestones | M0–M10 checked off |
+| Commands | all green: `check`, `build`, `shots`, both play sessions, `audio`, `sim`, `perf`, and all fifteen verifiers |
+| Polish cycles | six |
+| Two clean in a row | cycles 5 and 6, neither with a blocker or a major |
+
+**One thing is not checked off, and it is the same thing in two places.**
+`docs/PROGRESS.md` still marks "the performance scene holds 60 fps with bot
+ships" and "all budgets pass" as partial, because this container has no GPU.
+Chromium falls back to software rasterisation and reports about 4 fps, which
+is a floor and says nothing about the spec's budget. Every other figure in
+spec section 3 is measured and passes, most with an order of magnitude in
+hand. It is the first item in section 3 of `docs/HUMAN_TODO.md` and it needs
+a machine with a graphics card, which is to say it needs you.
+
+I am not going to call that budget met on the strength of a number I could
+not take.
+
 ---
 
 ## 1. What exists

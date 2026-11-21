@@ -244,8 +244,12 @@ Done when:
 - [x] The admin page
 
 Done when:
-- [ ] Each addition meets the quality bar
-- [ ] The soak run stays within its bands with all of them enabled
+- [x] Each addition meets the quality bar — six polish cycles, every screen
+  captured and looked at against `docs/ART_DIRECTION.md`, and a verifier of
+  its own for mining, boarding, orders, the range and the admin page.
+- [x] The soak run stays within its bands with all of them enabled — cycle
+  6: worst p99 server tick 0.60 ms of a 4 ms budget, no tick over 33 ms,
+  every client matched or within jitter.
 
 ## M9. Shell and onboarding
 
@@ -275,14 +279,15 @@ Done when:
 - [x] Cycle 5: `docs/polish/cycle-5.md` — 0 blockers, 0 majors, 2 minors.
   The first clean cycle. Both minors were harnesses misreporting their own
   failures; one of the two is fixed and one is characterised and open.
-- [ ] Cycle 6, which must also be clean to close the project
-- [ ] Two cycles in a row find no blockers or majors
-- [ ] Final report
+- [x] Cycle 6: `docs/polish/cycle-6.md` — 0 blockers, 0 majors, 3 minors,
+  all three harnesses and all three fixed.
+- [x] Two cycles in a row find no blockers or majors — cycles 5 and 6.
+- [x] Final report — `docs/FINAL_REPORT.md`.
 
 Spec section 18 completes the project on three cycles *and* two consecutive
-cycles with no blockers or majors. Cycle 2 found five majors, cycle 3 a
-blocker, and cycle 4 two of each, so the earliest close is cycles 5 and 6
-both clean.
+cycles with no blockers or majors. Six cycles ran. Cycles 5 and 6 each found
+no blockers and no majors, and every command is green, so the condition is
+met. `docs/FINAL_REPORT.md` is the close.
 
 Cycle 4 is why that bar is set where it is. It ran the full sweep and every
 command for the fourth time and still found that `fly deploy` could not have

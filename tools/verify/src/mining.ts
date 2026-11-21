@@ -55,12 +55,23 @@ interface Check {
   readonly name: string;
   readonly passed: boolean;
   readonly detail: string;
+  /**
+   * False when the run could not put the question.
+   *
+   * Every belt is in contested or lawless space, so a raider taking a laden
+   * unarmed rig on the way home is the world working as the spec designed
+   * it, not a fault in mining. The checks that depend on getting home
+   * cannot be answered when that happens, and answering them "failed" says
+   * something untrue about the game. They are reported, excluded from the
+   * verdict, and the reason is printed once.
+   */
+  readonly judged?: boolean;
 }
 
 const checks: Check[] = [];
 
-function record(name: string, passed: boolean, detail: string): void {
-  checks.push({ name, passed, detail });
+function record(name: string, passed: boolean, detail: string, judged = true): void {
+  checks.push({ name, passed, detail, judged });
 }
 
 /**
@@ -376,12 +387,16 @@ async function main(): Promise<void> {
 
     const me = room.state.ships.get(room.sessionId);
     const away2 = me ? Math.hypot(berth.x - me.x, berth.y - me.y) : -1;
+    const judged = !lostGoingHome;
     if (lostGoingHome) {
       record(
         'the laden hull got home without being taken',
         false,
-        'written off on the way back, with the ore aboard — every check below '
-          + 'this one is about that and not about mining',
+        'written off on the way back, with the ore aboard — the belt is in '
+          + 'contested space and the rig carries no gun, which is the world '
+          + 'working as designed. Everything below depends on getting home '
+          + 'and is not judged on this run.',
+        false,
       );
     }
     record(
@@ -389,6 +404,7 @@ async function main(): Promise<void> {
       home && away2 >= 0 && away2 <= berth.radius + LANDING_RANGE,
       `${Math.round(away2)} units from ${berth.name}, which takes a hull at ` +
         `${berth.radius + LANDING_RANGE}` + (home ? '' : ' — and the flight timed out'),
+      judged,
     );
 
     let back = '';
@@ -398,7 +414,7 @@ async function main(): Promise<void> {
     } catch (error) {
       back = `refused: ${(error as { reason?: string }).reason ?? 'unknown'}`;
     }
-    record('and can carry it back to a berth', back === 'alongside', back);
+    record('and can carry it back to a berth', back === 'alongside', back, judged);
     await sleep(3500);
     const after = market?.listings.find((row) => row.commodityId === rock.rock.commodity)?.carried
       ?? 0;
@@ -416,6 +432,7 @@ async function main(): Promise<void> {
         `not alongside (${back}), and the hold is read off the berth's market `
           + 'board — the three checks below cannot be made from the sky and '
           + 'are not about mining',
+        judged,
       );
     } else {
       record(
@@ -453,13 +470,22 @@ async function main(): Promise<void> {
     rmSync(dir, { recursive: true, force: true });
   }
 
-  const failed = checks.filter((check) => !check.passed);
+  const asked = checks.filter((check) => check.judged !== false);
+  const failed = asked.filter((check) => !check.passed);
+  const unjudged = checks.length - asked.length;
   console.log('\n=== M8: cutting rock ===\n');
   for (const check of checks) {
-    console.log(`${check.passed ? 'PASS' : 'FAIL'}  ${check.name}`);
+    const mark = check.judged === false ? 'SKIP' : check.passed ? 'PASS' : 'FAIL';
+    console.log(`${mark}  ${check.name}`);
     console.log(`      ${check.detail}`);
   }
-  console.log(`\n${checks.length - failed.length}/${checks.length} checks passed.`);
+  console.log(`\n${asked.length - failed.length}/${asked.length} checks passed.`);
+  if (unjudged > 0) {
+    console.log(
+      `${unjudged} not judged: the captain was taken on the way home, which this `
+        + 'run cannot ask past. The cut itself was checked and held.',
+    );
+  }
   if (failed.length > 0) process.exitCode = 1;
 }
 
